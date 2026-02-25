@@ -5,6 +5,7 @@ import { loadState, saveState } from './state.js'
 import { evaluateStrategy } from './strategy.js'
 import { maybeClosePosition, openLongPosition } from './tradeManager.js'
 import { logPortfolio } from './portfolio.js'
+import { logOpenOrders } from './orders.js'
 
 const { symbol, timeframe, pollIntervalMs } = config.trading
 
@@ -28,13 +29,17 @@ async function botTick () {
     // Evaluate new signals only if flat
     if (!state.openPosition) {
       const decision = evaluateStrategy({ ohlcv, lastState: state })
+      logger.info(`Decision: ${decision.action}`)
       if (decision.action === 'enter-long') {
         state = await openLongPosition(state, lastClose)
       }
+    } else {
+      logger.info('Decision: manage-open-position (no new entries while position is open)')
     }
 
-    // Log portfolio and position each tick
+    // Log portfolio, position, and orders each tick
     await logPortfolio(state)
+    await logOpenOrders()
 
     saveState(state)
     logger.info('--- Bot tick end ---')
