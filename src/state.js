@@ -7,7 +7,14 @@ const stateFilePath = config.paths.stateFile
 
 const defaultState = {
   openPosition: null, // { side, symbol, entryPrice, amount, stopLoss, takeProfit, openedAt, lastPrice }
-  lastSignal: null // 'long' | 'short' | null
+  lastSignal: null, // 'long' | 'short' | null
+  // Runtime-tunable settings (override env config when present)
+  autoTradingEnabled: true,
+  runtimeConfig: {
+    riskPerTrade: null,
+    stopLossPct: null,
+    takeProfitPct: null
+  }
 }
 
 function ensureStateDir () {

@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Binance EMA Bot Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        margin: 0;
+        padding: 1rem;
+        background: #0f172a;
+        color: #e5e7eb;
+      }
+      h1 {
+        margin-top: 0;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+      .card {
+        background: #111827;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+      }
+      .card h2 {
+        margin-top: 0;
+        font-size: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #9ca3af;
+      }
+      .label {
+        color: #9ca3af;
+      }
+      .value {
+        font-weight: 600;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.25rem;
+        font-size: 0.9rem;
+      }
+      button {
+        cursor: pointer;
+        border-radius: 999px;
+        border: none;
+        padding: 0.4rem 0.8rem;
+        font-size: 0.9rem;
+        margin-right: 0.5rem;
+        margin-bottom: 0.3rem;
+      }
+      button.primary {
+        background: #22c55e;
+        color: #022c22;
+      }
+      button.danger {
+        background: #ef4444;
+        color: #111827;
+      }
+      button.secondary {
+        background: #374151;
+        color: #e5e7eb;
+      }
+      input {
+        background: #020617;
+        border-radius: 0.25rem;
+        border: 1px solid #1f2937;
+        padding: 0.2rem 0.4rem;
+        color: #e5e7eb;
+        width: 5rem;
+        font-size: 0.85rem;
+      }
+      small {
+        color: #6b7280;
+      }
+      pre {
+        font-size: 0.75rem;
+        max-height: 200px;
+        overflow: auto;
+        background: #020617;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+        border: 1px solid #1f2937;
+      }
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.1rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+      }
+      .pill-ok {
+        background: #064e3b;
+        color: #a7f3d0;
+      }
+      .pill-warn {
+        background: #7c2d12;
+        color: #fed7aa;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Binance EMA Bot Dashboard</h1>
+
+    <div class="grid">
+      <div class="card" id="bot-card">
+        <h2>Bot status</h2>
+        <div class="row">
+          <span class="label">Symbol</span>
+          <span class="value" id="bot-symbol">-</span>
+        </div>
+        <div class="row">
+          <span class="label">Timeframe</span>
+          <span class="value" id="bot-timeframe">-</span>
+        </div>
+        <div class="row">
+          <span class="label">Mode</span>
+          <span class="value" id="bot-mode">-</span>
+        </div>
+        <div class="row">
+          <span class="label">Auto trading</span>
+          <span class="value" id="bot-auto">-</span>
+        </div>
+        <div class="row">
+          <span class="label">Last tick</span>
+          <span class="value" id="bot-last-tick">-</span>
+        </div>
+        <div class="row">
+          <span class="label">Next tick ETA</span>
+          <span class="value" id="bot-next-tick">-</span>
+        </div>
+        <div class="row">
+          <span class="label">Last decision</span>
+          <span class="value" id="bot-decision">-</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Portfolio</h2>
+        <div class="row">
+          <span class="label">BTC</span>
+          <span class="value" id="btc-line">-</span>
+        </div>
+        <div class="row">
+          <span class="label">USDT</span>
+          <span class="value" id="usdt-line">-</span>
+        </div>
+        <small>Values are fetched from Binance on each refresh.</small>
+      </div>
+
+      <div class="card">
+        <h2>Position</h2>
+        <div id="position-content">
+          <div class="row">
+            <span class="label">Status</span>
+            <span class="value" id="pos-status">No open position</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Risk & controls</h2>
+        <div class="row">
+          <span class="label">Auto trading</span>
+          <span>
+            <button class="secondary" id="toggle-auto-btn">Toggle</button>
+          </span>
+        </div>
+        <div class="row">
+          <span class="label">Risk / trade</span>
+          <span>
+            <input id="risk-input" type="number" step="0.001" min="0" /> <small>(fraction, e.g. 0.01)</small>
+          </span>
+        </div>
+        <div class="row">
+          <span class="label">Stop loss %</span>
+          <span>
+            <input id="sl-input" type="number" step="0.001" min="0" /> <small>(e.g. 0.02)</small>
+          </span>
+        </div>
+        <div class="row">
+          <span class="label">Take profit %</span>
+          <span>
+            <input id="tp-input" type="number" step="0.001" min="0" /> <small>(e.g. 0.04)</small>
+          </span>
+        </div>
+        <div style="margin-top: 0.5rem">
+          <button class="secondary" id="apply-config-btn">Apply config</button>
+        </div>
+        <div style="margin-top: 0.75rem">
+          <button class="primary" id="buy-btn">Buy now</button>
+          <button class="danger" id="sell-btn">Sell / close now</button>
+        </div>
+        <small id="action-status"></small>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Market snapshot</h2>
+      <div class="row">
+        <span class="label">Last price</span>
+        <span class="value" id="market-price">-</span>
+      </div>
+      <div class="row">
+        <span class="label">EMA 50</span>
+        <span class="value" id="market-ema50">-</span>
+      </div>
+      <div class="row">
+        <span class="label">EMA 200</span>
+        <span class="value" id="market-ema200">-</span>
+      </div>
+      <small>This is a numeric snapshot; a full chart could be added later.</small>
+    </div>
+
+    <div class="card" style="margin-top: 1rem">
+      <h2>Raw status JSON</h2>
+      <pre id="raw-json">(loading)</pre>
+    </div>
+
+    <script>
+      async function fetchStatus() {
+        const res = await fetch('/api/status')
+        if (!res.ok) throw new Error('Failed to fetch status')
+        return res.json()
+      }
+
+      function formatBoolPill(value) {
+        const cls = value ? 'status-pill pill-ok' : 'status-pill pill-warn'
+        const label = value ? 'ON' : 'OFF'
+        return '<span class=\"' + cls + '\">' + label + '</span>'
+      }
+
+      async function refresh() {
+        try {
+          const data = await fetchStatus()
+          document.getElementById('raw-json').textContent = JSON.stringify(data, null, 2)
+
+          const bot = data.bot || {}
+          document.getElementById('bot-symbol').textContent = bot.symbol || '-'
+          document.getElementById('bot-timeframe').textContent = bot.timeframe || '-'
+          document.getElementById('bot-mode').textContent = bot.mode?.testnet ? 'TESTNET' : 'LIVE'
+          document.getElementById('bot-auto').innerHTML = formatBoolPill(bot.autoTradingEnabled)
+          document.getElementById('bot-last-tick').textContent = bot.lastTickAt || '-'
+          document.getElementById('bot-next-tick').textContent =
+            bot.nextTickEtaMs != null ? Math.round(bot.nextTickEtaMs / 1000) + 's' : '-'
+          document.getElementById('bot-decision').textContent = bot.lastDecision || '-'
+
+          const balances = data.portfolio?.balances || {}
+          const btc = balances.BTC || {}
+          const usdt = balances.USDT || {}
+          document.getElementById('btc-line').textContent =
+            'total=' + btc.total + ', free=' + btc.free + ', used=' + btc.used
+          document.getElementById('usdt-line').textContent =
+            'total=' + usdt.total + ', free=' + usdt.free + ', used=' + usdt.used
+
+          const pos = data.position || { open: false }
+          const posStatusEl = document.getElementById('pos-status')
+          const posContentEl = document.getElementById('position-content')
+          if (!pos.open) {
+            posStatusEl.textContent = 'No open position'
+            posContentEl.innerHTML =
+              '<div class=\"row\"><span class=\"label\">Status</span><span class=\"value\">No open position</span></div>'
+          } else {
+            posContentEl.innerHTML =
+              '<div class=\"row\"><span class=\"label\">Side</span><span class=\"value\">' +
+              pos.side +
+              '</span></div>' +
+              '<div class=\"row\"><span class=\"label\">Amount</span><span class=\"value\">' +
+              pos.amount +
+              '</span></div>' +
+              '<div class=\"row\"><span class=\"label\">Entry</span><span class=\"value\">' +
+              pos.entryPrice +
+              '</span></div>' +
+              '<div class=\"row\"><span class=\"label\">SL / TP</span><span class=\"value\">' +
+              pos.stopLoss +
+              ' / ' +
+              pos.takeProfit +
+              '</span></div>' +
+              '<div class=\"row\"><span class=\"label\">Last price</span><span class=\"value\">' +
+              (pos.lastPrice ?? '-') +
+              '</span></div>'
+          }
+
+          const market = data.market || {}
+          document.getElementById('market-price').textContent = market.lastPrice ?? '-'
+          document.getElementById('market-ema50').textContent = market.ema50 ?? '-'
+          document.getElementById('market-ema200').textContent = market.ema200 ?? '-'
+
+          // Populate config inputs with runtime override or env defaults
+          const envCfg = data.config?.env || {}
+          const rtCfg = data.config?.runtime || {}
+          document.getElementById('risk-input').value =
+            rtCfg.riskPerTrade != null ? rtCfg.riskPerTrade : envCfg.riskPerTrade ?? ''
+          document.getElementById('sl-input').value =
+            rtCfg.stopLossPct != null ? rtCfg.stopLossPct : envCfg.stopLossPct ?? ''
+          document.getElementById('tp-input').value =
+            rtCfg.takeProfitPct != null ? rtCfg.takeProfitPct : envCfg.takeProfitPct ?? ''
+        } catch (err) {
+          document.getElementById('action-status').textContent = 'Error: ' + err.message
+        }
+      }
+
+      async function postJson(url, body) {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body || {})
+        })
+        if (!res.ok) {
+          throw new Error('Request failed: ' + res.status)
+        }
+        return res.json()
+      }
+
+      document.getElementById('buy-btn').addEventListener('click', async () => {
+        const statusEl = document.getElementById('action-status')
+        statusEl.textContent = 'Sending manual BUY...'
+        try {
+          await postJson('/api/manual-buy', {})
+          statusEl.textContent = 'Manual BUY sent.'
+          await refresh()
+        } catch (err) {
+          statusEl.textContent = 'Manual BUY failed: ' + err.message
+        }
+      })
+
+      document.getElementById('sell-btn').addEventListener('click', async () => {
+        const statusEl = document.getElementById('action-status')
+        statusEl.textContent = 'Sending manual SELL...'
+        try {
+          await postJson('/api/manual-sell', {})
+          statusEl.textContent = 'Manual SELL sent.'
+          await refresh()
+        } catch (err) {
+          statusEl.textContent = 'Manual SELL failed: ' + err.message
+        }
+      })
+
+      document.getElementById('apply-config-btn').addEventListener('click', async () => {
+        const statusEl = document.getElementById('action-status')
+        const risk = parseFloat(document.getElementById('risk-input').value)
+        const sl = parseFloat(document.getElementById('sl-input').value)
+        const tp = parseFloat(document.getElementById('tp-input').value)
+        statusEl.textContent = 'Updating config...'
+        try {
+          await postJson('/api/config', {
+            riskPerTrade: isNaN(risk) ? undefined : risk,
+            stopLossPct: isNaN(sl) ? undefined : sl,
+            takeProfitPct: isNaN(tp) ? undefined : tp
+          })
+          statusEl.textContent = 'Config updated.'
+          await refresh()
+        } catch (err) {
+          statusEl.textContent = 'Config update failed: ' + err.message
+        }
+      })
+
+      document.getElementById('toggle-auto-btn').addEventListener('click', async () => {
+        const statusEl = document.getElementById('action-status')
+        statusEl.textContent = 'Toggling auto trading...'
+        try {
+          const current = document.getElementById('bot-auto').textContent.includes('ON')
+          await postJson('/api/config', { autoTradingEnabled: !current })
+          statusEl.textContent = 'Auto trading toggled.'
+          await refresh()
+        } catch (err) {
+          statusEl.textContent = 'Toggle failed: ' + err.message
+        }
+      })
+
+      refresh()
+      setInterval(refresh, 5000)
+    </script>
+  </body>
+</html>
+

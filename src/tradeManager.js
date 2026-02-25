@@ -3,7 +3,7 @@ import { getExchange } from './exchange.js'
 import { calculatePositionSize } from './risk.js'
 import { logger } from './logger.js'
 
-const { symbol, riskPerTrade, stopLossPct, takeProfitPct } = config.trading
+const { symbol } = config.trading
 
 export async function syncBalanceQuote () {
   const exchange = getExchange()
@@ -24,14 +24,33 @@ export async function openLongPosition (state, marketPrice) {
     return state
   }
 
-  const stopLossPrice = marketPrice * (1 - stopLossPct)
-  const takeProfitPrice = marketPrice * (1 + takeProfitPct)
+  const {
+    riskPerTrade,
+    stopLossPct,
+    takeProfitPct
+  } = state.runtimeConfig || {}
+
+  const effectiveRiskPerTrade =
+    typeof riskPerTrade === 'number' && riskPerTrade > 0
+      ? riskPerTrade
+      : config.trading.riskPerTrade
+  const effectiveStopLossPct =
+    typeof stopLossPct === 'number' && stopLossPct > 0
+      ? stopLossPct
+      : config.trading.stopLossPct
+  const effectiveTakeProfitPct =
+    typeof takeProfitPct === 'number' && takeProfitPct > 0
+      ? takeProfitPct
+      : config.trading.takeProfitPct
+
+  const stopLossPrice = marketPrice * (1 - effectiveStopLossPct)
+  const takeProfitPrice = marketPrice * (1 + effectiveTakeProfitPct)
 
   const amount = calculatePositionSize({
     balanceQuote: quoteBalance,
     entryPrice: marketPrice,
     stopLossPrice,
-    riskPerTrade
+    riskPerTrade: effectiveRiskPerTrade
   })
 
   if (amount <= 0) {
@@ -58,6 +77,27 @@ export async function openLongPosition (state, marketPrice) {
   }
 
   return { ...state, openPosition: newPosition, lastSignal: 'long' }
+}
+
+// Immediately closes any open long position at market, ignoring SL/TP levels.
+export async function closePositionNow (state, marketPrice) {
+  const position = state.openPosition
+  if (!position) return state
+
+  const { side, amount } = position
+  if (side !== 'long') {
+    return state
+  }
+
+  const exchange = getExchange()
+  logger.info(
+    `Manual CLOSE position at marketPrice=${marketPrice}, entry=${position.entryPrice}, amount=${amount}`
+  )
+
+  const order = await exchange.createMarketSellOrder(symbol, amount)
+  logger.info(`Manual Market SELL order placed: id=${order.id}, status=${order.status}`)
+
+  return { ...state, openPosition: null }
 }
 
 export async function maybeClosePosition (state, marketPrice) {
