@@ -8,6 +8,7 @@ const stateFilePath = config.paths.stateFile
 const defaultState = {
   openPosition: null, // { side, symbol, entryPrice, amount, stopLoss, takeProfit, openedAt, lastPrice }
   lastSignal: null, // 'long' | 'short' | null
+  realizedPnl: 0, // running total in quote (e.g. USDT) from closed positions
   // Runtime-tunable settings (override env config when present)
   autoTradingEnabled: true,
   runtimeConfig: {

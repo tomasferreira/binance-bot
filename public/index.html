@@ -104,6 +104,39 @@
         background: #7c2d12;
         color: #fed7aa;
       }
+      .chart-wrapper {
+        position: relative;
+        height: 220px;
+      }
+      #price-chart {
+        width: 100%;
+        height: 100%;
+      }
+      .trades-table-wrapper {
+        overflow-x: auto;
+        max-height: 220px;
+        overflow-y: auto;
+      }
+      .trades-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+      }
+      .trades-table th,
+      .trades-table td {
+        padding: 0.25rem 0.5rem;
+        text-align: left;
+        border-bottom: 1px solid #1f2937;
+      }
+      .trades-table th {
+        color: #9ca3af;
+        font-weight: 600;
+      }
+      .trades-table td {
+        color: #e5e7eb;
+      }
+      .trades-table .side-buy { color: #22c55e; }
+      .trades-table .side-sell { color: #ef4444; }
     </style>
   </head>
   <body>
@@ -166,6 +199,23 @@
       </div>
 
       <div class="card">
+        <h2>Profit / Loss</h2>
+        <div class="row">
+          <span class="label">Realized PnL</span>
+          <span class="value" id="pnl-realized">-</span>
+        </div>
+        <div class="row">
+          <span class="label">Unrealized PnL</span>
+          <span class="value" id="pnl-unrealized">-</span>
+        </div>
+        <div class="row">
+          <span class="label">Total PnL</span>
+          <span class="value" id="pnl-total">-</span>
+        </div>
+        <small>Realized = closed positions. Unrealized = current position. In USDT.</small>
+      </div>
+
+      <div class="card">
         <h2>Risk & controls</h2>
         <div class="row">
           <span class="label">Auto trading</span>
@@ -203,20 +253,50 @@
     </div>
 
     <div class="card">
-      <h2>Market snapshot</h2>
-      <div class="row">
-        <span class="label">Last price</span>
-        <span class="value" id="market-price">-</span>
-      </div>
-      <div class="row">
+      <h2>Price & EMAs (recent)</h2>
+      <div class="row" style="margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0 1rem;">
+        <span class="label">Close</span>
+        <span class="value" id="chart-close">-</span>
         <span class="label">EMA 50</span>
-        <span class="value" id="market-ema50">-</span>
-      </div>
-      <div class="row">
+        <span class="value" id="chart-ema50">-</span>
         <span class="label">EMA 200</span>
-        <span class="value" id="market-ema200">-</span>
+        <span class="value" id="chart-ema200">-</span>
       </div>
-      <small>This is a numeric snapshot; a full chart could be added later.</small>
+      <div class="chart-wrapper">
+        <canvas id="price-chart"></canvas>
+      </div>
+      <small>BTC/USDT close price with EMA 50 & EMA 200</small>
+    </div>
+
+    <div class="card">
+      <h2>Fees (recent trades)</h2>
+      <div class="row">
+        <span class="label">Total fees (last 50 trades)</span>
+        <span class="value" id="fees-total">-</span>
+      </div>
+      <small id="fees-hint">From Binance trade history for this symbol.</small>
+    </div>
+
+    <div class="card">
+      <h2>Latest trades</h2>
+      <div class="trades-table-wrapper">
+        <table class="trades-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Side</th>
+              <th>Amount</th>
+              <th>Price</th>
+              <th>Cost (USDT)</th>
+              <th>Fee</th>
+            </tr>
+          </thead>
+          <tbody id="trades-tbody">
+            <tr><td colspan="6">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <small>Last 15 trades for this symbol.</small>
     </div>
 
     <div class="card" style="margin-top: 1rem">
@@ -224,6 +304,7 @@
       <pre id="raw-json">(loading)</pre>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
       async function fetchStatus() {
         const res = await fetch('/api/status')
@@ -237,7 +318,109 @@
         return '<span class=\"' + cls + '\">' + label + '</span>'
       }
 
-      async function refresh() {
+      function formatPrice(n) {
+        if (n == null || isNaN(n)) return '–'
+        return Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      }
+      function formatAmount(n) {
+        if (n == null || isNaN(n)) return '–'
+        const x = Number(n)
+        return x >= 1 ? x.toLocaleString(undefined, { maximumFractionDigits: 2 })
+          : x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
+      }
+      function formatQuote(n) {
+        if (n == null || isNaN(n)) return '–'
+        return Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      }
+      function formatPnl(n) {
+        if (n == null || isNaN(n)) return '–'
+        const x = Number(n)
+        const s = x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' USDT'
+        return x > 0 ? '+' + s : x < 0 ? s : s
+      }
+
+      let priceChart = null
+
+      async function fetchCandles() {
+        // Request at least 200 candles so EMA 200 can be computed
+        const res = await fetch('/api/candles?limit=2500')
+        if (!res.ok) throw new Error('Failed to fetch candles')
+        return res.json()
+      }
+
+      function renderChart(candles) {
+        const ctx = document.getElementById('price-chart').getContext('2d')
+
+        const labels = candles.map(c =>
+          new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        )
+        const closes = candles.map(c => c.close)
+        const ema50 = candles.map(c => c.ema50)
+        const ema200 = candles.map(c => c.ema200)
+
+        const data = {
+          labels,
+          datasets: [
+            {
+              label: 'Close',
+              data: closes,
+              borderColor: '#38bdf8',
+              backgroundColor: 'rgba(56,189,248,0.1)',
+              tension: 0.2,
+              pointRadius: 0
+            },
+            {
+              label: 'EMA 50',
+              data: ema50,
+              borderColor: '#22c55e',
+              tension: 0.2,
+              pointRadius: 0
+            },
+            {
+              label: 'EMA 200',
+              data: ema200,
+              borderColor: '#f97316',
+              tension: 0.2,
+              pointRadius: 0
+            }
+          ]
+        }
+
+        const options = {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: {
+            legend: {
+              labels: { color: '#e5e7eb', boxWidth: 12 }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#9ca3af', maxTicksLimit: 8 },
+              grid: { display: false }
+            },
+            y: {
+              ticks: { color: '#9ca3af' },
+              grid: { color: '#1f2937' }
+            }
+          }
+        }
+
+        if (priceChart) {
+          priceChart.data = data
+          priceChart.options = options
+          priceChart.update()
+        } else {
+          priceChart = new Chart(ctx, {
+            type: 'line',
+            data,
+            options
+          })
+        }
+      }
+
+      async function refreshStatus() {
         try {
           const data = await fetchStatus()
           document.getElementById('raw-json').textContent = JSON.stringify(data, null, 2)
@@ -256,15 +439,13 @@
           const btc = balances.BTC || {}
           const usdt = balances.USDT || {}
           document.getElementById('btc-line').textContent =
-            'total=' + btc.total + ', free=' + btc.free + ', used=' + btc.used
+            'total ' + formatAmount(btc.total) + ' · free ' + formatAmount(btc.free) + ' · used ' + formatAmount(btc.used)
           document.getElementById('usdt-line').textContent =
-            'total=' + usdt.total + ', free=' + usdt.free + ', used=' + usdt.used
+            'total ' + formatQuote(usdt.total) + ' · free ' + formatQuote(usdt.free) + ' · used ' + formatQuote(usdt.used)
 
           const pos = data.position || { open: false }
-          const posStatusEl = document.getElementById('pos-status')
           const posContentEl = document.getElementById('position-content')
           if (!pos.open) {
-            posStatusEl.textContent = 'No open position'
             posContentEl.innerHTML =
               '<div class=\"row\"><span class=\"label\">Status</span><span class=\"value\">No open position</span></div>'
           } else {
@@ -273,37 +454,94 @@
               pos.side +
               '</span></div>' +
               '<div class=\"row\"><span class=\"label\">Amount</span><span class=\"value\">' +
-              pos.amount +
+              formatAmount(pos.amount) +
               '</span></div>' +
               '<div class=\"row\"><span class=\"label\">Entry</span><span class=\"value\">' +
-              pos.entryPrice +
+              formatPrice(pos.entryPrice) +
               '</span></div>' +
               '<div class=\"row\"><span class=\"label\">SL / TP</span><span class=\"value\">' +
-              pos.stopLoss +
-              ' / ' +
-              pos.takeProfit +
+              formatPrice(pos.stopLoss) + ' / ' + formatPrice(pos.takeProfit) +
               '</span></div>' +
               '<div class=\"row\"><span class=\"label\">Last price</span><span class=\"value\">' +
-              (pos.lastPrice ?? '-') +
+              formatPrice(pos.lastPrice) +
               '</span></div>'
           }
 
-          const market = data.market || {}
-          document.getElementById('market-price').textContent = market.lastPrice ?? '-'
-          document.getElementById('market-ema50').textContent = market.ema50 ?? '-'
-          document.getElementById('market-ema200').textContent = market.ema200 ?? '-'
+          // Populate config inputs only when user isn't editing them (avoids overwriting while typing)
+          const configInputIds = ['risk-input', 'sl-input', 'tp-input']
+          const anyConfigFocused = configInputIds.some(id => document.getElementById(id) === document.activeElement)
+          if (!anyConfigFocused) {
+            const envCfg = data.config?.env || {}
+            const rtCfg = data.config?.runtime || {}
+            document.getElementById('risk-input').value =
+              rtCfg.riskPerTrade != null ? rtCfg.riskPerTrade : envCfg.riskPerTrade ?? ''
+            document.getElementById('sl-input').value =
+              rtCfg.stopLossPct != null ? rtCfg.stopLossPct : envCfg.stopLossPct ?? ''
+            document.getElementById('tp-input').value =
+              rtCfg.takeProfitPct != null ? rtCfg.takeProfitPct : envCfg.takeProfitPct ?? ''
+          }
 
-          // Populate config inputs with runtime override or env defaults
-          const envCfg = data.config?.env || {}
-          const rtCfg = data.config?.runtime || {}
-          document.getElementById('risk-input').value =
-            rtCfg.riskPerTrade != null ? rtCfg.riskPerTrade : envCfg.riskPerTrade ?? ''
-          document.getElementById('sl-input').value =
-            rtCfg.stopLossPct != null ? rtCfg.stopLossPct : envCfg.stopLossPct ?? ''
-          document.getElementById('tp-input').value =
-            rtCfg.takeProfitPct != null ? rtCfg.takeProfitPct : envCfg.takeProfitPct ?? ''
+          const market = data.market || {}
+          document.getElementById('chart-close').textContent = formatPrice(market.lastPrice)
+          document.getElementById('chart-ema50').textContent = formatPrice(market.ema50)
+          document.getElementById('chart-ema200').textContent = formatPrice(market.ema200)
+
+          const pnl = data.pnl || {}
+          document.getElementById('pnl-realized').textContent = formatPnl(pnl.realized)
+          document.getElementById('pnl-realized').style.color = (pnl.realized ?? 0) >= 0 ? '#22c55e' : '#ef4444'
+          document.getElementById('pnl-unrealized').textContent = formatPnl(pnl.unrealized)
+          document.getElementById('pnl-unrealized').style.color = (pnl.unrealized ?? 0) >= 0 ? '#22c55e' : '#ef4444'
+          document.getElementById('pnl-total').textContent = formatPnl(pnl.total)
+          document.getElementById('pnl-total').style.color = (pnl.total ?? 0) >= 0 ? '#22c55e' : '#ef4444'
         } catch (err) {
           document.getElementById('action-status').textContent = 'Error: ' + err.message
+        }
+      }
+
+      async function refreshChart() {
+        try {
+          const candles = await fetchCandles()
+          renderChart(candles)
+        } catch (err) {
+          // Chart errors shouldn't spam the UI; log to console instead.
+          console.error(err)
+        }
+      }
+
+      async function refreshFees() {
+        try {
+          const res = await fetch('/api/trades?limit=50')
+          if (!res.ok) return
+          const data = await res.json()
+          const el = document.getElementById('fees-total')
+          if (data.totalFeeEstimate != null) {
+            el.textContent = (data.feeCurrency || 'USDT') + ' ' +
+              Number(data.totalFeeEstimate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+          } else {
+            el.textContent = '–'
+          }
+          const tbody = document.getElementById('trades-tbody')
+          const trades = Array.isArray(data.trades) ? data.trades.slice(0, 15) : []
+          if (trades.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6">No trades</td></tr>'
+          } else {
+            tbody.innerHTML = trades.map(t => {
+              const time = t.timestamp ? new Date(t.timestamp).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '–'
+              const sideClass = t.side === 'buy' ? 'side-buy' : 'side-sell'
+              const costStr = t.cost != null ? formatQuote(t.cost) : '–'
+              const feeStr = t.fee && t.fee.cost != null ? Number(t.fee.cost).toFixed(4) + ' ' + (t.fee.currency || '') : '–'
+              return '<tr>' +
+                '<td>' + time + '</td>' +
+                '<td class="' + sideClass + '">' + (t.side || '–') + '</td>' +
+                '<td>' + formatAmount(t.amount) + '</td>' +
+                '<td>' + formatPrice(t.price) + '</td>' +
+                '<td>' + costStr + '</td>' +
+                '<td>' + feeStr + '</td></tr>'
+            }).join('')
+          }
+        } catch (err) {
+          document.getElementById('fees-total').textContent = 'Error'
+          document.getElementById('trades-tbody').innerHTML = '<tr><td colspan="6">Error loading trades</td></tr>'
         }
       }
 
@@ -325,7 +563,7 @@
         try {
           await postJson('/api/manual-buy', {})
           statusEl.textContent = 'Manual BUY sent.'
-          await refresh()
+          await refreshStatus()
         } catch (err) {
           statusEl.textContent = 'Manual BUY failed: ' + err.message
         }
@@ -337,7 +575,7 @@
         try {
           await postJson('/api/manual-sell', {})
           statusEl.textContent = 'Manual SELL sent.'
-          await refresh()
+          await refreshStatus()
         } catch (err) {
           statusEl.textContent = 'Manual SELL failed: ' + err.message
         }
@@ -356,7 +594,7 @@
             takeProfitPct: isNaN(tp) ? undefined : tp
           })
           statusEl.textContent = 'Config updated.'
-          await refresh()
+          await refreshStatus()
         } catch (err) {
           statusEl.textContent = 'Config update failed: ' + err.message
         }
@@ -369,14 +607,18 @@
           const current = document.getElementById('bot-auto').textContent.includes('ON')
           await postJson('/api/config', { autoTradingEnabled: !current })
           statusEl.textContent = 'Auto trading toggled.'
-          await refresh()
+          await refreshStatus()
         } catch (err) {
           statusEl.textContent = 'Toggle failed: ' + err.message
         }
       })
 
-      refresh()
-      setInterval(refresh, 5000)
+      refreshStatus()
+      refreshChart()
+      refreshFees()
+      setInterval(refreshStatus, 5000)   // UI / status every 5s
+      setInterval(refreshChart, 20000)  // chart every 20s
+      setInterval(refreshFees, 20000)   // fees every 20s
     </script>
   </body>
 </html>

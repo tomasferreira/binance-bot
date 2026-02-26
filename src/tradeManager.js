@@ -3,7 +3,8 @@ import { getExchange } from './exchange.js'
 import { calculatePositionSize } from './risk.js'
 import { logger } from './logger.js'
 
-const { symbol } = config.trading
+const { symbol, feeRatePct } = config.trading
+const feeRate = typeof feeRatePct === 'number' && feeRatePct >= 0 ? feeRatePct : 0
 
 export async function syncBalanceQuote () {
   const exchange = getExchange()
@@ -43,14 +44,16 @@ export async function openLongPosition (state, marketPrice) {
       ? takeProfitPct
       : config.trading.takeProfitPct
 
-  const stopLossPrice = marketPrice * (1 - effectiveStopLossPct)
-  const takeProfitPrice = marketPrice * (1 + effectiveTakeProfitPct)
+  // SL/TP adjusted for round-trip fee so net loss/profit matches intended %
+  const stopLossPrice = marketPrice * (1 - effectiveStopLossPct + feeRate) / (1 + feeRate)
+  const takeProfitPrice = marketPrice * (1 + effectiveTakeProfitPct + 2 * feeRate)
 
   const amount = calculatePositionSize({
     balanceQuote: quoteBalance,
     entryPrice: marketPrice,
     stopLossPrice,
-    riskPerTrade: effectiveRiskPerTrade
+    riskPerTrade: effectiveRiskPerTrade,
+    feeRatePct: feeRate
   })
 
   if (amount <= 0) {
@@ -97,7 +100,10 @@ export async function closePositionNow (state, marketPrice) {
   const order = await exchange.createMarketSellOrder(symbol, amount)
   logger.info(`Manual Market SELL order placed: id=${order.id}, status=${order.status}`)
 
-  return { ...state, openPosition: null }
+  const pnl = (marketPrice - position.entryPrice) * amount
+  const realizedPnl = (state.realizedPnl ?? 0) + pnl
+  logger.info(`Closed position PnL: ${pnl.toFixed(2)} USDT, realized total: ${realizedPnl.toFixed(2)}`)
+  return { ...state, openPosition: null, realizedPnl }
 }
 
 export async function maybeClosePosition (state, marketPrice) {
@@ -128,6 +134,9 @@ export async function maybeClosePosition (state, marketPrice) {
   const order = await exchange.createMarketSellOrder(symbol, amount)
   logger.info(`Market SELL order placed: id=${order.id}, status=${order.status}`)
 
-  return { ...state, openPosition: null }
+  const pnl = (marketPrice - position.entryPrice) * amount
+  const realizedPnl = (state.realizedPnl ?? 0) + pnl
+  logger.info(`Closed position PnL: ${pnl.toFixed(2)} USDT, realized total: ${realizedPnl.toFixed(2)}`)
+  return { ...state, openPosition: null, realizedPnl }
 }
 

@@ -7,7 +7,7 @@ import { evaluateStrategy } from './strategy.js'
 import { maybeClosePosition, openLongPosition, closePositionNow } from './tradeManager.js'
 import { logPortfolio } from './portfolio.js'
 import { logOpenOrders } from './orders.js'
-import { getEMACrossSignal } from './indicators.js'
+import { getEMACrossSignal, calculateEMA } from './indicators.js'
 
 const { symbol, timeframe, pollIntervalMs } = config.trading
 const apiPort = Number(process.env.API_PORT || 3000)
@@ -188,7 +188,19 @@ app.get('/api/status', async (req, res) => {
         lastPrice,
         ema50,
         ema200
-      }
+      },
+      pnl: (() => {
+        const realized = state.realizedPnl ?? 0
+        let unrealized = 0
+        if (state.openPosition?.side === 'long' && lastPrice != null) {
+          unrealized = (lastPrice - state.openPosition.entryPrice) * state.openPosition.amount
+        }
+        return {
+          realized,
+          unrealized,
+          total: realized + unrealized
+        }
+      })()
     })
   } catch (err) {
     logger.error('Error in /api/status', err)
@@ -274,6 +286,71 @@ app.post('/api/config', (req, res) => {
   } catch (err) {
     logger.error('Error in /api/config', err)
     res.status(500).json({ error: 'Failed to update config' })
+  }
+})
+
+// Recent trades with fee info (from Binance)
+app.get('/api/trades', async (req, res) => {
+  try {
+    const exchange = getExchange()
+    const limit = Math.min(Number(req.query.limit) || 50, 100)
+    const trades = await exchange.fetchMyTrades(symbol, undefined, limit)
+
+    const withFees = trades.map(t => ({
+      id: t.id,
+      timestamp: t.timestamp,
+      side: t.side,
+      amount: t.amount,
+      price: t.price,
+      cost: t.cost,
+      fee: t.fee ? { cost: t.fee.cost ?? 0, currency: t.fee.currency ?? 'USDT' } : null
+    }))
+
+    const totalFeeUsdt = withFees.reduce((sum, t) => {
+      if (t.fee && (t.fee.currency === 'USDT' || t.fee.currency === 'BNB')) {
+        return sum + Number(t.fee.cost || 0)
+      }
+      return sum
+    }, 0)
+
+    res.json({
+      trades: withFees.reverse(),
+      totalFeeEstimate: totalFeeUsdt,
+      feeCurrency: 'USDT'
+    })
+  } catch (err) {
+    logger.error('Error in /api/trades', err)
+    res.status(500).json({ error: 'Failed to fetch trades' })
+  }
+})
+
+// Candles + EMA data for charting
+app.get('/api/candles', async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 200, 500)
+    const ohlcv = await fetchMarketData(limit)
+    const closes = ohlcv.map(c => c[4])
+
+    const fastPeriod = 50
+    const slowPeriod = 200
+    const fastEma = calculateEMA(closes, fastPeriod)
+    const slowEma = calculateEMA(closes, slowPeriod)
+
+    const result = ohlcv.map((candle, idx) => ({
+      timestamp: candle[0],
+      open: candle[1],
+      high: candle[2],
+      low: candle[3],
+      close: candle[4],
+      volume: candle[5],
+      ema50: fastEma[idx] ?? null,
+      ema200: slowEma[idx] ?? null
+    }))
+
+    res.json(result)
+  } catch (err) {
+    logger.error('Error in /api/candles', err)
+    res.status(500).json({ error: 'Failed to fetch candles' })
   }
 })
 
