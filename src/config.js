@@ -25,6 +25,7 @@ export const config = {
   },
   paths: {
     stateFile: new URL('../data/state.json', import.meta.url).pathname,
+    dataDir: new URL('../data', import.meta.url).pathname,
     logDir: new URL('../logs', import.meta.url).pathname
   }
 }
