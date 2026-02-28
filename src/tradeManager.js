@@ -68,7 +68,7 @@ export async function openLongPosition (state, marketPrice, strategyId = null, e
     takeProfitPrice
   })
 
-  const amount = calculatePositionSize({
+  let amount = calculatePositionSize({
     balanceQuote: quoteBalance,
     entryPrice: marketPrice,
     stopLossPrice,
@@ -78,6 +78,19 @@ export async function openLongPosition (state, marketPrice, strategyId = null, e
 
   if (amount <= 0) {
     logger.warn('Calculated zero or negative position size; skipping trade')
+    return state
+  }
+
+  if (budgetQuote != null && budgetQuote > 0) {
+    const maxAmountByBudget = budgetQuote / marketPrice
+    if (amount > maxAmountByBudget) {
+      amount = Math.floor(maxAmountByBudget * 1e6) / 1e6
+      logger.debug('openLongPosition: capped amount to budget', { budgetQuote, marketPrice, maxAmountByBudget, amount })
+    }
+  }
+
+  if (amount <= 0) {
+    logger.warn('Position size zero after budget cap; skipping trade')
     return state
   }
 
@@ -150,7 +163,7 @@ export async function openShortPosition (state, marketPrice, strategyId = null, 
     takeProfitPrice
   })
 
-  const amount = calculatePositionSize({
+  let amount = calculatePositionSize({
     balanceQuote: quoteBalance,
     entryPrice: marketPrice,
     stopLossPrice,
@@ -160,6 +173,19 @@ export async function openShortPosition (state, marketPrice, strategyId = null, 
 
   if (amount <= 0) {
     logger.warn('Calculated zero or negative position size for short; skipping trade')
+    return state
+  }
+
+  if (budgetQuote != null && budgetQuote > 0) {
+    const maxAmountByBudget = budgetQuote / marketPrice
+    if (amount > maxAmountByBudget) {
+      amount = Math.floor(maxAmountByBudget * 1e6) / 1e6
+      logger.debug('openShortPosition: capped amount to budget', { budgetQuote, marketPrice, maxAmountByBudget, amount })
+    }
+  }
+
+  if (amount <= 0) {
+    logger.warn('Position size zero after budget cap for short; skipping trade')
     return state
   }
 
