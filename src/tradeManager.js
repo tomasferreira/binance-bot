@@ -5,7 +5,7 @@ import { logger } from './logger.js'
 import { recordOrderStrategy } from './orderStrategy.js'
 import { loadState } from './stateMulti.js'
 
-const { symbol, feeRatePct } = config.trading
+const { symbol, feeRatePct, closedTradesHistoryLimit } = config.trading
 const feeRate = typeof feeRatePct === 'number' && feeRatePct >= 0 ? feeRatePct : 0
 
 export async function syncBalanceQuote () {
@@ -266,8 +266,8 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
 
   const closedTradesHistory = Array.isArray(state.closedTradesHistory) ? state.closedTradesHistory : []
   closedTradesHistory.push({ timestamp: new Date().toISOString(), pnl })
-  const MAX_HISTORY = 500
-  const trimmed = closedTradesHistory.length > MAX_HISTORY ? closedTradesHistory.slice(-MAX_HISTORY) : closedTradesHistory
+  const maxHistory = Math.max(100, closedTradesHistoryLimit || 500)
+  const trimmed = closedTradesHistory.length > maxHistory ? closedTradesHistory.slice(-maxHistory) : closedTradesHistory
 
   return {
     ...state,

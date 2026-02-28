@@ -23,12 +23,47 @@ function getStrategyBudget () {
 let lastTickAt = null
 const lastDecisionByStrategy = {}
 
+const BINANCE_KLINES_MAX = 1000
+
+function timeframeMs (tf) {
+  const m = (tf || '').match(/^(\d+)(m|h|d)$/)
+  if (!m) return 60 * 1000
+  const n = parseInt(m[1], 10)
+  if (m[2] === 'm') return n * 60 * 1000
+  if (m[2] === 'h') return n * 60 * 60 * 1000
+  if (m[2] === 'd') return n * 24 * 60 * 60 * 1000
+  return 60 * 1000
+}
+
 async function fetchMarketData (limit = 250) {
   const exchange = getExchange()
-  logger.debug('exchange.fetchOHLCV request', { symbol, timeframe, limit })
-  const ohlcv = await exchange.fetchOHLCV(symbol, timeframe, undefined, limit)
-  logger.debug('exchange.fetchOHLCV response', { candles: ohlcv.length })
-  return ohlcv
+  if (limit <= BINANCE_KLINES_MAX) {
+    logger.debug('exchange.fetchOHLCV request', { symbol, timeframe, limit })
+    const ohlcv = await exchange.fetchOHLCV(symbol, timeframe, undefined, limit)
+    logger.debug('exchange.fetchOHLCV response', { candles: ohlcv.length })
+    return ohlcv
+  }
+  const all = await fetchMarketDataChunked(limit)
+  logger.debug('exchange.fetchOHLCV response (chunked)', { candles: all.length })
+  return all
+}
+
+async function fetchMarketDataChunked (requestedLimit) {
+  const exchange = getExchange()
+  const periodMs = timeframeMs(timeframe)
+  let ohlcv = await exchange.fetchOHLCV(symbol, timeframe, undefined, BINANCE_KLINES_MAX)
+  if (ohlcv.length === 0) return ohlcv
+  const result = [...ohlcv]
+  while (result.length < requestedLimit) {
+    const firstTs = result[0][0]
+    const since = firstTs - BINANCE_KLINES_MAX * periodMs
+    const older = await exchange.fetchOHLCV(symbol, timeframe, since, BINANCE_KLINES_MAX)
+    const beforeFirst = older.filter(c => c[0] < firstTs)
+    if (beforeFirst.length === 0) break
+    result.unshift(...beforeFirst)
+    if (beforeFirst.length < BINANCE_KLINES_MAX) break
+  }
+  return result.slice(-requestedLimit)
 }
 
 async function tickStrategy (strategyId, ohlcv, lastClose) {
@@ -347,7 +382,8 @@ app.get('/api/status', async (req, res) => {
           globalBudgetQuote: config.trading.globalBudgetQuote || null,
           strategyBudgetQuote: getStrategyBudget(),
           strategyCount: STRATEGY_IDS.length
-        }
+        },
+        candlesLimit: config.trading.closedTradesHistoryLimit ?? 500
       },
       strategies,
       portfolio: {
@@ -748,10 +784,11 @@ app.get('/api/trades', async (req, res) => {
   }
 })
 
-// Candles + EMA data for charting
+// Candles + EMA data for charting (max candles = closedTradesHistoryLimit so chart can show same range as analysis)
 app.get('/api/candles', async (req, res) => {
   try {
-    const limit = Math.min(Number(req.query.limit) || 200, 500)
+    const maxCandles = config.trading.closedTradesHistoryLimit ?? 500
+    const limit = Math.min(Math.max(1, Number(req.query.limit) || 200), maxCandles)
     logger.debug('HTTP GET /api/candles', { limit })
     const ohlcv = await fetchMarketData(limit)
 

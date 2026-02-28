@@ -32,7 +32,9 @@ export const config = {
     assetsToLog: (process.env.ASSETS_TO_LOG || 'BTC,USDT')
       .split(',')
       .map(s => s.trim())
-      .filter(Boolean)
+      .filter(Boolean),
+    // Max closed trades kept per strategy for analysis; also used as max candles for chart API.
+    closedTradesHistoryLimit: Math.max(100, Math.min(10000, Number(process.env.CLOSED_TRADES_HISTORY_LIMIT || 500) || 500))
   },
   paths: {
     stateFile: new URL('../data/state.json', import.meta.url).pathname,
