@@ -502,10 +502,17 @@
                   <th class="sortable numeric" data-sort="fees" title="Total fees (USDT) from exchange for this strategy">Fees (USDT)</th>
                   <th class="sortable numeric" data-sort="exposure" title="% of strategy budget currently in position">Exposure %</th>
                   <th class="sortable numeric" data-sort="avgDuration" title="Average time positions were held">Avg duration</th>
+                  <th class="sortable numeric" data-sort="profitFactor" title="Gross profit ÷ gross loss; >1 = profitable">Profit factor</th>
+                  <th class="sortable numeric" data-sort="expectancy" title="Average USDT per trade">Expectancy</th>
+                  <th class="sortable numeric" data-sort="maxWin" title="Largest single winning trade">Max win</th>
+                  <th class="sortable numeric" data-sort="maxLoss" title="Largest single losing trade">Max loss</th>
+                  <th class="sortable numeric" data-sort="sortino" title="Return ÷ downside deviation (only penalizes losses)">Sortino</th>
+                  <th class="sortable numeric" data-sort="tradesPerDay" title="Closed trades per day in the selected range">Trades/day</th>
+                  <th class="sortable numeric" data-sort="lastTrade" title="When the last trade in range was closed">Last trade</th>
                 </tr>
               </thead>
               <tbody id="analysis-tbody">
-                <tr><td colspan="16">Loading…</td></tr>
+                <tr><td colspan="23">Loading…</td></tr>
               </tbody>
             </table>
           </div>
@@ -1162,6 +1169,45 @@
         return mean / std
       }
 
+      function computeSortino (entries) {
+        if (!entries.length) return null
+        const pnls = entries.map(e => Number(e.pnl ?? 0))
+        const mean = pnls.reduce((a, b) => a + b, 0) / pnls.length
+        const negativeSquared = pnls.filter(p => p < 0).map(p => p * p)
+        if (negativeSquared.length === 0) return mean > 0 ? Infinity : (mean < 0 ? -Infinity : null)
+        const downsideVariance = negativeSquared.reduce((a, b) => a + b, 0) / negativeSquared.length
+        const downsideStd = Math.sqrt(downsideVariance)
+        if (downsideStd === 0) return null
+        return mean / downsideStd
+      }
+
+      function computeExtraMetrics (entries, s) {
+        const pnls = entries.map(e => Number(e.pnl ?? 0))
+        const sumWins = pnls.filter(p => p > 0).reduce((a, b) => a + b, 0)
+        const sumLosses = pnls.filter(p => p < 0).reduce((a, b) => a + b, 0)
+        const profitFactor = sumLosses === 0 ? (sumWins > 0 ? Infinity : 0) : sumWins / Math.abs(sumLosses)
+        const expectancy = pnls.length ? pnls.reduce((a, b) => a + b, 0) / pnls.length : null
+        const winsOnly = pnls.filter(p => p > 0)
+        const lossesOnly = pnls.filter(p => p < 0)
+        const maxWin = winsOnly.length ? Math.max(...winsOnly) : null
+        const maxLoss = lossesOnly.length ? Math.min(...lossesOnly) : null
+        const sortino = computeSortino(entries)
+        const now = Date.now()
+        let daysInRange = 1
+        if (analysisTimeRange === 'last7d') daysInRange = 7
+        else if (analysisTimeRange === 'last30d') daysInRange = 30
+        else if (analysisTimeRange === 'sinceReset' && s.pnlResetAt) daysInRange = Math.max(1, (now - new Date(s.pnlResetAt).getTime()) / (86400 * 1000))
+        else if (entries.length >= 2) {
+          const ts = entries.map(e => new Date(e.timestamp).getTime())
+          daysInRange = Math.max(1, (Math.max(...ts) - Math.min(...ts)) / (86400 * 1000))
+        }
+        const tradesPerDay = entries.length && daysInRange > 0 ? entries.length / daysInRange : null
+        const lastEntry = entries.length ? entries.reduce((a, b) => new Date(b.timestamp).getTime() > new Date(a.timestamp).getTime() ? b : a) : null
+        const lastTradeTs = lastEntry ? new Date(lastEntry.timestamp).getTime() : null
+        const lastTradeStr = lastEntry ? (() => { const d = new Date(lastEntry.timestamp); const ago = Math.round((now - d.getTime()) / (86400 * 1000)); return ago === 0 ? 'Today' : ago === 1 ? '1d ago' : ago < 30 ? ago + 'd ago' : d.toLocaleDateString() })() : '–'
+        return { profitFactor, expectancy, maxWin, maxLoss, sortino, tradesPerDay, lastTradeStr, lastTradeTs }
+      }
+
       async function updateAnalysisPanel (strategies) {
         const tbody = document.getElementById('analysis-tbody')
         if (!tbody) return
@@ -1186,14 +1232,17 @@
           const m = getMetricsForRange(s)
           const hist = getFilteredHistoryForRange(s)
           const sharpe = computeSharpe(hist)
+          const extra = computeExtraMetrics(hist, s)
           const td = analysisTradesData[s.id] || {}
-          return { ...s, _metrics: m, _sharpe: sharpe, _tradesHistory: td.count || 0, _fees: td.fee || 0 }
+          return { ...s, _metrics: m, _sharpe: sharpe, _tradesHistory: td.count || 0, _fees: td.fee || 0, _profitFactor: extra.profitFactor, _expectancy: extra.expectancy, _maxWin: extra.maxWin, _maxLoss: extra.maxLoss, _sortino: extra.sortino, _tradesPerDay: extra.tradesPerDay, _lastTradeStr: extra.lastTradeStr, _lastTradeTs: extra.lastTradeTs }
         })
 
         const sorted = [...list].sort((a, b) => {
           const sortKey = analysisSortBy === 'avgDuration' ? 'avgTradeDurationMs' : analysisSortBy
-          const va = analysisSortBy === 'sharpe' ? a._sharpe : analysisSortBy === 'tradesHistory' ? a._tradesHistory : analysisSortBy === 'fees' ? a._fees : (a._metrics && a._metrics[sortKey]) != null ? a._metrics[sortKey] : a[analysisSortBy]
-          const vb = analysisSortBy === 'sharpe' ? b._sharpe : analysisSortBy === 'tradesHistory' ? b._tradesHistory : analysisSortBy === 'fees' ? b._fees : (b._metrics && b._metrics[sortKey]) != null ? b._metrics[sortKey] : b[analysisSortBy]
+          const extraKeys = { sharpe: '_sharpe', tradesHistory: '_tradesHistory', fees: '_fees', profitFactor: '_profitFactor', expectancy: '_expectancy', maxWin: '_maxWin', maxLoss: '_maxLoss', sortino: '_sortino', tradesPerDay: '_tradesPerDay', lastTrade: '_lastTradeTs' }
+          const extraKey = extraKeys[analysisSortBy]
+          const va = extraKey ? (extraKey === '_lastTradeTs' ? a._lastTradeTs : a[extraKey]) : (a._metrics && a._metrics[sortKey]) != null ? a._metrics[sortKey] : a[analysisSortBy]
+          const vb = extraKey ? (extraKey === '_lastTradeTs' ? b._lastTradeTs : b[extraKey]) : (b._metrics && b._metrics[sortKey]) != null ? b._metrics[sortKey] : b[analysisSortBy]
           if (analysisSortBy === 'name' || analysisSortBy === 'type') {
             const sa = (va ?? '').toString()
             const sb = (vb ?? '').toString()
@@ -1211,7 +1260,7 @@
 
         const pnlColor = (v) => (v ?? 0) >= 0 ? '#22c55e' : '#ef4444'
         if (sorted.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="16">No strategies</td></tr>'
+          tbody.innerHTML = '<tr><td colspan="23">No strategies</td></tr>'
         } else {
           tbody.innerHTML = sorted.map(s => {
             const m = s._metrics
@@ -1221,6 +1270,10 @@
             const exposurePct = m.exposure != null ? (m.exposure * 100).toFixed(1) : '–'
             const avgDur = m.avgTradeDurationMs != null ? (m.avgTradeDurationMs < 60000 ? (m.avgTradeDurationMs / 1000).toFixed(0) + 's' : (m.avgTradeDurationMs / 60000).toFixed(1) + 'm') : '–'
             const sharpeStr = s._sharpe != null ? s._sharpe.toFixed(2) : '–'
+            const pfStr = s._profitFactor != null ? (s._profitFactor === Infinity ? '∞' : s._profitFactor.toFixed(2)) : '–'
+            const expStr = s._expectancy != null ? formatPnl(s._expectancy).replace(' USDT', '') : '–'
+            const sortinoStr = s._sortino == null ? '–' : (s._sortino === Infinity ? '∞' : (s._sortino === -Infinity ? '-∞' : s._sortino.toFixed(2)))
+            const tpdStr = s._tradesPerDay != null ? s._tradesPerDay.toFixed(1) : '–'
             return '<tr>' +
               '<td>' + name + '</td>' +
               '<td class="numeric">' + typeTag + '</td>' +
@@ -1237,7 +1290,14 @@
               '<td class="numeric">' + (s._tradesHistory ?? 0) + '</td>' +
               '<td class="numeric">' + (s._fees != null ? s._fees.toFixed(4) : '–') + '</td>' +
               '<td class="numeric">' + exposurePct + '</td>' +
-              '<td class="numeric">' + avgDur + '</td></tr>'
+              '<td class="numeric">' + avgDur + '</td>' +
+              '<td class="numeric">' + pfStr + '</td>' +
+              '<td class="numeric" style="color:' + pnlColor(s._expectancy) + '">' + expStr + '</td>' +
+              '<td class="numeric" style="color:#22c55e">' + (s._maxWin != null ? formatPnl(s._maxWin).replace(' USDT', '') : '–') + '</td>' +
+              '<td class="numeric" style="color:#ef4444">' + (s._maxLoss != null ? formatPnl(s._maxLoss).replace(' USDT', '') : '–') + '</td>' +
+              '<td class="numeric">' + sortinoStr + '</td>' +
+              '<td class="numeric">' + tpdStr + '</td>' +
+              '<td class="numeric">' + (s._lastTradeStr || '–') + '</td></tr>'
           }).join('')
         }
 
