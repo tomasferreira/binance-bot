@@ -1,0 +1,14 @@
+---
+description: When adding or changing .env vars, update .env.example to match (no secrets in example)
+alwaysApply: true
+---
+
+# Keep .env.example in sync
+
+When you add, remove, or change any environment variable in the project (in `.env`, `config.js`, or anywhere that reads `process.env`):
+
+1. **Update `.env.example`** so it lists the same keys with safe placeholder or default values (e.g. `your_api_key_here` for secrets, real defaults for the rest).
+2. **Do not put real secrets** in `.env.example`; it is committed to git.
+3. Keep comments in `.env.example` so the purpose of each variable is clear.
+
+This way new clones can copy `.env.example` to `.env` and fill in only the secrets.
