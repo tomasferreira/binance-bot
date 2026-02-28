@@ -48,6 +48,17 @@ async function fetchMarketData (limit = 250) {
   return all
 }
 
+/** Fetches OHLCV for regime calculation only (separate timeframe, more bars). */
+async function fetchRegimeData () {
+  const exchange = getExchange()
+  const regimeTf = config.trading.regimeTimeframe || '1h'
+  const regimeLimit = Math.min(config.trading.regimeCandles ?? 200, BINANCE_KLINES_MAX)
+  logger.debug('exchange.fetchOHLCV request (regime)', { symbol, timeframe: regimeTf, limit: regimeLimit })
+  const ohlcv = await exchange.fetchOHLCV(symbol, regimeTf, undefined, regimeLimit)
+  logger.debug('exchange.fetchOHLCV response (regime)', { candles: ohlcv.length })
+  return ohlcv
+}
+
 async function fetchMarketDataChunked (requestedLimit) {
   const exchange = getExchange()
   const periodMs = timeframeMs(timeframe)
@@ -249,32 +260,44 @@ app.get('/api/status', async (req, res) => {
     const macd = macdLine[lastIdx] ?? null
     const macdSignal = signalLine[lastIdx] ?? null
 
-    const atrArr = calculateATR(ohlcv, 14)
-    const atrNow = atrArr.length ? atrArr[atrArr.length - 1] : null
-    const atrLookback = 50
-    const atrAvg = (atrArr.length >= atrLookback)
-      ? atrArr.slice(-atrLookback).reduce((a, b) => a + b, 0) / atrLookback
-      : (atrArr.length ? atrArr.reduce((a, b) => a + b, 0) / atrArr.length : null)
-    const volatilityRatio = (atrNow != null && atrAvg != null && atrAvg > 0) ? atrNow / atrAvg : null
+    const regimeTf = config.trading.regimeTimeframe || '1h'
+    const regimeCandles = config.trading.regimeCandles ?? 200
     let volatilityRegime = 'neutral'
-    if (volatilityRatio != null) {
-      if (volatilityRatio >= 1.2) volatilityRegime = 'high'
-      else if (volatilityRatio <= 0.8) volatilityRegime = 'low'
-    }
-
-    const { adx: adxArr, plusDi: plusDiArr, minusDi: minusDiArr } = calculateADX(ohlcv, 14)
-    const adxNow = adxArr.length ? adxArr[adxArr.length - 1] : null
-    const plusDiNow = plusDiArr.length ? plusDiArr[plusDiArr.length - 1] : null
-    const minusDiNow = minusDiArr.length ? minusDiArr[minusDiArr.length - 1] : null
+    let volatilityRatio = null
     let trendRegime = 'weak'
-    if (adxNow != null) {
-      if (adxNow >= 25) trendRegime = 'trending'
-      else if (adxNow < 20) trendRegime = 'ranging'
-    }
+    let adxNow = null
     let trendDirection = 'neutral'
-    if (plusDiNow != null && minusDiNow != null) {
-      if (plusDiNow > minusDiNow) trendDirection = 'bullish'
-      else if (minusDiNow > plusDiNow) trendDirection = 'bearish'
+    let plusDiNow = null
+    let minusDiNow = null
+    try {
+      const regimeOhlcv = await fetchRegimeData()
+      if (Array.isArray(regimeOhlcv) && regimeOhlcv.length >= 30) {
+        const atrArr = calculateATR(regimeOhlcv, 14)
+        const atrNow = atrArr.length ? atrArr[atrArr.length - 1] : null
+        const atrLookback = 50
+        const atrAvg = (atrArr.length >= atrLookback)
+          ? atrArr.slice(-atrLookback).reduce((a, b) => a + b, 0) / atrLookback
+          : (atrArr.length ? atrArr.reduce((a, b) => a + b, 0) / atrArr.length : null)
+        volatilityRatio = (atrNow != null && atrAvg != null && atrAvg > 0) ? atrNow / atrAvg : null
+        if (volatilityRatio != null) {
+          if (volatilityRatio >= 1.2) volatilityRegime = 'high'
+          else if (volatilityRatio <= 0.8) volatilityRegime = 'low'
+        }
+        const { adx: adxArr, plusDi: plusDiArr, minusDi: minusDiArr } = calculateADX(regimeOhlcv, 14)
+        adxNow = adxArr.length ? adxArr[adxArr.length - 1] : null
+        plusDiNow = plusDiArr.length ? plusDiArr[plusDiArr.length - 1] : null
+        minusDiNow = minusDiArr.length ? minusDiArr[minusDiArr.length - 1] : null
+        if (adxNow != null) {
+          if (adxNow >= 25) trendRegime = 'trending'
+          else if (adxNow < 20) trendRegime = 'ranging'
+        }
+        if (plusDiNow != null && minusDiNow != null) {
+          if (plusDiNow > minusDiNow) trendDirection = 'bullish'
+          else if (minusDiNow > plusDiNow) trendDirection = 'bearish'
+        }
+      }
+    } catch (err) {
+      logger.warn('Regime fetch or calculation failed', { err: err.message })
     }
 
     logger.debug('exchange.fetchOpenOrders request (/api/status)', { symbol })
@@ -448,6 +471,8 @@ app.get('/api/status', async (req, res) => {
         macd,
         macdSignal,
         regime: {
+          timeframe: regimeTf,
+          candles: regimeCandles,
           volatility: volatilityRegime,
           volatilityRatio: volatilityRatio != null ? Math.round(volatilityRatio * 100) / 100 : null,
           trend: trendRegime,

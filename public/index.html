@@ -364,13 +364,18 @@
           </div>
           <div class="section">
             <div class="section-title">Market regime</div>
-            <p style="margin: 0 0 0.75rem 0; font-size: 0.85rem; color: #9ca3af;">Current volatility and trend context (for study; bot does not act on this yet).</p>
+            <p style="margin: 0 0 0.75rem 0; font-size: 0.85rem; color: #9ca3af;">Volatility and trend context from a separate, higher timeframe (for study; bot does not act on this yet).</p>
+            <div class="row">
+              <span class="label">Based on</span>
+              <span class="value" id="regime-source" style="color: #9ca3af;">–</span>
+            </div>
             <details style="margin-bottom: 0.75rem;">
               <summary style="cursor: pointer; font-size: 0.85rem; color: #9ca3af;">How this is calculated</summary>
               <ul style="margin: 0.5rem 0 0 1.25rem; padding: 0; font-size: 0.8rem; color: #9ca3af; line-height: 1.5;">
-                <li><strong>Volatility</strong> — Average True Range (ATR) over 14 bars vs its average over the last 50 bars. Ratio &gt; 1.2 = high volatility, &lt; 0.8 = low, in between = neutral.</li>
-                <li><strong>Trend</strong> — Average Directional Index (ADX) over 14 bars: strength of trend regardless of direction. ADX ≥ 25 = trending, &lt; 20 = ranging, 20–25 = weak trend.</li>
-                <li><strong>Direction</strong> — +DI vs −DI (Directional Indicators from the same ADX calculation). +DI &gt; −DI = bullish, −DI &gt; +DI = bearish.</li>
+                <li>Regime uses its own timeframe and candle count (REGIME_TIMEFRAME, REGIME_CANDLES in .env). Default: 1h, 200 bars (~8 days).</li>
+                <li><strong>Volatility</strong> — ATR(14) vs its average over the last 50 bars. Ratio &gt; 1.2 = high, &lt; 0.8 = low.</li>
+                <li><strong>Trend</strong> — ADX(14): strength of trend. ADX ≥ 25 = trending, &lt; 20 = ranging.</li>
+                <li><strong>Direction</strong> — +DI vs −DI. +DI &gt; −DI = bullish, −DI &gt; +DI = bearish.</li>
               </ul>
             </details>
             <div class="row">
@@ -1669,6 +1674,8 @@
           document.getElementById('chart-ema200').textContent = formatPrice(market.ema200)
 
           const regime = market.regime || {}
+          const sourceEl = document.getElementById('regime-source')
+          if (sourceEl) sourceEl.textContent = (regime.timeframe && regime.candles) ? regime.timeframe + ', ' + regime.candles + ' bars' : '–'
           const volEl = document.getElementById('regime-volatility')
           if (volEl) {
             const v = regime.volatility

@@ -34,7 +34,10 @@ export const config = {
       .map(s => s.trim())
       .filter(Boolean),
     // Max closed trades kept per strategy for analysis; also used as max candles for chart API.
-    closedTradesHistoryLimit: Math.max(100, Math.min(10000, Number(process.env.CLOSED_TRADES_HISTORY_LIMIT || 500) || 500))
+    closedTradesHistoryLimit: Math.max(100, Math.min(10000, Number(process.env.CLOSED_TRADES_HISTORY_LIMIT || 500) || 500)),
+    // Regime (volatility + trend) is computed on a separate, higher timeframe for stability.
+    regimeTimeframe: process.env.REGIME_TIMEFRAME || '1h',
+    regimeCandles: Math.max(100, Math.min(1000, Number(process.env.REGIME_CANDLES || 200) || 200))
   },
   paths: {
     stateFile: new URL('../data/state.json', import.meta.url).pathname,
