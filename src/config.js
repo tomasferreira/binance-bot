@@ -37,7 +37,9 @@ export const config = {
     closedTradesHistoryLimit: Math.max(100, Math.min(10000, Number(process.env.CLOSED_TRADES_HISTORY_LIMIT || 500) || 500)),
     // Regime (volatility + trend) is computed on a separate, higher timeframe for stability.
     regimeTimeframe: process.env.REGIME_TIMEFRAME || '1h',
-    regimeCandles: Math.max(100, Math.min(1000, Number(process.env.REGIME_CANDLES || 200) || 200))
+    regimeCandles: Math.max(100, Math.min(1000, Number(process.env.REGIME_CANDLES || 200) || 200)),
+    // When true, strategies only enter when market regime fits (e.g. long trend in bullish). Overridable via dashboard.
+    regimeFilterEnabled: process.env.REGIME_FILTER_ENABLED !== 'false'
   },
   paths: {
     stateFile: new URL('../data/state.json', import.meta.url).pathname,

@@ -6,8 +6,11 @@ import { STRATEGY_IDS } from './strategies/registry.js'
 
 const runnerPath = path.join(config.paths.dataDir, 'runner.json')
 
-const defaultRunner = {
-  running: ['ema_crossover'] // default: only EMA Crossover running
+function getDefaultRunner () {
+  return {
+    running: ['ema_crossover'],
+    regimeFilterEnabled: config.trading.regimeFilterEnabled !== false
+  }
 }
 
 function ensureDataDir () {
@@ -20,16 +23,18 @@ export function loadRunner () {
   try {
     ensureDataDir()
     if (!fs.existsSync(runnerPath)) {
-      return { ...defaultRunner }
+      return getDefaultRunner()
     }
     const raw = fs.readFileSync(runnerPath, 'utf8')
-    if (!raw) return { ...defaultRunner }
+    if (!raw) return getDefaultRunner()
     const parsed = JSON.parse(raw)
-    const running = Array.isArray(parsed.running) ? parsed.running.filter(id => STRATEGY_IDS.includes(id)) : defaultRunner.running
-    return { running }
+    const def = getDefaultRunner()
+    const running = Array.isArray(parsed.running) ? parsed.running.filter(id => STRATEGY_IDS.includes(id)) : def.running
+    const regimeFilterEnabled = typeof parsed.regimeFilterEnabled === 'boolean' ? parsed.regimeFilterEnabled : def.regimeFilterEnabled
+    return { running, regimeFilterEnabled }
   } catch (err) {
     logger.error('Failed to load runner config', err)
-    return { ...defaultRunner }
+    return getDefaultRunner()
   }
 }
 
@@ -59,5 +64,13 @@ export function setRunning (strategyId, running) {
     saveRunner(runner)
     logger.info(`Strategy ${strategyId} stopped`)
   }
+  return runner
+}
+
+export function setRegimeFilterEnabled (enabled) {
+  const runner = loadRunner()
+  runner.regimeFilterEnabled = !!enabled
+  saveRunner(runner)
+  logger.info('Regime filter ' + (runner.regimeFilterEnabled ? 'enabled' : 'disabled'))
   return runner
 }

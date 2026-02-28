@@ -49,13 +49,40 @@ const strategies = {
   [rangeBounce.id]: rangeBounce
 }
 
+/** Regime filter: (regime) => true = allow entry. Omitted strategy = no filter. */
+const REGIME_FILTERS = {
+  [emaCrossover.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
+  [macd.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
+  [multiEma.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
+  [priceVsEma.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
+  [rsiPullback.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
+  [multiTfTrend.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
+  [atrTrend.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
+  [macdHistogramLong.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
+  [volumeEmaCrossover.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
+  [emaFastCrossover.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
+  [rsiMacdCombo.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
+  [shortTrend.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bearish',
+  [shortBreakdown.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bearish',
+  [shortMacd.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bearish',
+  [shortMacdHistogram.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bearish',
+  [shortOverbought.id]: (r) => r.trendDirection === 'bearish',
+  [shortRejection.id]: (r) => r.trendDirection === 'bearish' || r.trendDirection === 'neutral',
+  [bollingerMeanRevert.id]: (r) => r.trend === 'ranging' || r.volatility === 'low',
+  [rangeBounce.id]: (r) => r.trend === 'ranging' || r.volatility === 'low',
+  [stochasticOversold.id]: (r) => r.trend === 'ranging' || (r.trend === 'trending' && r.trendDirection === 'bullish'),
+  [bollingerSqueeze.id]: (r) => r.trend === 'trending',
+  [donchianBreakout.id]: (r) => r.trend === 'trending',
+  [atrBreakout.id]: (r) => r.trend === 'trending'
+}
+
 export const STRATEGY_IDS = Object.keys(strategies)
 
 export function getStrategy (id) {
   return strategies[id] ?? null
 }
 
-export function evaluateStrategy (id, ohlcv, state) {
+export function evaluateStrategy (id, ohlcv, state, context = {}) {
   const s = getStrategy(id)
   if (!s?.evaluate) return { action: 'hold', detail: {} }
   const lastClose = Array.isArray(ohlcv) && ohlcv.length ? ohlcv[ohlcv.length - 1][4] : null
@@ -64,7 +91,24 @@ export function evaluateStrategy (id, ohlcv, state) {
     hasOpenPosition: !!state?.openPosition,
     side: state?.openPosition?.side || null
   })
-  const decision = s.evaluate(ohlcv, state)
+  const decision = s.evaluate(ohlcv, state, context)
+  const action = decision?.action || 'hold'
+  const regime = context?.regime
+  const regimeFilterEnabled = context?.regimeFilterEnabled !== false
+  const filter = REGIME_FILTERS[id]
+  if (
+    regimeFilterEnabled &&
+    regime &&
+    filter &&
+    (action === 'enter-long' || action === 'enter-short') &&
+    !filter(regime)
+  ) {
+    logger.debug(`evaluateStrategy: ${id} regime filter blocked entry`, { regime, action })
+    return {
+      action: 'hold',
+      detail: { ...(decision?.detail || {}), regimeSkipped: true }
+    }
+  }
   logger.debug(`evaluateStrategy: ${id} result`, {
     action: decision?.action,
     detail: decision?.detail

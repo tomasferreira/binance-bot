@@ -592,6 +592,13 @@
             <button class="secondary" id="toggle-auto-btn">Toggle</button>
           </div>
           <div class="row">
+            <span class="label">Regime awareness</span>
+            <label class="row" style="margin: 0; gap: 0.5rem; align-items: center;">
+              <input type="checkbox" id="regime-awareness-cb" checked />
+              <span>Only allow entries when regime fits strategy</span>
+            </label>
+          </div>
+          <div class="row">
             <span class="label">Risk / trade</span>
             <input id="risk-input" type="number" step="0.001" min="0" placeholder="0.01" />
           </div>
@@ -1649,6 +1656,8 @@
             document.getElementById('tp-input').value =
               rtCfg.takeProfitPct != null ? rtCfg.takeProfitPct : envCfg.takeProfitPct ?? ''
           }
+          const regimeCb = document.getElementById('regime-awareness-cb')
+          if (regimeCb) regimeCb.checked = data.config?.regimeFilterEnabled !== false
 
           const budget = data.config?.budget || {}
           const budgetGlobalEl = document.getElementById('budget-global')
@@ -1976,6 +1985,20 @@
           await refreshStatus()
         } catch (err) {
           statusEl.textContent = 'Toggle failed: ' + err.message
+        }
+      })
+
+      document.getElementById('regime-awareness-cb').addEventListener('change', async () => {
+        const statusEl = document.getElementById('action-status')
+        const cb = document.getElementById('regime-awareness-cb')
+        statusEl.textContent = 'Updating regime filter...'
+        try {
+          await postJson('/api/config/regime-filter', { enabled: cb.checked })
+          statusEl.textContent = cb.checked ? 'Regime awareness on.' : 'Regime awareness off (entries not filtered by regime).'
+          await refreshStatus()
+        } catch (err) {
+          statusEl.textContent = 'Update failed: ' + err.message
+          cb.checked = !cb.checked
         }
       })
 

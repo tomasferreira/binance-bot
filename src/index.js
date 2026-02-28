@@ -3,7 +3,7 @@ import { config } from './config.js'
 import { logger } from './logger.js'
 import { getExchange } from './exchange.js'
 import { loadState, saveState, migrateLegacyState } from './stateMulti.js'
-import { loadRunner, setRunning } from './runner.js'
+import { loadRunner, setRunning, setRegimeFilterEnabled } from './runner.js'
 import { STRATEGY_IDS, getStrategy, evaluateStrategy } from './strategies/registry.js'
 import { getOrderStrategyMap } from './orderStrategy.js'
 import { maybeClosePosition, openLongPosition, openShortPosition, closePositionNow } from './tradeManager.js'
@@ -77,7 +77,45 @@ async function fetchMarketDataChunked (requestedLimit) {
   return result.slice(-requestedLimit)
 }
 
-async function tickStrategy (strategyId, ohlcv, lastClose) {
+/** Returns { volatility, trend, trendDirection } or null if regime data unavailable. */
+async function getRegime () {
+  try {
+    const regimeOhlcv = await fetchRegimeData()
+    if (!Array.isArray(regimeOhlcv) || regimeOhlcv.length < 30) return null
+    const atrArr = calculateATR(regimeOhlcv, 14)
+    const atrNow = atrArr.length ? atrArr[atrArr.length - 1] : null
+    const atrLookback = 50
+    const atrAvg = (atrArr.length >= atrLookback)
+      ? atrArr.slice(-atrLookback).reduce((a, b) => a + b, 0) / atrLookback
+      : (atrArr.length ? atrArr.reduce((a, b) => a + b, 0) / atrArr.length : null)
+    let volatility = 'neutral'
+    if (atrNow != null && atrAvg != null && atrAvg > 0) {
+      const ratio = atrNow / atrAvg
+      if (ratio >= 1.2) volatility = 'high'
+      else if (ratio <= 0.8) volatility = 'low'
+    }
+    const { adx: adxArr, plusDi: plusDiArr, minusDi: minusDiArr } = calculateADX(regimeOhlcv, 14)
+    const adxNow = adxArr.length ? adxArr[adxArr.length - 1] : null
+    const plusDiNow = plusDiArr.length ? plusDiArr[plusDiArr.length - 1] : null
+    const minusDiNow = minusDiArr.length ? minusDiArr[minusDiArr.length - 1] : null
+    let trend = 'weak'
+    if (adxNow != null) {
+      if (adxNow >= 25) trend = 'trending'
+      else if (adxNow < 20) trend = 'ranging'
+    }
+    let trendDirection = 'neutral'
+    if (plusDiNow != null && minusDiNow != null) {
+      if (plusDiNow > minusDiNow) trendDirection = 'bullish'
+      else if (minusDiNow > plusDiNow) trendDirection = 'bearish'
+    }
+    return { volatility, trend, trendDirection }
+  } catch (err) {
+    logger.warn('getRegime failed', { err: err.message })
+    return null
+  }
+}
+
+async function tickStrategy (strategyId, ohlcv, lastClose, context = {}) {
   let state = loadState(strategyId)
   const autoTradingEnabled = state.autoTradingEnabled !== false
   logger.debug('tickStrategy start', {
@@ -91,7 +129,7 @@ async function tickStrategy (strategyId, ohlcv, lastClose) {
   state = await maybeClosePosition(state, lastClose, strategyId)
 
   if (state.openPosition) {
-    const decision = evaluateStrategy(strategyId, ohlcv, state)
+    const decision = evaluateStrategy(strategyId, ohlcv, state, context)
     lastDecisionByStrategy[strategyId] = decision.action
     const side = state.openPosition?.side || 'long'
     const wantsExitLong = side === 'long' && decision.action === 'exit-long'
@@ -103,7 +141,7 @@ async function tickStrategy (strategyId, ohlcv, lastClose) {
       lastDecisionByStrategy[strategyId] = 'manage-open-position'
     }
   } else {
-    const decision = evaluateStrategy(strategyId, ohlcv, state)
+    const decision = evaluateStrategy(strategyId, ohlcv, state, context)
     lastDecisionByStrategy[strategyId] = decision.action
     if (autoTradingEnabled && decision.action === 'enter-long') {
       state = await openLongPosition(state, lastClose, strategyId, decision.detail, getStrategyBudget())
@@ -127,17 +165,22 @@ async function tickStrategy (strategyId, ohlcv, lastClose) {
 async function botTick () {
   try {
     logger.info('--- Bot tick start ---')
-    const ohlcv = await fetchMarketData()
+    const [ohlcv, regime] = await Promise.all([fetchMarketData(), getRegime()])
     const lastClose = ohlcv[ohlcv.length - 1][4]
     const runner = loadRunner()
+    const context = {
+      regime: regime || undefined,
+      regimeFilterEnabled: runner.regimeFilterEnabled !== false
+    }
     logger.debug('botTick state', {
       runningStrategies: runner.running,
-      lastClose
+      lastClose,
+      regimeFilterEnabled: context.regimeFilterEnabled
     })
 
     for (const strategyId of runner.running) {
       try {
-        await tickStrategy(strategyId, ohlcv, lastClose)
+        await tickStrategy(strategyId, ohlcv, lastClose, context)
       } catch (err) {
         logger.error(`Error in strategy ${strategyId}`, err)
       }
@@ -401,6 +444,7 @@ app.get('/api/status', async (req, res) => {
 
     const firstState = loadState(runner.running[0] || STRATEGY_IDS[0])
     const { riskPerTrade, stopLossPct, takeProfitPct } = getEffectiveTradingConfig(firstState)
+    const regimeFilterEnabled = runner.regimeFilterEnabled !== false
     const nextTickEtaMs =
       lastTickAt != null ? Math.max(0, pollIntervalMs - (now - Date.parse(lastTickAt))) : null
 
@@ -422,6 +466,7 @@ app.get('/api/status', async (req, res) => {
       },
       config: {
         autoTradingEnabled: firstState.autoTradingEnabled !== false,
+        regimeFilterEnabled,
         env: {
           riskPerTrade: config.trading.riskPerTrade,
           stopLossPct: config.trading.stopLossPct,
@@ -788,6 +833,20 @@ app.post('/api/config', (req, res) => {
   } catch (err) {
     logger.error('Error in /api/config', err)
     res.status(500).json({ error: 'Failed to update config' })
+  }
+})
+
+app.post('/api/config/regime-filter', (req, res) => {
+  try {
+    const { enabled } = req.body || {}
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ error: 'Body must include { enabled: true|false }' })
+    }
+    setRegimeFilterEnabled(enabled)
+    res.json({ status: 'ok', regimeFilterEnabled: enabled })
+  } catch (err) {
+    logger.error('Error in /api/config/regime-filter', err)
+    res.status(500).json({ error: 'Failed to update regime filter' })
   }
 })
 
