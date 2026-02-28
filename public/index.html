@@ -1960,7 +1960,7 @@
 
       document.getElementById('reset-all-pnl-btn').addEventListener('click', async () => {
         const statusEl = document.getElementById('action-status')
-        if (!confirm('Reset realized PnL to 0 for all strategies?')) return
+        if (!confirm('Reset realized PnL and erase trade history for all strategies?')) return
         statusEl.textContent = 'Resetting all PnLs…'
         try {
           const res = await fetch('/api/reset-all-pnl', { method: 'POST' })

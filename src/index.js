@@ -755,9 +755,10 @@ app.post('/api/strategies/:id/reset-pnl', (req, res) => {
     state.firstTradeAt = null
     state.peakEquity = 0
     state.maxDrawdown = 0
+    state.closedTradesHistory = []
     state.pnlResetAt = new Date().toISOString()
     saveState(id, state)
-    logger.info(`PnL + win/loss counters + positionsOpened reset for strategy: ${id}`)
+    logger.info(`PnL + win/loss counters + trade history reset for strategy: ${id}`)
     res.json({
       status: 'ok',
       realizedPnl: 0,
@@ -788,10 +789,11 @@ app.post('/api/reset-all-pnl', (req, res) => {
       state.firstTradeAt = null
       state.peakEquity = 0
       state.maxDrawdown = 0
+      state.closedTradesHistory = []
       state.pnlResetAt = new Date().toISOString()
       saveState(id, state)
     }
-    logger.info('PnL + win/loss counters + positionsOpened reset for all strategies')
+    logger.info('PnL + win/loss counters + trade history reset for all strategies')
     res.json({ status: 'ok' })
   } catch (err) {
     logger.error('Error resetting all PnL', err)
