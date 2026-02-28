@@ -1294,9 +1294,13 @@
 
         const equitySelect = document.getElementById('analysis-equity-strategy')
         const equityCtx = document.getElementById('analysis-equity-chart')?.getContext('2d')
+        const savedEquityStrategyId = equitySelect?.value || null
         if (equitySelect) {
           const opts = (strategies || []).map(s => '<option value="' + s.id + '">' + (s.name || s.id) + '</option>').join('')
           equitySelect.innerHTML = opts || '<option value="">—</option>'
+          if (savedEquityStrategyId && (strategies || []).some(s => s.id === savedEquityStrategyId)) {
+            equitySelect.value = savedEquityStrategyId
+          }
         }
         if (equityCtx) {
           const selectedId = equitySelect?.value || (strategies && strategies[0]?.id)
