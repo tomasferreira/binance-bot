@@ -441,16 +441,13 @@
                     <th>Name</th>
                     <th>Type</th>
                     <th>Status</th>
-                    <th class="numeric">W/L</th>
-                    <th class="numeric">PnL</th>
-                    <th class="numeric">Exposure</th>
                     <th>Position</th>
                     <th>Last decision</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody id="strategies-tbody">
-                  <tr><td colspan="9">Loading…</td></tr>
+                  <tr><td colspan="6">Loading…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1547,7 +1544,7 @@
           const detailPane = document.getElementById('strategy-detail-pane')
           if (tbody) {
             if (strategies.length === 0) {
-              tbody.innerHTML = '<tr><td colspan="9">No strategies</td></tr>'
+              tbody.innerHTML = '<tr><td colspan="6">No strategies</td></tr>'
             } else {
               const sorted = [...strategies].sort((a, b) => {
                 const aShort = a.id && a.id.startsWith('short_')
@@ -1555,7 +1552,6 @@
                 if (aShort !== bShort) return aShort ? 1 : -1
                 return (a.name || a.id).localeCompare(b.name || b.id)
               })
-              const pnlColor = (v) => (v ?? 0) >= 0 ? '#22c55e' : '#ef4444'
               tbody.innerHTML = sorted.map(s => {
                 const posText = s.position?.open ? s.position.side + ' ' + formatAmount(s.position.amount) : 'Flat'
                 const runningPill = s.running ? 'Running' : 'Stopped'
@@ -1569,18 +1565,11 @@
                 const resetBtn = '<button class="secondary strategy-reset-pnl-btn" data-id="' + s.id + '">Reset PnL</button>'
                 const name = (s.name || s.id).replace(/</g, '&lt;').replace(/>/g, '&gt;')
                 const typeTag = isManual ? 'Utility' : isShort ? 'Short' : 'Long'
-                const wins = s.wins ?? 0
-                const losses = s.losses ?? 0
-                const exposurePct = s.exposure != null ? (s.exposure * 100).toFixed(1) + '%' : '–'
-                const t = s.totalPnl ?? 0
                 const selected = s.id === selectedStrategyId ? ' selected' : ''
                 return '<tr class="clickable' + selected + '" data-strategy-id="' + s.id + '">' +
                   '<td>' + name + '</td>' +
                   '<td>' + typeTag + '</td>' +
                   '<td>' + runningPill + '</td>' +
-                  '<td class="numeric">' + wins + '/' + losses + '</td>' +
-                  '<td class="numeric" style="color:' + pnlColor(t) + '">' + formatPnl(s.totalPnl).replace(' USDT', '') + '</td>' +
-                  '<td class="numeric">' + exposurePct + '</td>' +
                   '<td>' + posText + '</td>' +
                   '<td>' + (s.lastDecision || '–') + '</td>' +
                   '<td>' + startStopBtn + buyBtn + shortBtn + sellBtn + resetBtn + '</td></tr>'
