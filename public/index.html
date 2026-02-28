@@ -88,6 +88,14 @@
         border-radius: 0.5rem;
         border: 1px solid #1f2937;
       }
+      button.status-pill {
+        cursor: pointer;
+        border: 1px solid transparent;
+        font: inherit;
+      }
+      button.status-pill:hover {
+        filter: brightness(1.1);
+      }
       .status-pill {
         display: inline-flex;
         align-items: center;
@@ -325,7 +333,7 @@
         <span class="label">Timeframe</span>
         <span class="value" id="bot-timeframe">-</span>
         <span id="bot-mode" class="status-pill pill-warn">-</span>
-        <span id="bot-auto">-</span>
+        <button type="button" id="bot-auto" class="status-pill pill-warn" title="Click to toggle auto trading">-</button>
         <span class="label">Next tick</span>
         <span class="value" id="bot-next-tick">-</span>
       </div>
@@ -1535,7 +1543,11 @@
             modeEl.className = 'status-pill ' + (bot.mode?.testnet ? 'pill-warn' : 'pill-ok')
           }
           const autoEl = document.getElementById('bot-auto')
-          if (autoEl) autoEl.innerHTML = formatBoolPill(data.config?.autoTradingEnabled !== false)
+          if (autoEl) {
+            const on = data.config?.autoTradingEnabled !== false
+            autoEl.textContent = on ? 'ON' : 'OFF'
+            autoEl.className = 'status-pill ' + (on ? 'pill-ok' : 'pill-warn')
+          }
           document.getElementById('bot-next-tick').textContent =
             bot.nextTickEtaMs != null ? Math.round(bot.nextTickEtaMs / 1000) + 's' : '-'
 
@@ -1979,7 +1991,7 @@
         }
       })
 
-      document.getElementById('toggle-auto-btn').addEventListener('click', async () => {
+      async function toggleAutoTrading () {
         const statusEl = document.getElementById('action-status')
         statusEl.textContent = 'Toggling auto trading...'
         try {
@@ -1990,7 +2002,9 @@
         } catch (err) {
           statusEl.textContent = 'Toggle failed: ' + err.message
         }
-      })
+      }
+      document.getElementById('toggle-auto-btn').addEventListener('click', toggleAutoTrading)
+      document.getElementById('bot-auto').addEventListener('click', toggleAutoTrading)
 
       document.getElementById('regime-awareness-cb').addEventListener('change', async () => {
         const statusEl = document.getElementById('action-status')
