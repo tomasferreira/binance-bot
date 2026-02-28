@@ -339,6 +339,7 @@
       <button type="button" class="tab" data-tab="trades">Trades & Activity</button>
       <button type="button" class="tab" data-tab="analysis">Analysis</button>
       <button type="button" class="tab" data-tab="settings">Settings</button>
+      <button type="button" class="tab" data-tab="glossary">Glossary</button>
     </nav>
 
     <main>
@@ -630,6 +631,79 @@
           <div class="section-title">Raw status JSON</div>
           <button type="button" id="toggle-raw-json" class="secondary">Show</button>
           <pre id="raw-json" style="display: none; margin-top: 0.5rem;">(loading)</pre>
+        </div>
+      </div>
+
+      <div id="panel-glossary" class="tab-panel">
+        <div class="section">
+          <div class="section-title">Glossary</div>
+          <p style="margin: 0 0 1rem 0; font-size: 0.9rem; color: #9ca3af;">Definitions of financial and statistical terms used in this dashboard and by the strategies.</p>
+
+          <h3 style="font-size: 0.85rem; color: #e5e7eb; margin: 1rem 0 0.5rem 0;">Indicators</h3>
+          <dl style="margin: 0; font-size: 0.85rem; line-height: 1.6;">
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">ATR (Average True Range)</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">Measures volatility by averaging the “true range” of each bar (high minus low, or distance from previous close). Higher ATR = more volatile. Used for volatility regime and in some strategies.</dd>
+
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">ADX (Average Directional Index)</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">Measures trend strength (not direction). Values typically 0–100. ADX &gt; 25 often means a strong trend; &lt; 20 means weak or ranging. Used for trend regime.</dd>
+
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">+DI / −DI (Directional Indicators)</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">Part of the ADX calculation. +DI captures upward movement, −DI downward. When +DI &gt; −DI the trend is considered bullish; when −DI &gt; +DI, bearish. Used for trend direction.</dd>
+
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">EMA (Exponential Moving Average)</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">A moving average that gives more weight to recent prices. EMA(9) reacts quickly; EMA(200) is slow and often used as a long-term trend filter.</dd>
+
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">MACD (Moving Average Convergence Divergence)</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">Difference between a fast and a slow EMA (e.g. 12 and 26). A “signal” line (often 9-period EMA of the MACD) is used for crossovers. MACD above zero or crossing above the signal can indicate momentum shifts.</dd>
+
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">RSI (Relative Strength Index)</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">Oscillator from 0 to 100 based on recent gains vs losses. RSI &gt; 70 often considered overbought; &lt; 30 oversold. Used in some strategies for entry/exit.</dd>
+
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">Bollinger Bands</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">A middle line (e.g. 20-period SMA) with upper and lower bands at a number of standard deviations. Price near the upper band can mean overbought; near the lower band, oversold. Band width reflects volatility.</dd>
+
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">Stochastic</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">Compares closing price to the recent high–low range. %K and %D are oscillators (often 0–100). Values above 80 = overbought; below 20 = oversold.</dd>
+          </dl>
+
+          <h3 style="font-size: 0.85rem; color: #e5e7eb; margin: 1rem 0 0.5rem 0;">Risk &amp; PnL</h3>
+          <dl style="margin: 0; font-size: 0.85rem; line-height: 1.6;">
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">PnL (Profit and Loss)</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">Profit or loss in quote currency (e.g. USDT). <strong>Realized</strong> = from closed trades. <strong>Unrealized</strong> = from open positions at current price (mark-to-market).</dd>
+
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">Stop loss</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">A price level at which a position is closed to limit loss (e.g. 2% below entry for a long).</dd>
+
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">Take profit</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">A price level at which a position is closed to lock in profit (e.g. 4% above entry for a long).</dd>
+
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">Risk per trade</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">Fraction of budget (or balance) you are willing to lose on one trade (e.g. 1% = 0.01). Used with stop distance to compute position size.</dd>
+
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">Exposure</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">Share of time the strategy has had an open position (e.g. 30% = in a trade 30% of the time since first trade).</dd>
+          </dl>
+
+          <h3 style="font-size: 0.85rem; color: #e5e7eb; margin: 1rem 0 0.5rem 0;">Analysis metrics</h3>
+          <dl style="margin: 0; font-size: 0.85rem; line-height: 1.6;">
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">Win rate</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">Percentage of closed trades that were profitable (wins ÷ total trades).</dd>
+
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">Sharpe ratio</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">Here: average PnL per trade ÷ standard deviation of trade PnLs. Higher = better return per unit of volatility. A simplified version; the classic Sharpe uses returns and risk-free rate.</dd>
+
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">Sortino ratio</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">Like Sharpe but only uses downside volatility (std of negative PnLs). Penalizes bad outcomes more than general fluctuation.</dd>
+
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">Max drawdown</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">Largest peak-to-trough drop in equity (cumulative PnL). Measures the worst losing run from a previous high.</dd>
+
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">Profit factor</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">Gross profit from winning trades ÷ gross loss from losing trades. &gt; 1 = profitable; e.g. 2 means $2 gained per $1 lost.</dd>
+
+            <dt style="font-weight: 600; color: #e5e7eb; margin-top: 0.5rem;">Expectancy</dt>
+            <dd style="margin: 0.2rem 0 0 1rem; color: #9ca3af;">Average PnL per trade (in quote currency). The amount you expect to make or lose per trade on average.</dd>
+          </dl>
         </div>
       </div>
     </main>
