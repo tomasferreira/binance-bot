@@ -1,3 +1,4 @@
+import { spawn } from 'child_process'
 import express from 'express'
 import { config } from './config.js'
 import { logger } from './logger.js'
@@ -12,6 +13,14 @@ import { getEMACrossSignal, calculateEMA, calculateMACD, calculateRSI, calculate
 
 const { symbol, timeframe, pollIntervalMs } = config.trading
 const apiPort = Number(process.env.API_PORT || 3000)
+
+// Prevent macOS from sleeping while the bot is running
+let caffeinateChild = null
+if (process.platform === 'darwin') {
+  caffeinateChild = spawn('caffeinate', ['-i', '-s'], { stdio: 'ignore' })
+  caffeinateChild.on('error', () => {})
+  process.on('exit', () => { if (caffeinateChild) caffeinateChild.kill() })
+}
 
 /** If global budget is set, each strategy gets an equal share for position sizing. Otherwise null = use full balance. */
 function getStrategyBudget () {
