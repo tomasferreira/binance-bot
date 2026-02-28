@@ -288,3 +288,65 @@ export function calculateATR (ohlcv, period = 14) {
   return atr
 }
 
+/** ADX (Average Directional Index) and +DI/-DI. period default 14. Returns { adx, plusDi, minusDi } arrays. */
+export function calculateADX (ohlcv, period = 14) {
+  if (!Array.isArray(ohlcv) || ohlcv.length < period + 2) {
+    return { adx: [], plusDi: [], minusDi: [] }
+  }
+  const n = ohlcv.length
+  const tr = new Array(n).fill(0)
+  const plusDm = new Array(n).fill(0)
+  const minusDm = new Array(n).fill(0)
+  for (let i = 1; i < n; i++) {
+    const [, high, low, , close] = ohlcv[i]
+    const [,,, prevLow, prevClose] = ohlcv[i - 1]
+    const prevHigh = ohlcv[i - 1][2]
+    tr[i] = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose))
+    const upMove = high - prevHigh
+    const downMove = prevLow - low
+    if (upMove > downMove && upMove > 0) plusDm[i] = upMove
+    if (downMove > upMove && downMove > 0) minusDm[i] = downMove
+  }
+  const wilder = (arr, startIdx) => {
+    let sum = 0
+    for (let i = 1; i <= period; i++) sum += arr[startIdx + i]
+    const out = new Array(n).fill(null)
+    let prev = sum / period
+    out[startIdx + period] = prev
+    for (let i = startIdx + period + 1; i < n; i++) {
+      prev = (prev * (period - 1) + arr[i]) / period
+      out[i] = prev
+    }
+    return out
+  }
+  const startIdx = 0
+  const smoothTr = wilder(tr, startIdx)
+  const smoothPlusDm = wilder(plusDm, startIdx)
+  const smoothMinusDm = wilder(minusDm, startIdx)
+  const plusDi = new Array(n).fill(null)
+  const minusDi = new Array(n).fill(null)
+  const dx = new Array(n).fill(null)
+  for (let i = period; i < n; i++) {
+    if (smoothTr[i] > 0) {
+      plusDi[i] = 100 * smoothPlusDm[i] / smoothTr[i]
+      minusDi[i] = 100 * smoothMinusDm[i] / smoothTr[i]
+      const diSum = plusDi[i] + minusDi[i]
+      if (diSum > 0) dx[i] = 100 * Math.abs(plusDi[i] - minusDi[i]) / diSum
+    }
+  }
+  const adx = new Array(n).fill(null)
+  let sumDx = 0
+  for (let i = period; i < period + period; i++) {
+    if (dx[i] != null) sumDx += dx[i]
+  }
+  let prevAdx = sumDx / period
+  adx[period + period - 1] = prevAdx
+  for (let i = period + period; i < n; i++) {
+    if (dx[i] != null) {
+      prevAdx = (prevAdx * (period - 1) + dx[i]) / period
+      adx[i] = prevAdx
+    }
+  }
+  return { adx, plusDi, minusDi }
+}
+

@@ -8,7 +8,7 @@ import { STRATEGY_IDS, getStrategy, evaluateStrategy } from './strategies/regist
 import { getOrderStrategyMap } from './orderStrategy.js'
 import { maybeClosePosition, openLongPosition, openShortPosition, closePositionNow } from './tradeManager.js'
 import { logOpenOrders } from './orders.js'
-import { getEMACrossSignal, calculateEMA, calculateMACD, calculateRSI, calculateBollinger } from './indicators.js'
+import { getEMACrossSignal, calculateEMA, calculateMACD, calculateRSI, calculateBollinger, calculateATR, calculateADX } from './indicators.js'
 
 const { symbol, timeframe, pollIntervalMs } = config.trading
 const apiPort = Number(process.env.API_PORT || 3000)
@@ -249,6 +249,34 @@ app.get('/api/status', async (req, res) => {
     const macd = macdLine[lastIdx] ?? null
     const macdSignal = signalLine[lastIdx] ?? null
 
+    const atrArr = calculateATR(ohlcv, 14)
+    const atrNow = atrArr.length ? atrArr[atrArr.length - 1] : null
+    const atrLookback = 50
+    const atrAvg = (atrArr.length >= atrLookback)
+      ? atrArr.slice(-atrLookback).reduce((a, b) => a + b, 0) / atrLookback
+      : (atrArr.length ? atrArr.reduce((a, b) => a + b, 0) / atrArr.length : null)
+    const volatilityRatio = (atrNow != null && atrAvg != null && atrAvg > 0) ? atrNow / atrAvg : null
+    let volatilityRegime = 'neutral'
+    if (volatilityRatio != null) {
+      if (volatilityRatio >= 1.2) volatilityRegime = 'high'
+      else if (volatilityRatio <= 0.8) volatilityRegime = 'low'
+    }
+
+    const { adx: adxArr, plusDi: plusDiArr, minusDi: minusDiArr } = calculateADX(ohlcv, 14)
+    const adxNow = adxArr.length ? adxArr[adxArr.length - 1] : null
+    const plusDiNow = plusDiArr.length ? plusDiArr[plusDiArr.length - 1] : null
+    const minusDiNow = minusDiArr.length ? minusDiArr[minusDiArr.length - 1] : null
+    let trendRegime = 'weak'
+    if (adxNow != null) {
+      if (adxNow >= 25) trendRegime = 'trending'
+      else if (adxNow < 20) trendRegime = 'ranging'
+    }
+    let trendDirection = 'neutral'
+    if (plusDiNow != null && minusDiNow != null) {
+      if (plusDiNow > minusDiNow) trendDirection = 'bullish'
+      else if (minusDiNow > plusDiNow) trendDirection = 'bearish'
+    }
+
     logger.debug('exchange.fetchOpenOrders request (/api/status)', { symbol })
     const openOrders = await exchange.fetchOpenOrders(symbol)
     logger.debug('exchange.fetchOpenOrders response (/api/status)', { count: openOrders.length })
@@ -418,7 +446,16 @@ app.get('/api/status', async (req, res) => {
         ema50,
         ema200,
         macd,
-        macdSignal
+        macdSignal,
+        regime: {
+          volatility: volatilityRegime,
+          volatilityRatio: volatilityRatio != null ? Math.round(volatilityRatio * 100) / 100 : null,
+          trend: trendRegime,
+          adx: adxNow != null ? Math.round(adxNow * 10) / 10 : null,
+          trendDirection,
+          plusDi: plusDiNow != null ? Math.round(plusDiNow * 10) / 10 : null,
+          minusDi: minusDiNow != null ? Math.round(minusDiNow * 10) / 10 : null
+        }
       },
       pnl: {
         realized: Number(totalRealized),

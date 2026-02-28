@@ -361,6 +361,22 @@
               <button type="button" id="close-all-positions-btn" class="danger" disabled title="Close all open positions across every strategy">Close all positions</button>
             </div>
           </div>
+          <div class="section">
+            <div class="section-title">Market regime</div>
+            <p style="margin: 0 0 0.5rem 0; font-size: 0.85rem; color: #9ca3af;">Current volatility and trend context (for study; bot does not act on this yet).</p>
+            <div class="row">
+              <span class="label" title="ATR(14) vs average over last 50 bars">Volatility</span>
+              <span class="value" id="regime-volatility">–</span>
+            </div>
+            <div class="row">
+              <span class="label" title="ADX(14): strength of trend">Trend</span>
+              <span class="value" id="regime-trend">–</span>
+            </div>
+            <div class="row">
+              <span class="label" title="+DI vs -DI">Direction</span>
+              <span class="value" id="regime-direction">–</span>
+            </div>
+          </div>
         </div>
         <div class="section">
           <div class="section-title">Price & indicators</div>
@@ -1569,6 +1585,25 @@
           if (ema21El) ema21El.textContent = formatPrice(market.ema21)
           document.getElementById('chart-ema50').textContent = formatPrice(market.ema50)
           document.getElementById('chart-ema200').textContent = formatPrice(market.ema200)
+
+          const regime = market.regime || {}
+          const volEl = document.getElementById('regime-volatility')
+          if (volEl) {
+            const v = regime.volatility
+            const ratio = regime.volatilityRatio
+            volEl.textContent = v ? (v.charAt(0).toUpperCase() + v.slice(1)) + (ratio != null ? ' (' + ratio + '×)' : '') : '–'
+          }
+          const trendEl = document.getElementById('regime-trend')
+          if (trendEl) {
+            const t = regime.trend
+            const adx = regime.adx
+            trendEl.textContent = t ? (t.charAt(0).toUpperCase() + t.slice(1)) + (adx != null ? ' (ADX ' + adx + ')' : '') : '–'
+          }
+          const dirEl = document.getElementById('regime-direction')
+          if (dirEl) {
+            const d = regime.trendDirection
+            dirEl.textContent = d ? (d.charAt(0).toUpperCase() + d.slice(1)) : '–'
+          }
 
           // Profit card: use aggregate pnl from API, or sum from strategies if pnl block missing
           const strategiesForPnl = data.strategies || []
