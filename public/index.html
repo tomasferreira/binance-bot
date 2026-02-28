@@ -363,17 +363,25 @@
           </div>
           <div class="section">
             <div class="section-title">Market regime</div>
-            <p style="margin: 0 0 0.5rem 0; font-size: 0.85rem; color: #9ca3af;">Current volatility and trend context (for study; bot does not act on this yet).</p>
+            <p style="margin: 0 0 0.75rem 0; font-size: 0.85rem; color: #9ca3af;">Current volatility and trend context (for study; bot does not act on this yet).</p>
+            <details style="margin-bottom: 0.75rem;">
+              <summary style="cursor: pointer; font-size: 0.85rem; color: #9ca3af;">How this is calculated</summary>
+              <ul style="margin: 0.5rem 0 0 1.25rem; padding: 0; font-size: 0.8rem; color: #9ca3af; line-height: 1.5;">
+                <li><strong>Volatility</strong> — Average True Range (ATR) over 14 bars vs its average over the last 50 bars. Ratio &gt; 1.2 = high volatility, &lt; 0.8 = low, in between = neutral.</li>
+                <li><strong>Trend</strong> — Average Directional Index (ADX) over 14 bars: strength of trend regardless of direction. ADX ≥ 25 = trending, &lt; 20 = ranging, 20–25 = weak trend.</li>
+                <li><strong>Direction</strong> — +DI vs −DI (Directional Indicators from the same ADX calculation). +DI &gt; −DI = bullish, −DI &gt; +DI = bearish.</li>
+              </ul>
+            </details>
             <div class="row">
-              <span class="label" title="ATR(14) vs average over last 50 bars">Volatility</span>
+              <span class="label">Volatility</span>
               <span class="value" id="regime-volatility">–</span>
             </div>
             <div class="row">
-              <span class="label" title="ADX(14): strength of trend">Trend</span>
+              <span class="label">Trend</span>
               <span class="value" id="regime-trend">–</span>
             </div>
             <div class="row">
-              <span class="label" title="+DI vs -DI">Direction</span>
+              <span class="label">Direction</span>
               <span class="value" id="regime-direction">–</span>
             </div>
           </div>
