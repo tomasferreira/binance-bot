@@ -1,99 +1,46 @@
-## Binance EMA 50/200 Testnet Bot
+# Binance EMA Bot
 
-Node.js Binance Testnet trading bot using CCXT with an EMA 50 / EMA 200 crossover strategy, 2% stop loss, 4% take profit, and 1% risk per trade.
+A Node.js trading application that connects to Binance (testnet or live) via CCXT and runs multiple technical strategies on a configurable symbol and timeframe. It combines a headless engine that evaluates indicators and manages positions with a web dashboard for monitoring, control, and analysis.
 
-### Features
+## Overview
 
-- **Strategy**: EMA 50 / EMA 200 crossover (long-only)
-- **Risk management**: 1% risk per trade based on quote balance
-- **Stop loss**: 2% below entry
-- **Take profit**: 4% above entry
-- **Logging**: Console + `logs/bot.log` via `winston`
-- **State persistence**: `data/state.json` so the bot can resume after restarts
-- **Testnet support**: Uses Binance sandbox (`setSandboxMode(true)`) by default
+The app maintains a set of independent strategies, each with its own state and optional open position. On a fixed interval it fetches OHLCV data and EMAs from the exchange, evaluates each enabled strategy, and opens or closes positions according to signals and risk rules. A built-in HTTP server serves a single-page dashboard that shows live status, portfolio, charts, and performance analytics. State is persisted to disk so the process can be restarted without losing positions or strategy history.
 
-### 1. Install dependencies
+## Trading Engine
 
-From the project root:
+- **Symbol and timeframe** — Configurable (e.g. BTC/USDT, 15m). The same symbol and timeframe are shared by all strategies.
+- **Strategies** — Pluggable modules (EMA crossovers, MACD, RSI, Bollinger, multi-timeframe trend, ATR-based, and others). Each strategy has a unique id, can be long or short, and exposes an `evaluate(ohlcv, state)` function that returns actions such as buy, sell, or hold.
+- **Execution** — Orders are placed and closed via CCXT. Position size is derived from a configurable risk-per-trade and optional per-strategy or global budget. Stop loss and take profit percentages can be set globally and applied to each position.
+- **State** — Each strategy has its own state file under `data/` (e.g. open position, entry price, PnL history). The engine also keeps a mapping of order ids to strategies so trade history can be attributed correctly.
+- **Auto trading** — A global toggle enables or disables automatic opening and closing of positions; the dashboard and API still allow manual buy/sell and closing.
 
-```bash
-npm install
-```
+## Dashboard
 
-If you created the project manually:
+The dashboard is a single HTML front end that talks to the backend REST API. It is organized into tabs:
 
-```bash
-npm install ccxt winston dotenv
-```
+- **Overview** — Bot mode (testnet/live), symbol, timeframe, next tick ETA, auto-trading status, portfolio balances (e.g. BTC and USDT), aggregate realized/unrealized/total PnL, and a summary of open positions. A price chart shows candles and EMAs, with entry and exit markers for all strategies.
+- **Strategies** — A table of all strategies (long and short) with name, type, running state, W/L, total PnL, exposure, current position, last decision, and actions: start/stop, long/short, close, reset PnL. Selecting a row shows a detail pane and focuses the chart on that strategy’s entries and exits.
+- **Trades & Activity** — List of recent activity and a link to the trades view. Trade history is loaded from the API (exchange trades plus strategy attribution).
+- **Analysis** — Performance analytics with a time-range filter (all time, last 7 days, last 30 days, or since last PnL reset). Includes a sortable table of metrics per strategy (total/realized/unrealized PnL, W/L, win rate, avg win/loss, Sharpe, max drawdown, trades, trades from history, fees, exposure, avg duration, profit factor, expectancy, max win, max loss, Sortino, trades per day, last trade). Top 3 and bottom 3 strategies by PnL, bar charts for total PnL and win rate, and an equity curve (cumulative PnL over time) for a selected strategy. Column headers have hover tooltips.
+- **Settings** — Budget display, auto-trading toggle, risk per trade and stop loss / take profit inputs with apply and reset-to-env-defaults. Manual portfolio controls: amount and unit (e.g. BTC or USDT) for one-off buy/sell without using a specific strategy’s risk size.
 
-### 2. Configure environment
+## Risk and Configuration
 
-Copy `.env.example` to `.env` and fill in your Binance **testnet** API keys:
+- **Risk per trade** — Fraction of quote (or strategy budget) risked per position. Used with stop distance to compute position size.
+- **Stop loss / take profit** — Percentage from entry; applied when the engine or exchange logic closes the position.
+- **Budget** — Optional global or per-strategy quote budget caps; if unset, the bot can use full available balance within exchange limits.
+- **Testnet** — The app can run against Binance testnet or live; mode is chosen via environment configuration.
 
-```bash
-cp .env.example .env
-```
+## Data and Logging
 
-Edit `.env`:
+- **State** — Stored under `data/`: one state file per strategy (positions, PnL reset timestamp, closed-trade history for analytics), plus runner and order-strategy mapping. Not intended to be edited by hand while the process is running.
+- **Logging** — Winston is used for console and file logging (e.g. `logs/bot.log`). Log level and format are configurable.
 
-- **BINANCE_API_KEY / BINANCE_API_SECRET**: your Binance testnet API credentials
-- **TESTNET**: keep as `true` for testnet; set to `false` only for live trading
-- **SYMBOL**: e.g. `BTC/USDT`
-- **TIMEFRAME**: e.g. `15m`
-- **POLL_INTERVAL_MS**: how often to poll for new candles
-- **RISK_PER_TRADE**: fraction of quote balance to risk (e.g. `0.01` = 1%)
-- **STOP_LOSS_PCT** / **TAKE_PROFIT_PCT**: 0.02 (2%) and 0.04 (4%) by default
+## Technology
 
-### 3. Run the bot
+- **Runtime** — Node.js (ES modules).
+- **Exchange** — CCXT for Binance connectivity (candles, account, orders, trades).
+- **Server** — Express for the API and for serving the static dashboard.
+- **Front end** — Single HTML file with inline CSS and JavaScript; Chart.js for candlestick, line, and bar charts.
 
-```bash
-npm start
-# or
-node src/index.js
-```
-
-On startup you should see:
-
-- Exchange initialized in TESTNET mode
-- Exchange status
-- Periodic bot ticks and EMA status logs
-- Trade open/close logs when the EMA crossover triggers.
-
-### Develop on multiple computers
-
-1. **Put the project under Git and push to a remote** (one-time, from your current machine):
-
-   ```bash
-   cd /path/to/crypt
-   git init
-   git add .
-   git commit -m "Initial commit"
-   # Create a repo on GitHub/GitLab/Bitbucket, then:
-   git remote add origin https://github.com/YOUR_USER/crypt.git
-   git push -u origin main
-   ```
-
-2. **On each other computer**, clone and set up:
-
-   ```bash
-   git clone https://github.com/YOUR_USER/crypt.git
-   cd crypt
-   npm install
-   cp .env.example .env
-   # Edit .env with your API keys (or copy from a secure backup)
-   npm start
-   ```
-
-3. **Keep in sync**: pull before you start working, push when you leave:
-
-   ```bash
-   git pull
-   # ... work ...
-   git add .
-   git commit -m "Describe changes"
-   git push
-   ```
-
-- **Never commit `.env`** — it’s in `.gitignore`. Use the same keys on each machine or a password manager / secrets vault.
-- **`data/` and `logs/`** are ignored so each machine has its own state and logs; if you want one shared “brain”, run the bot on a single server and only use other machines for code edits.
-
+The application is designed to run continuously, polling for new candles and updating positions and dashboard data on a fixed schedule while keeping full control and visibility through the web interface.
