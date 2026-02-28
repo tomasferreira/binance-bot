@@ -140,12 +140,13 @@ export async function updateAnalysisPanel (strategies) {
     const sharpe = computeSharpe(hist)
     const extra = computeExtraMetrics(hist, s)
     const td = state.analysisTradesData[s.id] || {}
-    return { ...s, _metrics: m, _sharpe: sharpe, _tradesHistory: td.count || 0, _fees: td.fee || 0, _profitFactor: extra.profitFactor, _expectancy: extra.expectancy, _maxWin: extra.maxWin, _maxLoss: extra.maxLoss, _sortino: extra.sortino, _tradesPerDay: extra.tradesPerDay, _lastTradeStr: extra.lastTradeStr, _lastTradeTs: extra.lastTradeTs }
+    const typeTag = s.id && s.id.startsWith('short_') ? 'Short' : 'Long'
+    return { ...s, _metrics: m, _typeTag: typeTag, _sharpe: sharpe, _tradesHistory: td.count || 0, _fees: td.fee || 0, _profitFactor: extra.profitFactor, _expectancy: extra.expectancy, _maxWin: extra.maxWin, _maxLoss: extra.maxLoss, _sortino: extra.sortino, _tradesPerDay: extra.tradesPerDay, _lastTradeStr: extra.lastTradeStr, _lastTradeTs: extra.lastTradeTs }
   })
 
   const sorted = [...list].sort((a, b) => {
     const sortKey = state.analysisSortBy === 'avgDuration' ? 'avgTradeDurationMs' : state.analysisSortBy
-    const extraKeys = { sharpe: '_sharpe', tradesHistory: '_tradesHistory', fees: '_fees', profitFactor: '_profitFactor', expectancy: '_expectancy', maxWin: '_maxWin', maxLoss: '_maxLoss', sortino: '_sortino', tradesPerDay: '_tradesPerDay', lastTrade: '_lastTradeTs' }
+    const extraKeys = { type: '_typeTag', sharpe: '_sharpe', tradesHistory: '_tradesHistory', fees: '_fees', profitFactor: '_profitFactor', expectancy: '_expectancy', maxWin: '_maxWin', maxLoss: '_maxLoss', sortino: '_sortino', tradesPerDay: '_tradesPerDay', lastTrade: '_lastTradeTs' }
     const extraKey = extraKeys[state.analysisSortBy]
     const va = extraKey ? (extraKey === '_lastTradeTs' ? a._lastTradeTs : a[extraKey]) : (a._metrics && a._metrics[sortKey]) != null ? a._metrics[sortKey] : a[state.analysisSortBy]
     const vb = extraKey ? (extraKey === '_lastTradeTs' ? b._lastTradeTs : b[extraKey]) : (b._metrics && b._metrics[sortKey]) != null ? b._metrics[sortKey] : b[state.analysisSortBy]
