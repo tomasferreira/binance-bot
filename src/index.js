@@ -20,7 +20,8 @@ const apiPort = Number(process.env.API_PORT || 3000)
 // Prevent macOS from sleeping while the bot is running
 let caffeinateChild = null
 if (process.platform === 'darwin') {
-  caffeinateChild = spawn('caffeinate', ['-i', '-s'], { stdio: 'ignore' })
+  // -i = prevent idle sleep (AC and battery), -d = prevent display sleep (keeps system awake on battery)
+  caffeinateChild = spawn('caffeinate', ['-i', '-d'], { stdio: 'ignore' })
   caffeinateChild.on('error', () => {})
   process.on('exit', () => { if (caffeinateChild) caffeinateChild.kill() })
 }
