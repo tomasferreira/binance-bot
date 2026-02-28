@@ -1,8 +1,5 @@
 import { logger } from './logger.js'
 
-// Compute position size in base currency units based on risk percentage,
-// stop loss distance, account balance, and optional fee (round-trip).
-// Total loss at SL = price move + fee on entry + fee on exit.
 export function calculatePositionSize ({
   balanceQuote,
   entryPrice,
@@ -10,6 +7,13 @@ export function calculatePositionSize ({
   riskPerTrade,
   feeRatePct = 0
 }) {
+  logger.debug('calculatePositionSize: input', {
+    balanceQuote,
+    entryPrice,
+    stopLossPrice,
+    riskPerTrade,
+    feeRatePct
+  })
   if (!balanceQuote || !entryPrice || !stopLossPrice || !riskPerTrade) {
     logger.warn('Invalid parameters for position sizing')
     return 0
@@ -37,6 +41,7 @@ export function calculatePositionSize ({
 
   // Round down to 6 decimal places for safety
   const rounded = Math.floor(positionSizeBase * 1e6) / 1e6
+  logger.debug('calculatePositionSize: result', { riskAmount, stopDistance, feePerUnit, lossPerUnit, positionSizeBase, rounded })
   return rounded
 }
 

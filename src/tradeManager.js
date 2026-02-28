@@ -10,18 +10,24 @@ const feeRate = typeof feeRatePct === 'number' && feeRatePct >= 0 ? feeRatePct :
 
 export async function syncBalanceQuote () {
   const exchange = getExchange()
+  logger.debug('exchange.fetchBalance request', { symbol })
   const balance = await exchange.fetchBalance()
+  logger.debug('exchange.fetchBalance response', {
+    total: balance.total,
+    free: balance.free,
+    used: balance.used
+  })
   const quoteCurrency = symbol.split('/')[1]
   const quoteInfo = balance.total?.[quoteCurrency] ?? balance.free?.[quoteCurrency]
   const quoteBalance = Number(quoteInfo || 0)
-  logger.info(`Balance ${quoteCurrency}: ${quoteBalance}`)
+  logger.debug('syncBalanceQuote result', { quoteCurrency, quoteBalance })
   return quoteBalance
 }
 
-export async function openLongPosition (state, marketPrice, strategyId = null, entryDetail = null) {
+export async function openLongPosition (state, marketPrice, strategyId = null, entryDetail = null, budgetQuote = null) {
   const exchange = getExchange()
 
-  const quoteBalance = await syncBalanceQuote()
+  const quoteBalance = (budgetQuote != null && budgetQuote > 0) ? budgetQuote : await syncBalanceQuote()
   if (!quoteBalance) {
     logger.warn('No quote balance available; cannot open position')
     return state
@@ -50,6 +56,18 @@ export async function openLongPosition (state, marketPrice, strategyId = null, e
   const stopLossPrice = marketPrice * (1 - effectiveStopLossPct + feeRate) / (1 + feeRate)
   const takeProfitPrice = marketPrice * (1 + effectiveTakeProfitPct + 2 * feeRate)
 
+  logger.debug('openLongPosition: computed risk config', {
+    strategyId,
+    marketPrice,
+    budgetQuote,
+    quoteBalance,
+    effectiveRiskPerTrade,
+    effectiveStopLossPct,
+    effectiveTakeProfitPct,
+    stopLossPrice,
+    takeProfitPrice
+  })
+
   const amount = calculatePositionSize({
     balanceQuote: quoteBalance,
     entryPrice: marketPrice,
@@ -66,8 +84,9 @@ export async function openLongPosition (state, marketPrice, strategyId = null, e
   logger.info(
     `Opening LONG position on ${symbol} at ${marketPrice}, amount ${amount}, SL ${stopLossPrice}, TP ${takeProfitPrice}`
   )
-
+  logger.debug('exchange.createMarketBuyOrder request', { symbol, amount })
   const order = await exchange.createMarketBuyOrder(symbol, amount)
+  logger.debug('exchange.createMarketBuyOrder response', { order })
   logger.info(`Market BUY order placed: id=${order.id}, status=${order.status}`)
   if (strategyId) recordOrderStrategy(order.id, strategyId, strategyId === 'manual' ? 'Manual' : 'Entry', entryDetail ?? null)
 
@@ -86,10 +105,10 @@ export async function openLongPosition (state, marketPrice, strategyId = null, e
   return { ...state, openPosition: newPosition, lastSignal: 'long', positionsOpened }
 }
 
-export async function openShortPosition (state, marketPrice, strategyId = null, entryDetail = null) {
+export async function openShortPosition (state, marketPrice, strategyId = null, entryDetail = null, budgetQuote = null) {
   const exchange = getExchange()
 
-  const quoteBalance = await syncBalanceQuote()
+  const quoteBalance = (budgetQuote != null && budgetQuote > 0) ? budgetQuote : await syncBalanceQuote()
   if (!quoteBalance) {
     logger.warn('No quote balance available; cannot open short position')
     return state
@@ -119,6 +138,18 @@ export async function openShortPosition (state, marketPrice, strategyId = null, 
   const stopLossPrice = marketPrice * (1 + effectiveStopLossPct)
   const takeProfitPrice = marketPrice * (1 - effectiveTakeProfitPct)
 
+  logger.debug('openShortPosition: computed risk config', {
+    strategyId,
+    marketPrice,
+    budgetQuote,
+    quoteBalance,
+    effectiveRiskPerTrade,
+    effectiveStopLossPct,
+    effectiveTakeProfitPct,
+    stopLossPrice,
+    takeProfitPrice
+  })
+
   const amount = calculatePositionSize({
     balanceQuote: quoteBalance,
     entryPrice: marketPrice,
@@ -136,7 +167,9 @@ export async function openShortPosition (state, marketPrice, strategyId = null, 
     `Opening SHORT position on ${symbol} at ${marketPrice}, amount ${amount}, SL ${stopLossPrice}, TP ${takeProfitPrice}`
   )
 
+  logger.debug('exchange.createMarketSellOrder request (short entry)', { symbol, amount })
   const order = await exchange.createMarketSellOrder(symbol, amount)
+  logger.debug('exchange.createMarketSellOrder response (short entry)', { order })
   logger.info(`Market SELL (short) order placed: id=${order.id}, status=${order.status}`)
   if (strategyId) recordOrderStrategy(order.id, strategyId, strategyId === 'manual' ? 'Manual' : 'Short entry', entryDetail ?? null)
 
@@ -181,10 +214,15 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
     `Manual CLOSE ${side.toUpperCase()} position at marketPrice=${marketPrice}, entry=${position.entryPrice}, amount=${amount}`
   )
 
+  if (orderSide === 'sell') {
+    logger.debug('exchange.createMarketSellOrder request (close)', { symbol, amount })
+  } else {
+    logger.debug('exchange.createMarketBuyOrder request (close)', { symbol, amount })
+  }
   const order = orderSide === 'sell'
     ? await exchange.createMarketSellOrder(symbol, amount)
     : await exchange.createMarketBuyOrder(symbol, amount)
-
+  logger.debug('exchange market order response (close)', { orderSide, order })
   logger.info(`Market ${orderSide.toUpperCase()} order placed: id=${order.id}, status=${order.status}`)
   if (strategyId) recordOrderStrategy(order.id, strategyId, reason, exitDetail ?? null)
 
@@ -226,6 +264,11 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
     if (dd < maxDrawdown) maxDrawdown = dd
   }
 
+  const closedTradesHistory = Array.isArray(state.closedTradesHistory) ? state.closedTradesHistory : []
+  closedTradesHistory.push({ timestamp: new Date().toISOString(), pnl })
+  const MAX_HISTORY = 500
+  const trimmed = closedTradesHistory.length > MAX_HISTORY ? closedTradesHistory.slice(-MAX_HISTORY) : closedTradesHistory
+
   return {
     ...state,
     openPosition: null,
@@ -238,7 +281,8 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
     totalTradeDurationMs,
     firstTradeAt,
     peakEquity,
-    maxDrawdown
+    maxDrawdown,
+    closedTradesHistory: trimmed
   }
 }
 

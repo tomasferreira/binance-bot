@@ -13,18 +13,34 @@ import { getEMACrossSignal, calculateEMA, calculateMACD, calculateRSI, calculate
 const { symbol, timeframe, pollIntervalMs } = config.trading
 const apiPort = Number(process.env.API_PORT || 3000)
 
+/** If global budget is set, each strategy gets an equal share for position sizing. Otherwise null = use full balance. */
+function getStrategyBudget () {
+  const g = config.trading.globalBudgetQuote
+  if (!g || g <= 0) return null
+  return g / STRATEGY_IDS.length
+}
+
 let lastTickAt = null
 const lastDecisionByStrategy = {}
 
 async function fetchMarketData (limit = 250) {
   const exchange = getExchange()
+  logger.debug('exchange.fetchOHLCV request', { symbol, timeframe, limit })
   const ohlcv = await exchange.fetchOHLCV(symbol, timeframe, undefined, limit)
+  logger.debug('exchange.fetchOHLCV response', { candles: ohlcv.length })
   return ohlcv
 }
 
 async function tickStrategy (strategyId, ohlcv, lastClose) {
   let state = loadState(strategyId)
   const autoTradingEnabled = state.autoTradingEnabled !== false
+  logger.debug('tickStrategy start', {
+    strategyId,
+    lastClose,
+    autoTradingEnabled,
+    hasOpenPosition: !!state.openPosition,
+    side: state.openPosition?.side || null
+  })
 
   state = await maybeClosePosition(state, lastClose, strategyId)
 
@@ -44,15 +60,21 @@ async function tickStrategy (strategyId, ohlcv, lastClose) {
     const decision = evaluateStrategy(strategyId, ohlcv, state)
     lastDecisionByStrategy[strategyId] = decision.action
     if (autoTradingEnabled && decision.action === 'enter-long') {
-      state = await openLongPosition(state, lastClose, strategyId, decision.detail)
+      state = await openLongPosition(state, lastClose, strategyId, decision.detail, getStrategyBudget())
     } else if (autoTradingEnabled && decision.action === 'enter-short') {
-      state = await openShortPosition(state, lastClose, strategyId, decision.detail)
+      state = await openShortPosition(state, lastClose, strategyId, decision.detail, getStrategyBudget())
     } else if (decision.action === 'exit-long' || decision.action === 'exit-short') {
       // already flat, nothing to do
     }
   }
 
   saveState(strategyId, state)
+  logger.debug('tickStrategy end', {
+    strategyId,
+    lastDecision: lastDecisionByStrategy[strategyId],
+    hasOpenPosition: !!state.openPosition,
+    side: state.openPosition?.side || null
+  })
   return state
 }
 
@@ -62,6 +84,10 @@ async function botTick () {
     const ohlcv = await fetchMarketData()
     const lastClose = ohlcv[ohlcv.length - 1][4]
     const runner = loadRunner()
+    logger.debug('botTick state', {
+      runningStrategies: runner.running,
+      lastClose
+    })
 
     for (const strategyId of runner.running) {
       try {
@@ -104,6 +130,41 @@ async function main () {
 const app = express()
 app.use(express.json())
 
+// Inbound API debug logging: request + response (body + headers) when LOG_LEVEL=DEBUG
+app.use((req, res, next) => {
+  logger.debug('HTTP inbound', {
+    method: req.method,
+    url: req.originalUrl || req.url,
+    headers: req.headers,
+    body: req.body
+  })
+
+  const origJson = res.json.bind(res)
+  const origSend = res.send.bind(res)
+
+  res.json = (body) => {
+    logger.debug('HTTP outbound', {
+      method: req.method,
+      url: req.originalUrl || req.url,
+      statusCode: res.statusCode,
+      body
+    })
+    return origJson(body)
+  }
+
+  res.send = (body) => {
+    logger.debug('HTTP outbound', {
+      method: req.method,
+      url: req.originalUrl || req.url,
+      statusCode: res.statusCode,
+      body: typeof body === 'string' ? body.slice(0, 2000) : body
+    })
+    return origSend(body)
+  }
+
+  next()
+})
+
 // Helper to compute effective runtime config
 function getEffectiveTradingConfig (state) {
   const runtime = state.runtimeConfig || {}
@@ -126,9 +187,16 @@ function getEffectiveTradingConfig (state) {
 // Status endpoint used by the dashboard
 app.get('/api/status', async (req, res) => {
   try {
+    logger.debug('HTTP GET /api/status')
     const runner = loadRunner()
     const exchange = getExchange()
+    logger.debug('exchange.fetchBalance request (/api/status)', { symbol })
     const balance = await exchange.fetchBalance()
+    logger.debug('exchange.fetchBalance response (/api/status)', {
+      total: balance.total,
+      free: balance.free,
+      used: balance.used
+    })
 
     const ohlcv = await fetchMarketData(250)
     const last = ohlcv[ohlcv.length - 1]
@@ -146,8 +214,33 @@ app.get('/api/status', async (req, res) => {
     const macd = macdLine[lastIdx] ?? null
     const macdSignal = signalLine[lastIdx] ?? null
 
+    logger.debug('exchange.fetchOpenOrders request (/api/status)', { symbol })
     const openOrders = await exchange.fetchOpenOrders(symbol)
+    logger.debug('exchange.fetchOpenOrders response (/api/status)', { count: openOrders.length })
     const now = Date.now()
+    const now7d = now - 7 * 24 * 60 * 60 * 1000
+    const now30d = now - 30 * 24 * 60 * 60 * 1000
+
+    function statsFromHistory (entries) {
+      if (!Array.isArray(entries) || entries.length === 0) {
+        return { realizedPnl: 0, wins: 0, losses: 0, trades: 0, winRate: null, avgWin: null, avgLoss: null }
+      }
+      const realizedPnl = entries.reduce((sum, e) => sum + Number(e.pnl ?? 0), 0)
+      const wins = entries.filter(e => (e.pnl ?? 0) > 0).length
+      const losses = entries.filter(e => (e.pnl ?? 0) < 0).length
+      const trades = entries.length
+      const totalWinPnl = entries.filter(e => (e.pnl ?? 0) > 0).reduce((s, e) => s + e.pnl, 0)
+      const totalLossPnl = entries.filter(e => (e.pnl ?? 0) < 0).reduce((s, e) => s + e.pnl, 0)
+      return {
+        realizedPnl,
+        wins,
+        losses,
+        trades,
+        winRate: trades > 0 ? wins / trades : null,
+        avgWin: wins > 0 ? totalWinPnl / wins : null,
+        avgLoss: losses > 0 ? totalLossPnl / losses : null
+      }
+    }
 
     const strategies = STRATEGY_IDS.map(id => {
       const state = loadState(id)
@@ -181,6 +274,16 @@ app.get('/api/status', async (req, res) => {
         exposure = totalTradeDurationMs / (now - firstTradeAtMs)
       }
       const maxDrawdown = Number(state.maxDrawdown ?? 0)
+
+      const history = Array.isArray(state.closedTradesHistory) ? state.closedTradesHistory : []
+      const pnlResetAt = state.pnlResetAt || null
+      const sinceResetEntries = pnlResetAt ? history.filter(e => new Date(e.timestamp).getTime() >= new Date(pnlResetAt).getTime()) : []
+      const last7dEntries = history.filter(e => new Date(e.timestamp).getTime() >= now7d)
+      const last30dEntries = history.filter(e => new Date(e.timestamp).getTime() >= now30d)
+      const sinceReset = statsFromHistory(sinceResetEntries)
+      const last7d = statsFromHistory(last7dEntries)
+      const last30d = statsFromHistory(last30dEntries)
+
       return {
         id,
         name: s?.name ?? id,
@@ -201,7 +304,12 @@ app.get('/api/status', async (req, res) => {
         unrealizedPnl: unrealized,
         totalPnl: realized + unrealized,
         position: state.openPosition ? { open: true, ...state.openPosition } : { open: false },
-        lastDecision: lastDecisionByStrategy[id] ?? 'none'
+        lastDecision: lastDecisionByStrategy[id] ?? 'none',
+        pnlResetAt,
+        closedTradesHistory: history,
+        sinceReset,
+        last7d,
+        last30d
       }
     })
 
@@ -234,7 +342,12 @@ app.get('/api/status', async (req, res) => {
           takeProfitPct: config.trading.takeProfitPct
         },
         runtime: firstState.runtimeConfig || {},
-        assetsToLog: config.trading.assetsToLog
+        assetsToLog: config.trading.assetsToLog,
+        budget: {
+          globalBudgetQuote: config.trading.globalBudgetQuote || null,
+          strategyBudgetQuote: getStrategyBudget(),
+          strategyCount: STRATEGY_IDS.length
+        }
       },
       strategies,
       portfolio: {
@@ -283,19 +396,27 @@ app.get('/api/status', async (req, res) => {
   }
 })
 
-// Manual buy endpoint (uses "manual" strategy)
+// Manual buy: portfolio (amount + unit) or open full risk-sized position
 app.post('/api/manual-buy', async (req, res) => {
   try {
-    const strategyId = 'manual'
-    let state = loadState(strategyId)
+    const { amount: amountParam, unit } = req.body || {}
     const ohlcv = await fetchMarketData(2)
     const lastClose = ohlcv[ohlcv.length - 1][4]
 
-    logger.info('Manual BUY requested via API')
+    if (typeof amountParam === 'number' && amountParam > 0 && (unit === 'base' || unit === 'quote')) {
+      const amountBase = unit === 'quote' ? amountParam / lastClose : amountParam
+      const exchange = getExchange()
+      logger.info(`Manual portfolio BUY: ${amountBase} base (${unit === 'quote' ? amountParam + ' quote' : 'base'})`)
+      const order = await exchange.createMarketBuyOrder(symbol, amountBase)
+      logger.info(`Market BUY order placed: id=${order.id}, status=${order.status}`)
+      return res.json({ status: 'ok', order: { id: order.id, status: order.status }, amountBase })
+    }
 
-    state = await openLongPosition(state, lastClose, strategyId)
+    const strategyId = 'manual'
+    let state = loadState(strategyId)
+    logger.info('Manual BUY requested via API (full position)')
+    state = await openLongPosition(state, lastClose, strategyId, null, getStrategyBudget())
     saveState(strategyId, state)
-
     res.json({ status: 'ok', position: state.openPosition })
   } catch (err) {
     logger.error('Error in /api/manual-buy', err)
@@ -303,23 +424,30 @@ app.post('/api/manual-buy', async (req, res) => {
   }
 })
 
-// Manual sell/close endpoint (uses "manual" strategy)
+// Manual sell: portfolio (amount + unit) or close full manual position
 app.post('/api/manual-sell', async (req, res) => {
   try {
+    const { amount: amountParam, unit } = req.body || {}
+    const ohlcv = await fetchMarketData(2)
+    const lastClose = ohlcv[ohlcv.length - 1][4]
+
+    if (typeof amountParam === 'number' && amountParam > 0 && (unit === 'base' || unit === 'quote')) {
+      const amountBase = unit === 'quote' ? amountParam / lastClose : amountParam
+      const exchange = getExchange()
+      logger.info(`Manual portfolio SELL: ${amountBase} base (${unit === 'quote' ? amountParam + ' quote' : 'base'})`)
+      const order = await exchange.createMarketSellOrder(symbol, amountBase)
+      logger.info(`Market SELL order placed: id=${order.id}, status=${order.status}`)
+      return res.json({ status: 'ok', order: { id: order.id, status: order.status }, amountBase })
+    }
+
     const strategyId = 'manual'
     let state = loadState(strategyId)
     if (!state.openPosition) {
       return res.json({ status: 'ok', position: null })
     }
-
-    const ohlcv = await fetchMarketData(2)
-    const lastClose = ohlcv[ohlcv.length - 1][4]
-
-    logger.info('Manual SELL requested via API')
-
+    logger.info('Manual SELL requested via API (close position)')
     state = await closePositionNow(state, lastClose, strategyId, 'Manual close')
     saveState(strategyId, state)
-
     res.json({ status: 'ok', position: state.openPosition })
   } catch (err) {
     logger.error('Error in /api/manual-sell', err)
@@ -329,6 +457,7 @@ app.post('/api/manual-sell', async (req, res) => {
 
 // List strategies and start/stop
 app.get('/api/strategies', (req, res) => {
+  logger.debug('HTTP GET /api/strategies')
   const runner = loadRunner()
   const list = STRATEGY_IDS.map(id => ({
     id,
@@ -341,6 +470,7 @@ app.get('/api/strategies', (req, res) => {
 app.post('/api/strategies/:id/start', (req, res) => {
   try {
     const { id } = req.params
+    logger.debug('HTTP POST /api/strategies/:id/start', { id })
     if (!STRATEGY_IDS.includes(id)) {
       return res.status(400).json({ error: 'Unknown strategy' })
     }
@@ -355,6 +485,7 @@ app.post('/api/strategies/:id/start', (req, res) => {
 app.post('/api/strategies/:id/stop', (req, res) => {
   try {
     const { id } = req.params
+    logger.debug('HTTP POST /api/strategies/:id/stop', { id })
     if (!STRATEGY_IDS.includes(id)) {
       return res.status(400).json({ error: 'Unknown strategy' })
     }
@@ -370,6 +501,7 @@ app.post('/api/strategies/:id/stop', (req, res) => {
 app.post('/api/strategies/:id/buy', async (req, res) => {
   try {
     const { id } = req.params
+    logger.debug('HTTP POST /api/strategies/:id/buy', { id })
     if (!STRATEGY_IDS.includes(id)) {
       return res.status(400).json({ error: 'Unknown strategy' })
     }
@@ -380,7 +512,7 @@ app.post('/api/strategies/:id/buy', async (req, res) => {
     const ohlcv = await fetchMarketData(2)
     const lastClose = ohlcv[ohlcv.length - 1][4]
     logger.info(`Strategy BUY requested via API: ${id}`)
-    state = await openLongPosition(state, lastClose, id)
+    state = await openLongPosition(state, lastClose, id, null, getStrategyBudget())
     saveState(id, state)
     res.json({ status: 'ok', position: state.openPosition })
   } catch (err) {
@@ -389,10 +521,35 @@ app.post('/api/strategies/:id/buy', async (req, res) => {
   }
 })
 
+// Open a short position for a specific strategy
+app.post('/api/strategies/:id/short', async (req, res) => {
+  try {
+    const { id } = req.params
+    logger.debug('HTTP POST /api/strategies/:id/short', { id })
+    if (!STRATEGY_IDS.includes(id)) {
+      return res.status(400).json({ error: 'Unknown strategy' })
+    }
+    let state = loadState(id)
+    if (state.openPosition) {
+      return res.status(400).json({ error: 'Strategy already has an open position', position: state.openPosition })
+    }
+    const ohlcv = await fetchMarketData(2)
+    const lastClose = ohlcv[ohlcv.length - 1][4]
+    logger.info(`Strategy SHORT requested via API: ${id}`)
+    state = await openShortPosition(state, lastClose, id, null, getStrategyBudget())
+    saveState(id, state)
+    res.json({ status: 'ok', position: state.openPosition })
+  } catch (err) {
+    logger.error('Error in strategy short', err)
+    res.status(500).json({ error: 'Short failed' })
+  }
+})
+
 // Close position for a specific strategy
 app.post('/api/strategies/:id/sell', async (req, res) => {
   try {
     const { id } = req.params
+    logger.debug('HTTP POST /api/strategies/:id/sell', { id })
     if (!STRATEGY_IDS.includes(id)) {
       return res.status(400).json({ error: 'Unknown strategy' })
     }
@@ -416,6 +573,7 @@ app.post('/api/strategies/:id/sell', async (req, res) => {
 app.post('/api/strategies/:id/reset-pnl', (req, res) => {
   try {
     const { id } = req.params
+    logger.debug('HTTP POST /api/strategies/:id/reset-pnl', { id })
     if (!STRATEGY_IDS.includes(id)) {
       return res.status(400).json({ error: 'Unknown strategy' })
     }
@@ -431,6 +589,7 @@ app.post('/api/strategies/:id/reset-pnl', (req, res) => {
     state.firstTradeAt = null
     state.peakEquity = 0
     state.maxDrawdown = 0
+    state.pnlResetAt = new Date().toISOString()
     saveState(id, state)
     logger.info(`PnL + win/loss counters + positionsOpened reset for strategy: ${id}`)
     res.json({
@@ -449,6 +608,7 @@ app.post('/api/strategies/:id/reset-pnl', (req, res) => {
 // Reset realized PnL and stats for all strategies
 app.post('/api/reset-all-pnl', (req, res) => {
   try {
+    logger.debug('HTTP POST /api/reset-all-pnl')
     for (const id of STRATEGY_IDS) {
       const state = loadState(id)
       state.realizedPnl = 0
@@ -462,6 +622,7 @@ app.post('/api/reset-all-pnl', (req, res) => {
       state.firstTradeAt = null
       state.peakEquity = 0
       state.maxDrawdown = 0
+      state.pnlResetAt = new Date().toISOString()
       saveState(id, state)
     }
     logger.info('PnL + win/loss counters + positionsOpened reset for all strategies')
@@ -476,6 +637,7 @@ app.post('/api/reset-all-pnl', (req, res) => {
 app.post('/api/config', (req, res) => {
   try {
     const { autoTradingEnabled, riskPerTrade, stopLossPct, takeProfitPct } = req.body || {}
+    logger.debug('HTTP POST /api/config', { autoTradingEnabled, riskPerTrade, stopLossPct, takeProfitPct })
 
     for (const id of STRATEGY_IDS) {
       let state = loadState(id)
@@ -508,12 +670,41 @@ app.post('/api/config', (req, res) => {
   }
 })
 
+// Reset risk/SL/TP to .env defaults (clears persisted runtime config)
+app.post('/api/config/reset', (req, res) => {
+  try {
+    for (const id of STRATEGY_IDS) {
+      const state = loadState(id)
+      state.runtimeConfig = {
+        ...(state.runtimeConfig || {}),
+        riskPerTrade: null,
+        stopLossPct: null,
+        takeProfitPct: null
+      }
+      saveState(id, state)
+    }
+    const firstState = loadState(STRATEGY_IDS[0])
+    const effective = getEffectiveTradingConfig(firstState)
+    logger.info(
+      `Runtime risk config reset to .env defaults: riskPerTrade=${effective.riskPerTrade}, ` +
+        `stopLossPct=${effective.stopLossPct}, takeProfitPct=${effective.takeProfitPct}`
+    )
+    res.json({ status: 'ok', runtimeConfig: firstState.runtimeConfig })
+  } catch (err) {
+    logger.error('Error in /api/config/reset', err)
+    res.status(500).json({ error: 'Failed to reset config' })
+  }
+})
+
 // Recent trades with fee info (from Binance)
 app.get('/api/trades', async (req, res) => {
   try {
     const exchange = getExchange()
-    const limit = Math.min(Number(req.query.limit) || 50, 100)
+    const limit = Math.min(Number(req.query.limit) || 50, 500)
+    logger.debug('HTTP GET /api/trades', { limit })
+    logger.debug('exchange.fetchMyTrades request', { symbol, limit })
     const trades = await exchange.fetchMyTrades(symbol, undefined, limit)
+    logger.debug('exchange.fetchMyTrades response', { count: trades.length })
     const orderToStrategy = getOrderStrategyMap()
 
     const withFees = trades.map(t => {
@@ -561,6 +752,7 @@ app.get('/api/trades', async (req, res) => {
 app.get('/api/candles', async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 200, 500)
+    logger.debug('HTTP GET /api/candles', { limit })
     const ohlcv = await fetchMarketData(limit)
 
     // Sanitize: incomplete candles or bad ticks can have 0, wrong scale, or huge spikes

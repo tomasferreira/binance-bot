@@ -63,6 +63,79 @@ export function getEMACrossSignal (ohlcv) {
   return { fast: fastNow, slow: slowNow, signal: null }
 }
 
+/** EMA crossover with configurable periods. */
+export function getEMACrossSignalPeriods (ohlcv, fastPeriod = 50, slowPeriod = 200) {
+  if (!Array.isArray(ohlcv) || ohlcv.length < slowPeriod + 2) {
+    return { fast: null, slow: null, signal: null }
+  }
+  const closes = ohlcv.map(c => c[4])
+  const fastEma = calculateEMA(closes, fastPeriod)
+  const slowEma = calculateEMA(closes, slowPeriod)
+  const lastIndex = closes.length - 1
+  const prevIndex = lastIndex - 1
+  const fastNow = fastEma[lastIndex]
+  const slowNow = slowEma[lastIndex]
+  const fastPrev = fastEma[prevIndex]
+  const slowPrev = slowEma[prevIndex]
+  if (fastNow == null || slowNow == null || fastPrev == null || slowPrev == null) {
+    return { fast: null, slow: null, signal: null }
+  }
+  if (fastPrev < slowPrev && fastNow > slowNow) return { fast: fastNow, slow: slowNow, signal: 'long' }
+  if (fastPrev > slowPrev && fastNow < slowNow) return { fast: fastNow, slow: slowNow, signal: 'short' }
+  return { fast: fastNow, slow: slowNow, signal: null }
+}
+
+/** Average volume over last N candles. ohlcv[i][5] = volume. */
+export function averageVolume (ohlcv, period = 20) {
+  if (!Array.isArray(ohlcv) || ohlcv.length < period) return null
+  const vols = ohlcv.slice(-period).map(c => c[5] ?? 0)
+  return vols.reduce((a, b) => a + b, 0) / period
+}
+
+/** Donchian channel: upper = highest high, lower = lowest low over last N. */
+export function calculateDonchian (ohlcv, period = 20) {
+  if (!Array.isArray(ohlcv) || ohlcv.length < period) {
+    return { upper: [], lower: [] }
+  }
+  const n = ohlcv.length
+  const upper = new Array(n).fill(null)
+  const lower = new Array(n).fill(null)
+  for (let i = period - 1; i < n; i++) {
+    const slice = ohlcv.slice(i - period + 1, i + 1)
+    upper[i] = Math.max(...slice.map(c => c[2]))
+    lower[i] = Math.min(...slice.map(c => c[3]))
+  }
+  return { upper, lower }
+}
+
+/** Stochastic %K and %D. ohlcv: [..., open, high, low, close, volume] => 2=high, 3=low, 4=close. */
+export function calculateStochastic (ohlcv, kPeriod = 14, dPeriod = 3) {
+  if (!Array.isArray(ohlcv) || ohlcv.length < kPeriod + dPeriod) {
+    return { k: [], d: [] }
+  }
+  const n = ohlcv.length
+  const k = new Array(n).fill(null)
+  for (let i = kPeriod - 1; i < n; i++) {
+    const slice = ohlcv.slice(i - kPeriod + 1, i + 1)
+    const high = Math.max(...slice.map(c => c[2]))
+    const low = Math.min(...slice.map(c => c[3]))
+    const close = ohlcv[i][4]
+    if (high === low) {
+      k[i] = 50
+    } else {
+      k[i] = 100 * (close - low) / (high - low)
+    }
+  }
+  const d = new Array(n).fill(null)
+  for (let i = kPeriod - 1 + dPeriod - 1; i < n; i++) {
+    const kSlice = k.slice(i - dPeriod + 1, i + 1).filter(v => v != null)
+    if (kSlice.length === dPeriod) {
+      d[i] = kSlice.reduce((a, b) => a + b, 0) / dPeriod
+    }
+  }
+  return { k, d }
+}
+
 // MACD: line = EMA(fast) - EMA(slow), signal = EMA(macdLine, signalPeriod)
 export function calculateMACD (closes, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9) {
   if (!Array.isArray(closes) || closes.length < slowPeriod + signalPeriod) {

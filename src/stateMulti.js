@@ -25,6 +25,8 @@ const defaultState = {
   peakEquity: 0,
   maxDrawdown: 0,
   autoTradingEnabled: true,
+  pnlResetAt: null,
+  closedTradesHistory: [],
   runtimeConfig: {
     riskPerTrade: null,
     stopLossPct: null,

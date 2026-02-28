@@ -137,6 +137,12 @@
       }
       .trades-table .side-buy { color: #22c55e; }
       .trades-table .side-sell { color: #ef4444; }
+      .trades-table td:nth-child(7),
+      .trades-table td:nth-child(8),
+      .trades-table td:nth-child(9),
+      .trades-table td:nth-child(10) {
+        text-align: right;
+      }
       .trades-table .fill-badge {
         display: inline-block;
         margin-left: 0.25rem;
@@ -230,218 +236,365 @@
         margin: 0.25rem 0 0.5rem 0;
         line-height: 1.3;
       }
+      .strategy-tag {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 0.1rem 0.5rem;
+        font-size: 0.7rem;
+        font-weight: 500;
+        margin-top: 0.15rem;
+      }
+      .strategy-tag--long {
+        background: #064e3b;
+        color: #a7f3d0;
+      }
+      .strategy-tag--short {
+        background: #7c2d12;
+        color: #fed7aa;
+      }
+      .strategy-tag--utility {
+        background: #1f2937;
+        color: #9ca3af;
+      }
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.5rem;
+        padding: 0.75rem 0;
+        margin-bottom: 0.5rem;
+        border-bottom: 1px solid #1f2937;
+      }
+      .topbar-left { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+      .topbar-right { display: flex; align-items: center; gap: 1rem; }
+      .topbar .value { font-weight: 600; }
+      .tabs {
+        display: flex;
+        gap: 0.25rem;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid #1f2937;
+      }
+      .tab {
+        padding: 0.5rem 1rem;
+        background: transparent;
+        border: none;
+        border-radius: 0.25rem;
+        color: #9ca3af;
+        cursor: pointer;
+        font-size: 0.9rem;
+        margin: 0;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+      }
+      .tab:hover { color: #e5e7eb; }
+      .tab.active { color: #22c55e; border-bottom-color: #22c55e; }
+      .tab-panel { display: none; }
+      .tab-panel.active { display: block; }
+      .section { margin-bottom: 1.25rem; }
+      .section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: #9ca3af; margin-bottom: 0.5rem; }
+      .overview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+      .strategy-table-wrap { overflow-x: auto; margin-bottom: 1rem; }
+      .strategy-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+      .strategy-table th, .strategy-table td { padding: 0.4rem 0.6rem; text-align: left; border-bottom: 1px solid #1f2937; }
+      .strategy-table th { color: #9ca3af; font-weight: 600; }
+      .strategy-table td.numeric { text-align: right; }
+      .strategy-table tr.clickable { cursor: pointer; }
+      .strategy-table tr.clickable:hover { background: #1f2937; }
+      .strategy-table tr.selected { background: rgba(34,197,94,0.15); }
+      .strategies-layout { display: grid; grid-template-columns: 1fr 280px; gap: 1rem; align-items: start; }
+      @media (max-width: 900px) { .strategies-layout { grid-template-columns: 1fr; } }
+      .strategy-detail { background: #111827; border-radius: 0.5rem; padding: 1rem; border: 1px solid #1f2937; position: sticky; top: 0.5rem; }
+      .strategy-detail.empty { color: #6b7280; font-size: 0.9rem; }
+      .chart-wrapper-lg { height: 280px; position: relative; }
+      .analysis-table-wrap { overflow-x: auto; margin-bottom: 1rem; }
+      .analysis-table .sortable { cursor: pointer; user-select: none; }
+      .analysis-table .sortable:hover { color: #22c55e; }
+      .analysis-table .sortable.sorted-asc::after { content: ' ▴'; font-size: 0.7em; color: #22c55e; }
+      .analysis-table .sortable.sorted-desc::after { content: ' ▾'; font-size: 0.7em; color: #22c55e; }
     </style>
   </head>
   <body>
-    <h1>Multi-Strategy Bot Dashboard</h1>
-
-    <div class="grid">
-      <div class="card" id="bot-card">
-        <h2>Bot status</h2>
-        <div class="row">
-          <span class="label">Symbol</span>
-          <span class="value" id="bot-symbol">-</span>
-        </div>
-        <div class="row">
-          <span class="label">Timeframe</span>
-          <span class="value" id="bot-timeframe">-</span>
-        </div>
-        <div class="row">
-          <span class="label">Mode</span>
-          <span class="value" id="bot-mode">-</span>
-        </div>
-        <div class="row">
-          <span class="label">Running strategies</span>
-          <span class="value" id="bot-running-count">-</span>
-        </div>
-        <div class="row">
-          <span class="label">Auto trading</span>
-          <span class="value" id="bot-auto">-</span>
-        </div>
-        <div class="row">
-          <span class="label">Last tick</span>
-          <span class="value" id="bot-last-tick">-</span>
-        </div>
-        <div class="row">
-          <span class="label">Next tick ETA</span>
-          <span class="value" id="bot-next-tick">-</span>
-        </div>
+    <header class="topbar">
+      <div class="topbar-left">
+        <span class="label">Symbol</span>
+        <span class="value" id="bot-symbol">-</span>
+        <span class="label">Timeframe</span>
+        <span class="value" id="bot-timeframe">-</span>
+        <span id="bot-mode" class="status-pill pill-warn">-</span>
+        <span id="bot-auto">-</span>
+        <span class="label">Next tick</span>
+        <span class="value" id="bot-next-tick">-</span>
       </div>
-
-      <div class="card">
-        <h2>Portfolio</h2>
-        <div class="row">
-          <span class="label">BTC</span>
-          <span class="value" id="btc-line">-</span>
-        </div>
-        <div class="row">
-          <span class="label">USDT</span>
-          <span class="value" id="usdt-line">-</span>
-        </div>
-        <small>Values are fetched from Binance on each refresh.</small>
+      <div class="topbar-right">
+        <span class="label">Total PnL</span>
+        <span class="value" id="pnl-total">-</span>
       </div>
+    </header>
 
-      <div class="card">
-        <h2>Positions</h2>
-        <div id="position-content">
-          <div class="row">
-            <span class="label">Status</span>
-            <span class="value">Loading…</span>
+    <nav class="tabs">
+      <button type="button" class="tab active" data-tab="overview">Overview</button>
+      <button type="button" class="tab" data-tab="strategies">Strategies</button>
+      <button type="button" class="tab" data-tab="trades">Trades & Activity</button>
+      <button type="button" class="tab" data-tab="analysis">Analysis</button>
+      <button type="button" class="tab" data-tab="settings">Settings</button>
+    </nav>
+
+    <main>
+      <div id="panel-overview" class="tab-panel active">
+        <div class="overview-grid">
+          <div class="section">
+            <div class="section-title">PnL</div>
+            <div class="row"><span class="label">Realized</span><span class="value" id="pnl-realized">-</span></div>
+            <div class="row"><span class="label">Unrealized</span><span class="value" id="pnl-unrealized">-</span></div>
+          </div>
+          <div class="section">
+            <div class="section-title">Portfolio</div>
+            <div class="row"><span class="label">BTC</span><span class="value" id="btc-line">-</span></div>
+            <div class="row"><span class="label">USDT</span><span class="value" id="usdt-line">-</span></div>
+          </div>
+          <div class="section">
+            <div class="section-title">Open positions</div>
+            <div id="position-content">Loading…</div>
           </div>
         </div>
-        <small>Per-strategy. Use Buy/Sell on each strategy card to open or close.</small>
+        <div class="section">
+          <div class="section-title">Price & indicators</div>
+          <div class="row" style="margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0 1rem; align-items: center;">
+            <span class="label">Chart focus</span>
+            <span class="value" id="chart-focus-label" style="color: #22c55e;">—</span>
+          </div>
+          <div class="row" style="margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0 1rem;">
+            <span class="label">Close</span><span class="value" id="chart-close">-</span>
+            <span class="label">EMA 9</span><span class="value" id="chart-ema9">-</span>
+            <span class="label">EMA 20</span><span class="value" id="chart-ema20">-</span>
+            <span class="label">EMA 50</span><span class="value" id="chart-ema50">-</span>
+            <span class="label">EMA 200</span><span class="value" id="chart-ema200">-</span>
+          </div>
+          <div class="row" style="margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem 1rem;">
+            <select id="chart-window-select">
+              <option value="20">Last 20</option>
+              <option value="50">Last 50</option>
+              <option value="200">Last 200</option>
+              <option value="500" selected>Last 500</option>
+              <option value="1000">Last 1000</option>
+              <option value="all">All</option>
+            </select>
+            <button type="button" id="chart-reset-btn" class="secondary">Reset chart</button>
+          </div>
+          <div class="chart-wrapper chart-wrapper-lg">
+            <canvas id="price-chart"></canvas>
+          </div>
+          <div class="chart-wrapper" style="height: 160px;">
+            <canvas id="macd-chart"></canvas>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title">Recent activity</div>
+          <div id="activity-overview" class="activity-list" style="max-height: 120px;"><small>No recent events.</small></div>
+          <small><a href="#" id="activity-goto-trades">View all → Trades & Activity</a></small>
+        </div>
       </div>
 
-      <div class="card">
-        <h2>Profit / Loss</h2>
-        <div class="row">
-          <span class="label">Realized PnL</span>
-          <span class="value" id="pnl-realized">-</span>
+      <div id="panel-strategies" class="tab-panel">
+        <div class="strategies-layout">
+          <div>
+            <div class="section-title">Strategies</div>
+            <div class="strategy-table-wrap">
+              <table class="strategy-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th class="numeric">W/L</th>
+                    <th class="numeric">PnL</th>
+                    <th class="numeric">Exposure</th>
+                    <th>Position</th>
+                    <th>Last decision</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="strategies-tbody">
+                  <tr><td colspan="9">Loading…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="strategy-detail empty" id="strategy-detail-pane">Click a strategy row to see details.</div>
         </div>
-        <div class="row">
-          <span class="label">Unrealized PnL</span>
-          <span class="value" id="pnl-unrealized">-</span>
-        </div>
-        <div class="row">
-          <span class="label">Total PnL</span>
-          <span class="value" id="pnl-total">-</span>
-        </div>
-        <small>Realized = closed positions. Unrealized = current position. In USDT.</small>
       </div>
 
-      <div class="card" style="grid-column: 1 / -1;">
-        <h2>Strategies</h2>
-        <div id="strategies-cards" class="strategies-grid">
-          <div class="strategy-card card" style="opacity: 0.7;">Loading…</div>
+      <div id="panel-trades" class="tab-panel">
+        <div class="section">
+          <div class="section-title">Fees (last 50 trades)</div>
+          <span class="value" id="fees-total">-</span>
         </div>
-        <small style="display: block; margin-top: 0.75rem;">Start/Stop controls which strategies run each tick. All can have positions at once.</small>
+        <div class="section">
+          <div class="section-title">Latest trades</div>
+          <div class="trades-table-wrapper" style="max-height: 280px;">
+            <table class="trades-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Order ID</th>
+                  <th>Side</th>
+                  <th>Strategy</th>
+                  <th>Reason</th>
+                  <th>Detail</th>
+                  <th>Amount</th>
+                  <th>Price</th>
+                  <th>Cost</th>
+                  <th>Fee</th>
+                </tr>
+              </thead>
+              <tbody id="trades-tbody">
+                <tr><td colspan="10">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title">Activity</div>
+          <div id="activity-list" class="activity-list" style="max-height: 200px;"></div>
+          <small>Events since you opened this dashboard.</small>
+        </div>
       </div>
 
-      <div class="card">
-        <h2>Risk & controls</h2>
-        <div class="row">
-          <span class="label">Auto trading</span>
-          <span>
+      <div id="panel-analysis" class="tab-panel">
+        <div class="section">
+          <div class="section-title">Time range</div>
+          <div class="row">
+            <span class="label">Metrics period</span>
+            <select id="analysis-time-range" style="background:#020617;border:1px solid #1f2937;border-radius:0.25rem;padding:0.2rem 0.4rem;color:#e5e7eb;font-size:0.9rem;">
+              <option value="all">All time</option>
+              <option value="last7d">Last 7 days</option>
+              <option value="last30d">Last 30 days</option>
+              <option value="sinceReset">Since last PnL reset</option>
+            </select>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title">Top / Bottom by PnL</div>
+          <div id="analysis-top-bottom" style="display:flex;gap:2rem;flex-wrap:wrap;margin-bottom:0.5rem;"></div>
+        </div>
+        <div class="section">
+          <div class="section-title">Performance by strategy</div>
+          <p style="margin: 0 0 0.75rem 0; font-size: 0.85rem; color: #9ca3af;">Compare realized PnL, win rate, and risk metrics. Click column headers to sort.</p>
+          <div class="analysis-table-wrap">
+            <table class="strategy-table analysis-table">
+              <thead>
+                <tr>
+                  <th class="sortable" data-sort="name">Strategy</th>
+                  <th class="sortable numeric" data-sort="type">Type</th>
+                  <th class="sortable numeric" data-sort="totalPnl">Total PnL</th>
+                  <th class="sortable numeric" data-sort="realizedPnl">Realized</th>
+                  <th class="sortable numeric" data-sort="unrealizedPnl">Unrealized</th>
+                  <th class="sortable numeric" data-sort="wins">W/L</th>
+                  <th class="sortable numeric" data-sort="winRate">Win rate %</th>
+                  <th class="sortable numeric" data-sort="avgWin">Avg win</th>
+                  <th class="sortable numeric" data-sort="avgLoss">Avg loss</th>
+                  <th class="sortable numeric" data-sort="sharpe">Sharpe</th>
+                  <th class="sortable numeric" data-sort="maxDrawdown">Max DD</th>
+                  <th class="sortable numeric" data-sort="trades">Trades</th>
+                  <th class="sortable numeric" data-sort="tradesHistory">Trades (hist)</th>
+                  <th class="sortable numeric" data-sort="fees">Fees (USDT)</th>
+                  <th class="sortable numeric" data-sort="exposure">Exposure %</th>
+                  <th class="sortable numeric" data-sort="avgDuration">Avg duration</th>
+                </tr>
+              </thead>
+              <tbody id="analysis-tbody">
+                <tr><td colspan="16">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title">Total PnL by strategy</div>
+          <div class="chart-wrapper" style="height: 320px;">
+            <canvas id="analysis-pnl-chart"></canvas>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title">Win rate by strategy</div>
+          <div class="chart-wrapper" style="height: 280px;">
+            <canvas id="analysis-winrate-chart"></canvas>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title">Equity curve (cumulative PnL)</div>
+          <div class="row" style="margin-bottom: 0.5rem;">
+            <span class="label">Strategy</span>
+            <select id="analysis-equity-strategy" style="background:#020617;border:1px solid #1f2937;border-radius:0.25rem;padding:0.2rem 0.4rem;color:#e5e7eb;font-size:0.9rem;min-width:12rem;"></select>
+          </div>
+          <div class="chart-wrapper" style="height: 220px;">
+            <canvas id="analysis-equity-chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div id="panel-settings" class="tab-panel">
+        <div class="section">
+          <div class="section-title">Budget</div>
+          <div class="row"><span class="label">Global budget</span><span class="value" id="budget-global">–</span></div>
+          <div class="row"><span class="label">Strategy budget (each)</span><span class="value" id="budget-per-strategy">–</span></div>
+          <small>Set GLOBAL_BUDGET_USDT in .env. Risk per trade is relative to each strategy’s budget.</small>
+        </div>
+        <div class="section">
+          <div class="section-title">Trading</div>
+          <div class="row">
+            <span class="label">Auto trading</span>
             <button class="secondary" id="toggle-auto-btn">Toggle</button>
-          </span>
+          </div>
+          <div class="row">
+            <span class="label">Risk / trade</span>
+            <input id="risk-input" type="number" step="0.001" min="0" placeholder="0.01" />
+          </div>
+          <div class="row">
+            <span class="label">Stop loss %</span>
+            <input id="sl-input" type="number" step="0.001" min="0" placeholder="0.02" />
+          </div>
+          <div class="row">
+            <span class="label">Take profit %</span>
+            <input id="tp-input" type="number" step="0.001" min="0" placeholder="0.04" />
+          </div>
+          <div style="margin-top: 0.5rem;">
+            <button class="secondary" id="apply-config-btn">Apply risk config</button>
+            <button class="secondary" id="reset-config-btn" title="Clear saved values; use .env defaults">Reset to .env defaults</button>
+          </div>
         </div>
-        <div class="row">
-          <span class="label">Risk / trade</span>
-          <span>
-            <input id="risk-input" type="number" step="0.001" min="0" /> <small>(fraction, e.g. 0.01)</small>
-          </span>
+        <div class="section">
+          <div class="section-title">Portfolio (manual)</div>
+          <p class="section-desc" style="margin: 0 0 0.75rem 0; font-size: 0.85rem; color: #9ca3af;">Set amount and unit to trade a specific size. Leave empty to open/close a full risk-sized position.</p>
+          <div class="row">
+            <span class="label">Amount</span>
+            <input id="manual-amount" type="number" step="any" min="0" placeholder="0" style="width: 8rem;" />
+          </div>
+          <div class="row">
+            <span class="label">Unit</span>
+            <select id="manual-unit" style="width: 6rem; background: #020617; border: 1px solid #1f2937; border-radius: 0.25rem; padding: 0.2rem 0.4rem; color: #e5e7eb; font-size: 0.85rem;">
+              <option value="base">BTC</option>
+              <option value="quote">USDT</option>
+            </select>
+          </div>
+          <div style="margin-top: 0.5rem;">
+            <button class="primary" id="buy-btn">Buy</button>
+            <button class="danger" id="sell-btn">Sell</button>
+          </div>
         </div>
-        <div class="row">
-          <span class="label">Stop loss %</span>
-          <span>
-            <input id="sl-input" type="number" step="0.001" min="0" /> <small>(e.g. 0.02)</small>
-          </span>
+        <div class="section">
+          <div class="section-title">Danger zone</div>
+          <button class="secondary" id="reset-all-pnl-btn">Reset all realized PnLs</button>
+          <small id="action-status"></small>
         </div>
-        <div class="row">
-          <span class="label">Take profit %</span>
-          <span>
-            <input id="tp-input" type="number" step="0.001" min="0" /> <small>(e.g. 0.04)</small>
-          </span>
+        <div class="section">
+          <div class="section-title">Raw status JSON</div>
+          <button type="button" id="toggle-raw-json" class="secondary">Show</button>
+          <pre id="raw-json" style="display: none; margin-top: 0.5rem;">(loading)</pre>
         </div>
-        <div style="margin-top: 0.5rem">
-          <button class="secondary" id="apply-config-btn">Apply config</button>
-        </div>
-        <div style="margin-top: 0.5rem">
-          <button class="secondary" id="reset-all-pnl-btn" title="Set realized PnL to 0 for all strategies">Reset all PnLs</button>
-        </div>
-        <div style="margin-top: 0.75rem">
-          <button class="primary" id="buy-btn">Buy now</button>
-          <button class="danger" id="sell-btn">Sell / close now</button>
-        </div>
-        <small id="action-status"></small>
       </div>
-    </div>
-
-    <div class="card">
-      <h2>Price & indicators</h2>
-      <div class="row" style="margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0 1rem;">
-        <span class="label">Close</span>
-        <span class="value" id="chart-close">-</span>
-        <span class="label">EMA 9</span>
-        <span class="value" id="chart-ema9">-</span>
-        <span class="label">EMA 20</span>
-        <span class="value" id="chart-ema20">-</span>
-        <span class="label">EMA 21</span>
-        <span class="value" id="chart-ema21">-</span>
-        <span class="label">EMA 50</span>
-        <span class="value" id="chart-ema50">-</span>
-        <span class="label">EMA 200</span>
-        <span class="value" id="chart-ema200">-</span>
-      </div>
-      <div class="row" style="margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem 1rem;">
-        <span class="label">Chart window</span>
-        <span>
-          <select id="chart-window-select">
-            <option value="20">Last 20 candles</option>
-            <option value="50">Last 50 candles</option>
-            <option value="200">Last 200 candles</option>
-            <option value="500" selected>Last 500 candles</option>
-            <option value="1000">Last 1000 candles</option>
-            <option value="all">All</option>
-          </select>
-        </span>
-        <button type="button" id="chart-reset-btn" class="secondary" title="Reset zoom and show full window">Reset chart</button>
-      </div>
-      <div class="chart-wrapper">
-        <canvas id="price-chart"></canvas>
-      </div>
-      <div class="chart-wrapper" style="height: 180px;">
-        <canvas id="macd-chart"></canvas>
-      </div>
-      <small>Price + EMAs (strategies). Below: MACD 12/26/9.</small>
-    </div>
-
-    <div class="card">
-      <h2>Fees (recent trades)</h2>
-      <div class="row">
-        <span class="label">Total fees (last 50 trades)</span>
-        <span class="value" id="fees-total">-</span>
-      </div>
-      <small id="fees-hint">From Binance trade history for this symbol.</small>
-    </div>
-
-    <div class="card">
-      <h2>Latest trades</h2>
-      <div class="trades-table-wrapper">
-        <table class="trades-table">
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Order ID</th>
-              <th>Side</th>
-              <th>Strategy</th>
-              <th>Reason</th>
-              <th>Indicator values</th>
-              <th>Amount</th>
-              <th>Price</th>
-              <th>Cost (USDT)</th>
-              <th>Fee</th>
-            </tr>
-          </thead>
-          <tbody id="trades-tbody">
-            <tr><td colspan="10">Loading…</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <small>Last 15 orders (grouped by order ID).</small>
-    </div>
-
-    <div class="card">
-      <h2>Activity</h2>
-      <div id="activity-list" class="activity-list">
-        <small>No recent events.</small>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top: 1rem">
-      <h2>Raw status JSON</h2>
-      <pre id="raw-json">(loading)</pre>
-    </div>
+    </main>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -488,6 +641,13 @@
       let priceChart = null
 
       let macdChart = null
+      let analysisPnlChart = null
+      let analysisWinrateChart = null
+      let analysisEquityChart = null
+      let analysisSortBy = 'totalPnl'
+      let analysisSortDesc = true
+      let analysisTimeRange = 'all'
+      let analysisTradesData = {}
       let selectedStrategyId = null
       let latestTrades = []
       let chartWindowSize = 500
@@ -495,6 +655,58 @@
       let customWindow = null
       let activityEvents = []
       let lastStrategySnapshot = {}
+      let activityInitialized = false
+      let latestStrategies = []
+
+      function updateChartFocusLabel() {
+        const el = document.getElementById('chart-focus-label')
+        if (!el) return
+        if (!selectedStrategyId) {
+          el.textContent = '— (select a strategy to focus chart)'
+          el.style.color = '#9ca3af'
+          return
+        }
+        const strat = latestStrategies.find(s => s.id === selectedStrategyId)
+        const name = strat ? (strat.name || strat.id) : selectedStrategyId
+        el.textContent = name
+        el.style.color = '#22c55e'
+      }
+
+      function strategyDetailHtml(s) {
+        if (!s) return ''
+        const name = (s.name || s.id).replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        const desc = (s.description || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        const posText = s.position?.open ? s.position.side + ' ' + formatAmount(s.position.amount) : 'Flat'
+        const pnlColor = (v) => (v ?? 0) >= 0 ? '#22c55e' : '#ef4444'
+        const r = s.realizedPnl ?? 0
+        const u = s.unrealizedPnl ?? 0
+        const wins = s.wins ?? 0
+        const losses = s.losses ?? 0
+        const exposurePct = s.exposure != null ? (s.exposure * 100).toFixed(1) + '%' : '–'
+        const hasPosition = s.position?.open === true
+        const isShort = s.id && s.id.startsWith('short_')
+        let actions = ''
+        if (s.id !== 'manual') {
+          actions += '<button class="secondary strategy-btn" data-id="' + s.id + '" data-running="' + s.running + '">' + (s.running ? 'Stop' : 'Start') + '</button> '
+        }
+        if (!isShort) {
+          actions += '<button class="primary strategy-buy-btn" data-id="' + s.id + '"' + (hasPosition ? ' disabled' : '') + '>Open long</button> '
+        } else {
+          actions += '<button class="primary strategy-short-btn" data-id="' + s.id + '"' + (hasPosition ? ' disabled' : '') + '>Open short</button> '
+        }
+        actions += '<button class="danger strategy-sell-btn" data-id="' + s.id + '"' + (!hasPosition ? ' disabled' : '') + '>Close</button> '
+        actions += '<button class="secondary strategy-reset-pnl-btn" data-id="' + s.id + '">Reset PnL</button>'
+        return '<div class="section-title">' + name + '</div>' +
+          (desc ? '<p style="margin:0.5rem 0; font-size:0.85rem; color:#9ca3af">' + desc + '</p>' : '') +
+          '<div class="row"><span class="label">Status</span><span class="value">' + (s.running ? 'Running' : 'Stopped') + '</span></div>' +
+          '<div class="row"><span class="label">W/L</span><span class="value">' + wins + ' / ' + losses + '</span></div>' +
+          '<div class="row"><span class="label">Realized</span><span class="value" style="color:' + pnlColor(r) + '">' + formatPnl(s.realizedPnl).replace(' USDT', '') + '</span></div>' +
+          '<div class="row"><span class="label">Unrealized</span><span class="value" style="color:' + pnlColor(u) + '">' + formatPnl(s.unrealizedPnl).replace(' USDT', '') + '</span></div>' +
+          '<div class="row"><span class="label">Exposure</span><span class="value">' + exposurePct + '</span></div>' +
+          '<div class="row"><span class="label">Position</span><span class="value">' + posText + '</span></div>' +
+          '<div class="row"><span class="label">Last decision</span><span class="value">' + (s.lastDecision || '–') + '</span></div>' +
+          '<div style="margin-top:0.75rem">' + actions + '</div>'
+      }
 
       function addActivityEvent (message, level = 'info') {
         const now = new Date()
@@ -502,16 +714,46 @@
         const item = { time: timeStr, message, level }
         activityEvents.unshift(item)
         if (activityEvents.length > 50) activityEvents.pop()
+        const html = activityEvents
+          .map(ev => '<div class="activity-item">' +
+            '<span class="activity-time">' + escapeHtml(ev.time) + '</span>' +
+            '<span class="activity-message">' + escapeHtml(ev.message) + '</span>' +
+          '</div>')
+          .join('')
         const listEl = document.getElementById('activity-list')
-        if (listEl) {
-          listEl.innerHTML = activityEvents
-            .map(ev => '<div class="activity-item">' +
-              '<span class="activity-time">' + escapeHtml(ev.time) + '</span>' +
-              '<span class="activity-message">' + escapeHtml(ev.message) + '</span>' +
-            '</div>')
-            .join('')
-        }
+        if (listEl) listEl.innerHTML = html
+        const overviewEl = document.getElementById('activity-overview')
+        if (overviewEl) overviewEl.innerHTML = activityEvents.slice(0, 5).map(ev => '<div class="activity-item">' +
+          '<span class="activity-time">' + escapeHtml(ev.time) + '</span>' +
+          '<span class="activity-message">' + escapeHtml(ev.message) + '</span></div>').join('') || '<small>No recent events.</small>'
         showToast(message, level)
+      }
+
+      let audioCtx = null
+
+      function playNotificationSound () {
+        try {
+          const AudioContextCls = window.AudioContext || window.webkitAudioContext
+          if (!AudioContextCls) return
+          if (!audioCtx) {
+            audioCtx = new AudioContextCls()
+          }
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {})
+          }
+          const osc = audioCtx.createOscillator()
+          const gain = audioCtx.createGain()
+          osc.type = 'sine'
+          osc.frequency.value = 880
+          gain.gain.value = 0.08
+          osc.connect(gain)
+          gain.connect(audioCtx.destination)
+          const now = audioCtx.currentTime
+          osc.start(now)
+          osc.stop(now + 0.15)
+        } catch (e) {
+          console.error('Notification sound error', e)
+        }
       }
 
       function showToast (message, level = 'info') {
@@ -524,6 +766,7 @@
         // trigger animation
         requestAnimationFrame(() => {
           div.classList.add('toast-show')
+          playNotificationSound()
         })
         setTimeout(() => {
           div.classList.remove('toast-show')
@@ -606,6 +849,7 @@
             ]
             break
           case 'multi_ema':
+          case 'ema_fast_crossover':
             priceDatasets = [
               { label: 'Close', data: closes, borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.1)', tension: 0.2, pointRadius: 0 },
               { label: 'EMA 9', data: ema9, borderColor: '#a78bfa', tension: 0.2, pointRadius: 0 },
@@ -614,6 +858,7 @@
             ]
             break
           case 'bb_mean_revert':
+          case 'bb_squeeze':
             priceDatasets = [
               { label: 'Close', data: closes, borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.1)', tension: 0.2, pointRadius: 0 },
               { label: 'BB Upper', data: bbUpper, borderColor: '#f97316', tension: 0.2, pointRadius: 0 },
@@ -631,12 +876,20 @@
           case 'ema_crossover':
           case 'atr_trend':
           case 'macd':
+          case 'macd_histogram_long':
+          case 'volume_ema_crossover':
+          case 'rsi_macd_combo':
+          case 'donchian_breakout':
+          case 'atr_breakout':
+          case 'range_bounce':
           case 'multi_tf_trend':
           case 'short_trend':
           case 'short_breakdown':
           case 'short_rejection':
           case 'short_overbought':
           case 'short_macd':
+          case 'short_macd_histogram':
+          case 'stochastic_oversold':
             priceDatasets = [
               { label: 'Close', data: closes, borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.1)', tension: 0.2, pointRadius: 0 },
               { label: 'EMA 50', data: ema50, borderColor: '#22c55e', tension: 0.2, pointRadius: 0 },
@@ -655,31 +908,36 @@
             break
         }
 
-        // Markers for entries/exits of selected strategy
+        // Markers for all entries/exits in view (all strategies); strategy lookups for tooltips
+        const getStrategyName = (id) => (latestStrategies.find(s => s.id === id) || {}).name || id
         const entryPoints = new Array(view.length).fill(null)
         const exitPoints = new Array(view.length).fill(null)
-        if (selectedStrategyId && Array.isArray(latestTrades) && latestTrades.length) {
+        const entryStrategiesByIndex = {}
+        const exitStrategiesByIndex = {}
+        if (Array.isArray(latestTrades) && latestTrades.length) {
           latestTrades.forEach(t => {
-            if (t.strategyId !== selectedStrategyId) return
             if (!t.timestamp) return
             const ts = t.timestamp
             let idx = view.findIndex(c => c.timestamp >= ts)
             if (idx === -1) idx = view.length - 1
             const y = view[idx]?.close
             if (!Number.isFinite(y)) return
+            const strat = { id: t.strategyId, name: getStrategyName(t.strategyId) }
             if (t.side === 'buy') {
               entryPoints[idx] = y
+              if (!entryStrategiesByIndex[idx]) entryStrategiesByIndex[idx] = []
+              entryStrategiesByIndex[idx].push(strat)
             } else if (t.side === 'sell') {
               exitPoints[idx] = y
+              if (!exitStrategiesByIndex[idx]) exitStrategiesByIndex[idx] = []
+              exitStrategiesByIndex[idx].push(strat)
             }
           })
         }
-        if (selectedStrategyId) {
-          priceDatasets.push(
-            { label: 'Entries', data: entryPoints, borderColor: '#22c55e', backgroundColor: '#22c55e', pointRadius: 4, showLine: false },
-            { label: 'Exits', data: exitPoints, borderColor: '#ef4444', backgroundColor: '#ef4444', pointRadius: 4, showLine: false }
-          )
-        }
+        priceDatasets.push(
+          { label: 'Entries', data: entryPoints, borderColor: '#ffffff', backgroundColor: '#4ade80', pointRadius: 8, pointBorderWidth: 2, showLine: false },
+          { label: 'Exits', data: exitPoints, borderColor: '#ffffff', backgroundColor: '#f87171', pointRadius: 8, pointBorderWidth: 2, showLine: false }
+        )
 
         const priceData = { labels, datasets: priceDatasets }
 
@@ -687,7 +945,27 @@
           responsive: true,
           maintainAspectRatio: false,
           animation: false,
-          plugins: { legend: { labels: { color: '#e5e7eb', boxWidth: 12 } } },
+          plugins: {
+            legend: { labels: { color: '#e5e7eb', boxWidth: 12 } },
+            tooltip: {
+              callbacks: {
+                label: function (context) {
+                  const label = context.dataset.label || ''
+                  const val = context.parsed?.y
+                  let line = label + ': ' + (typeof val === 'number' ? val.toLocaleString(undefined, { maximumFractionDigits: 2 }) : val)
+                  const strategies = context.dataset.label === 'Entries'
+                    ? (context.chart._entryStrategiesByIndex || {})[context.dataIndex]
+                    : context.dataset.label === 'Exits'
+                      ? (context.chart._exitStrategiesByIndex || {})[context.dataIndex]
+                      : null
+                  if (strategies && strategies.length) {
+                    line += ' — ' + strategies.map(s => s.name || s.id).join(', ')
+                  }
+                  return line
+                }
+              }
+            }
+          },
           scales: {
             x: { ticks: { color: '#9ca3af', maxTicksLimit: 8 }, grid: { display: false } },
             y: { ticks: { color: '#9ca3af' }, grid: { color: '#1f2937' } }
@@ -697,17 +975,47 @@
         const ctxPrice = document.getElementById('price-chart').getContext('2d')
         if (priceChart) {
           priceChart.data = priceData
+          priceChart._entryStrategiesByIndex = entryStrategiesByIndex
+          priceChart._exitStrategiesByIndex = exitStrategiesByIndex
           priceChart.update()
         } else {
           priceChart = new Chart(ctxPrice, { type: 'line', data: priceData, options: chartOptions })
+          priceChart._entryStrategiesByIndex = entryStrategiesByIndex
+          priceChart._exitStrategiesByIndex = exitStrategiesByIndex
         }
 
         let macdData
-        if (selectedStrategyId === 'rsi_pullback' || selectedStrategyId === 'short_overbought') {
+        const lowerY = selectedStrategyId === 'rsi_pullback' || selectedStrategyId === 'short_overbought' || selectedStrategyId === 'stochastic_oversold' ? rsi : macd
+        const entryPointsLower = new Array(view.length).fill(null)
+        const exitPointsLower = new Array(view.length).fill(null)
+        const entryStrategiesLowerByIndex = {}
+        const exitStrategiesLowerByIndex = {}
+        if (Array.isArray(latestTrades) && latestTrades.length && Array.isArray(lowerY)) {
+          latestTrades.forEach(t => {
+            if (!t.timestamp) return
+            let idx = view.findIndex(c => c.timestamp >= t.timestamp)
+            if (idx === -1) idx = view.length - 1
+            const y = lowerY[idx]
+            if (y == null || !Number.isFinite(y)) return
+            const strat = { id: t.strategyId, name: getStrategyName(t.strategyId) }
+            if (t.side === 'buy') {
+              entryPointsLower[idx] = y
+              if (!entryStrategiesLowerByIndex[idx]) entryStrategiesLowerByIndex[idx] = []
+              entryStrategiesLowerByIndex[idx].push(strat)
+            } else if (t.side === 'sell') {
+              exitPointsLower[idx] = y
+              if (!exitStrategiesLowerByIndex[idx]) exitStrategiesLowerByIndex[idx] = []
+              exitStrategiesLowerByIndex[idx].push(strat)
+            }
+          })
+        }
+        if (selectedStrategyId === 'rsi_pullback' || selectedStrategyId === 'short_overbought' || selectedStrategyId === 'stochastic_oversold') {
           macdData = {
             labels,
             datasets: [
-              { label: 'RSI(14)', data: rsi, borderColor: '#eab308', tension: 0.2, pointRadius: 0 }
+              { label: 'RSI(14)', data: rsi, borderColor: '#eab308', tension: 0.2, pointRadius: 0 },
+              { label: 'Entries', data: entryPointsLower, borderColor: '#ffffff', backgroundColor: '#4ade80', pointRadius: 8, pointBorderWidth: 2, showLine: false },
+              { label: 'Exits', data: exitPointsLower, borderColor: '#ffffff', backgroundColor: '#f87171', pointRadius: 8, pointBorderWidth: 2, showLine: false }
             ]
           }
         } else {
@@ -716,7 +1024,9 @@
             datasets: [
               { label: 'MACD', data: macd, borderColor: '#38bdf8', tension: 0.2, pointRadius: 0 },
               { label: 'Signal', data: macdSignal, borderColor: '#f97316', tension: 0.2, pointRadius: 0 },
-              { label: 'Histogram', data: macdHistogram, borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.2)', tension: 0.2, pointRadius: 0, fill: true }
+              { label: 'Histogram', data: macdHistogram, borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.2)', tension: 0.2, pointRadius: 0, fill: true },
+              { label: 'Entries', data: entryPointsLower, borderColor: '#ffffff', backgroundColor: '#4ade80', pointRadius: 8, pointBorderWidth: 2, showLine: false },
+              { label: 'Exits', data: exitPointsLower, borderColor: '#ffffff', backgroundColor: '#f87171', pointRadius: 8, pointBorderWidth: 2, showLine: false }
             ]
           }
         }
@@ -724,15 +1034,38 @@
         const ctxMacd = document.getElementById('macd-chart').getContext('2d')
         if (macdChart) {
           macdChart.data = macdData
+          macdChart._entryStrategiesByIndex = entryStrategiesLowerByIndex
+          macdChart._exitStrategiesByIndex = exitStrategiesLowerByIndex
           macdChart.update()
         } else {
           macdChart = new Chart(ctxMacd, { type: 'line', data: macdData, options: chartOptions })
+          macdChart._entryStrategiesByIndex = entryStrategiesLowerByIndex
+          macdChart._exitStrategiesByIndex = exitStrategiesLowerByIndex
         }
       }
 
       function updatePositionActivity (strategies, market) {
         const nextSnapshot = {}
         const lastPrice = market?.lastPrice
+
+        // On first call after page load, just take a snapshot and do NOT emit events
+        if (!activityInitialized) {
+          strategies.forEach(s => {
+            const pos = s.position || { open: false }
+            nextSnapshot[s.id] = {
+              open: !!pos.open,
+              side: pos.side || null,
+              amount: pos.amount || 0,
+              entryPrice: pos.entryPrice || null,
+              realizedPnl: s.realizedPnl ?? 0
+            }
+          })
+          lastStrategySnapshot = nextSnapshot
+          activityInitialized = true
+          return
+        }
+
+        // Subsequent calls: compare with previous snapshot and emit open/close events
         strategies.forEach(s => {
           const id = s.id
           const name = s.name || s.id
@@ -746,13 +1079,13 @@
           }
           const prev = lastStrategySnapshot[id]
 
-          if (!prev || (!prev.open && curr.open)) {
+          if (prev && !prev.open && curr.open) {
             if (curr.open && curr.amount > 0) {
               const sideLabel = (curr.side || 'long').toUpperCase()
               const msg = `Opened ${sideLabel} ${formatAmount(curr.amount)} @ ${formatPrice(curr.entryPrice)} (${name})`
               addActivityEvent(msg, 'success')
             }
-          } else if (prev.open && !curr.open) {
+          } else if (prev && prev.open && !curr.open) {
             const deltaPnl = (curr.realizedPnl ?? 0) - (prev.realizedPnl ?? 0)
             const sideLabel = (prev.side || 'long').toUpperCase()
             const level = deltaPnl >= 0 ? 'success' : 'error'
@@ -764,7 +1097,232 @@
 
           nextSnapshot[id] = curr
         })
+
         lastStrategySnapshot = nextSnapshot
+      }
+
+      function getMetricsForRange (s) {
+        if (analysisTimeRange === 'all') {
+          return {
+            realizedPnl: s.realizedPnl ?? 0,
+            unrealizedPnl: s.unrealizedPnl ?? 0,
+            totalPnl: s.totalPnl ?? 0,
+            wins: s.wins ?? 0,
+            losses: s.losses ?? 0,
+            trades: s.trades ?? 0,
+            winRate: s.winRate,
+            avgWin: s.avgWin,
+            avgLoss: s.avgLoss,
+            exposure: s.exposure,
+            avgTradeDurationMs: s.avgTradeDurationMs,
+            maxDrawdown: s.maxDrawdown
+          }
+        }
+        const block = analysisTimeRange === 'sinceReset' ? (s.sinceReset || {}) : analysisTimeRange === 'last7d' ? (s.last7d || {}) : (s.last30d || {})
+        const real = block.realizedPnl ?? 0
+        const unreal = s.unrealizedPnl ?? 0
+        return {
+          realizedPnl: real,
+          unrealizedPnl: unreal,
+          totalPnl: real + unreal,
+          wins: block.wins ?? 0,
+          losses: block.losses ?? 0,
+          trades: block.trades ?? 0,
+          winRate: block.winRate ?? null,
+          avgWin: block.avgWin ?? null,
+          avgLoss: block.avgLoss ?? null,
+          exposure: s.exposure,
+          avgTradeDurationMs: s.avgTradeDurationMs,
+          maxDrawdown: s.maxDrawdown
+        }
+      }
+
+      function getFilteredHistoryForRange (s) {
+        const history = Array.isArray(s.closedTradesHistory) ? s.closedTradesHistory : []
+        if (analysisTimeRange === 'all') return history
+        const now = Date.now()
+        const now7d = now - 7 * 24 * 60 * 60 * 1000
+        const now30d = now - 30 * 24 * 60 * 60 * 1000
+        if (analysisTimeRange === 'sinceReset' && s.pnlResetAt) {
+          const t0 = new Date(s.pnlResetAt).getTime()
+          return history.filter(e => new Date(e.timestamp).getTime() >= t0)
+        }
+        if (analysisTimeRange === 'last7d') return history.filter(e => new Date(e.timestamp).getTime() >= now7d)
+        if (analysisTimeRange === 'last30d') return history.filter(e => new Date(e.timestamp).getTime() >= now30d)
+        return history
+      }
+
+      function computeSharpe (entries) {
+        if (!entries.length) return null
+        const pnls = entries.map(e => Number(e.pnl ?? 0))
+        const mean = pnls.reduce((a, b) => a + b, 0) / pnls.length
+        const variance = pnls.reduce((sum, p) => sum + (p - mean) ** 2, 0) / pnls.length
+        const std = Math.sqrt(variance)
+        if (std === 0) return null
+        return mean / std
+      }
+
+      async function updateAnalysisPanel (strategies) {
+        const tbody = document.getElementById('analysis-tbody')
+        if (!tbody) return
+        analysisTimeRange = document.getElementById('analysis-time-range')?.value || 'all'
+        try {
+          const res = await fetch('/api/trades?limit=500')
+          if (res.ok) {
+            const data = await res.json()
+            const list = Array.isArray(data.trades) ? data.trades : []
+            const byStrategy = {}
+            list.forEach(t => {
+              const id = t.strategyId || '_unknown_'
+              if (!byStrategy[id]) byStrategy[id] = { count: 0, fee: 0 }
+              byStrategy[id].count += 1
+              if (t.fee && (t.fee.currency === 'USDT' || t.fee.currency === 'BNB')) byStrategy[id].fee += Number(t.fee.cost || 0)
+            })
+            analysisTradesData = byStrategy
+          }
+        } catch (e) { analysisTradesData = {} }
+
+        const list = (strategies || []).map(s => {
+          const m = getMetricsForRange(s)
+          const hist = getFilteredHistoryForRange(s)
+          const sharpe = computeSharpe(hist)
+          const td = analysisTradesData[s.id] || {}
+          return { ...s, _metrics: m, _sharpe: sharpe, _tradesHistory: td.count || 0, _fees: td.fee || 0 }
+        })
+
+        const sorted = [...list].sort((a, b) => {
+          const sortKey = analysisSortBy === 'avgDuration' ? 'avgTradeDurationMs' : analysisSortBy
+          const va = analysisSortBy === 'sharpe' ? a._sharpe : analysisSortBy === 'tradesHistory' ? a._tradesHistory : analysisSortBy === 'fees' ? a._fees : (a._metrics && a._metrics[sortKey]) != null ? a._metrics[sortKey] : a[analysisSortBy]
+          const vb = analysisSortBy === 'sharpe' ? b._sharpe : analysisSortBy === 'tradesHistory' ? b._tradesHistory : analysisSortBy === 'fees' ? b._fees : (b._metrics && b._metrics[sortKey]) != null ? b._metrics[sortKey] : b[analysisSortBy]
+          if (analysisSortBy === 'name' || analysisSortBy === 'type') {
+            const sa = (va ?? '').toString()
+            const sb = (vb ?? '').toString()
+            return analysisSortDesc ? sb.localeCompare(sa) : sa.localeCompare(sb)
+          }
+          const na = Number(va)
+          const nb = Number(vb)
+          if (analysisSortBy === 'winRate' || analysisSortBy === 'exposure' || analysisSortBy === 'avgDuration') {
+            if (na != null && !isNaN(na) && nb != null && !isNaN(nb)) return analysisSortDesc ? na - nb : nb - na
+            return ((nb != null && !isNaN(nb)) ? 1 : 0) - ((na != null && !isNaN(na)) ? 1 : 0)
+          }
+          if (na != null && !isNaN(na) && nb != null && !isNaN(nb)) return analysisSortDesc ? nb - na : na - nb
+          return ((na != null && !isNaN(na)) ? -1 : 0) - ((nb != null && !isNaN(nb)) ? -1 : 0)
+        })
+
+        const pnlColor = (v) => (v ?? 0) >= 0 ? '#22c55e' : '#ef4444'
+        if (sorted.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="16">No strategies</td></tr>'
+        } else {
+          tbody.innerHTML = sorted.map(s => {
+            const m = s._metrics
+            const name = (s.name || s.id).replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            const typeTag = s.id && s.id.startsWith('short_') ? 'Short' : 'Long'
+            const winRatePct = m.winRate != null ? (m.winRate * 100).toFixed(1) : '–'
+            const exposurePct = m.exposure != null ? (m.exposure * 100).toFixed(1) : '–'
+            const avgDur = m.avgTradeDurationMs != null ? (m.avgTradeDurationMs < 60000 ? (m.avgTradeDurationMs / 1000).toFixed(0) + 's' : (m.avgTradeDurationMs / 60000).toFixed(1) + 'm') : '–'
+            const sharpeStr = s._sharpe != null ? s._sharpe.toFixed(2) : '–'
+            return '<tr>' +
+              '<td>' + name + '</td>' +
+              '<td class="numeric">' + typeTag + '</td>' +
+              '<td class="numeric" style="color:' + pnlColor(m.totalPnl) + '">' + formatPnl(m.totalPnl).replace(' USDT', '') + '</td>' +
+              '<td class="numeric" style="color:' + pnlColor(m.realizedPnl) + '">' + formatPnl(m.realizedPnl).replace(' USDT', '') + '</td>' +
+              '<td class="numeric" style="color:' + pnlColor(m.unrealizedPnl) + '">' + formatPnl(m.unrealizedPnl).replace(' USDT', '') + '</td>' +
+              '<td class="numeric">' + (m.wins ?? 0) + '/' + (m.losses ?? 0) + '</td>' +
+              '<td class="numeric">' + winRatePct + '</td>' +
+              '<td class="numeric" style="color:#22c55e">' + (m.avgWin != null ? formatPnl(m.avgWin).replace(' USDT', '') : '–') + '</td>' +
+              '<td class="numeric" style="color:#ef4444">' + (m.avgLoss != null ? formatPnl(m.avgLoss).replace(' USDT', '') : '–') + '</td>' +
+              '<td class="numeric">' + sharpeStr + '</td>' +
+              '<td class="numeric" style="color:#ef4444">' + (m.maxDrawdown != null ? formatPnl(m.maxDrawdown).replace(' USDT', '') : '–') + '</td>' +
+              '<td class="numeric">' + (m.trades ?? 0) + '</td>' +
+              '<td class="numeric">' + (s._tradesHistory ?? 0) + '</td>' +
+              '<td class="numeric">' + (s._fees != null ? s._fees.toFixed(4) : '–') + '</td>' +
+              '<td class="numeric">' + exposurePct + '</td>' +
+              '<td class="numeric">' + avgDur + '</td></tr>'
+          }).join('')
+        }
+
+        const topBottomEl = document.getElementById('analysis-top-bottom')
+        if (topBottomEl && sorted.length > 0) {
+          const byPnl = [...sorted].sort((a, b) => (b._metrics.totalPnl ?? 0) - (a._metrics.totalPnl ?? 0))
+          const top3 = byPnl.slice(0, 3)
+          const bottom3 = byPnl.slice(-3).reverse()
+          topBottomEl.innerHTML =
+            '<div><span class="section-title" style="margin-bottom:0.25rem;">Top 3</span><ul style="margin:0;padding-left:1.25rem;color:#22c55e">' +
+            top3.map(s => '<li>' + (s.name || s.id) + ': ' + formatPnl(s._metrics.totalPnl).replace(' USDT', '') + '</li>').join('') + '</ul></div>' +
+            '<div><span class="section-title" style="margin-bottom:0.25rem;">Bottom 3</span><ul style="margin:0;padding-left:1.25rem;color:#ef4444">' +
+            bottom3.map(s => '<li>' + (s.name || s.id) + ': ' + formatPnl(s._metrics.totalPnl).replace(' USDT', '') + '</li>').join('') + '</ul></div>'
+        }
+
+        const labels = sorted.map(s => s.name || s.id)
+        const pnlValues = sorted.map(s => s._metrics.totalPnl ?? 0)
+        const winRateValues = sorted.map(s => s._metrics.winRate != null ? s._metrics.winRate * 100 : null)
+        const barColorsPnl = pnlValues.map(v => (v >= 0 ? 'rgba(74, 222, 128, 0.8)' : 'rgba(248, 113, 113, 0.8)'))
+        const barColorsWr = winRateValues.map(() => 'rgba(56, 189, 248, 0.7)')
+        const chartOpts = {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#9ca3af' }, grid: { color: '#1f2937' } },
+            y: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { display: false } }
+          }
+        }
+        const pnlCtx = document.getElementById('analysis-pnl-chart')?.getContext('2d')
+        if (pnlCtx) {
+          const pnlData = { labels, datasets: [{ label: 'Total PnL', data: pnlValues, backgroundColor: barColorsPnl }] }
+          if (analysisPnlChart) {
+            analysisPnlChart.data = pnlData
+            analysisPnlChart.update()
+          } else {
+            analysisPnlChart = new Chart(pnlCtx, { type: 'bar', data: pnlData, options: chartOpts })
+          }
+        }
+        const wrCtx = document.getElementById('analysis-winrate-chart')?.getContext('2d')
+        if (wrCtx) {
+          const wrData = { labels, datasets: [{ label: 'Win rate %', data: winRateValues, backgroundColor: barColorsWr }] }
+          const wrOpts = { ...chartOpts, scales: { ...chartOpts.scales, x: { ...chartOpts.scales.x, min: 0, max: 100 } } }
+          if (analysisWinrateChart) {
+            analysisWinrateChart.data = wrData
+            analysisWinrateChart.options = wrOpts
+            analysisWinrateChart.update()
+          } else {
+            analysisWinrateChart = new Chart(wrCtx, { type: 'bar', data: wrData, options: wrOpts })
+          }
+        }
+
+        const equitySelect = document.getElementById('analysis-equity-strategy')
+        const equityCtx = document.getElementById('analysis-equity-chart')?.getContext('2d')
+        if (equitySelect) {
+          const opts = (strategies || []).map(s => '<option value="' + s.id + '">' + (s.name || s.id) + '</option>').join('')
+          equitySelect.innerHTML = opts || '<option value="">—</option>'
+        }
+        if (equityCtx) {
+          const selectedId = equitySelect?.value || (strategies && strategies[0]?.id)
+          const sel = (strategies || []).find(s => s.id === selectedId)
+          const history = sel ? getFilteredHistoryForRange(sel) : []
+          let cum = 0
+          const equityLabels = history.map(e => new Date(e.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }))
+          const equityData = history.map(e => { cum += Number(e.pnl ?? 0); return cum })
+          const eqData = { labels: equityLabels, datasets: [{ label: 'Cumulative PnL', data: equityData, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', fill: true, tension: 0.2 }] }
+          const eqOpts = {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { ticks: { color: '#9ca3af', maxTicksLimit: 8 }, grid: { display: false } },
+              y: { ticks: { color: '#9ca3af' }, grid: { color: '#1f2937' } }
+            }
+          }
+          if (analysisEquityChart) {
+            analysisEquityChart.data = eqData
+            analysisEquityChart.update()
+          } else {
+            analysisEquityChart = new Chart(equityCtx, { type: 'line', data: eqData, options: eqOpts })
+          }
+        }
       }
 
       async function refreshStatus() {
@@ -775,164 +1333,98 @@
           const bot = data.bot || {}
           document.getElementById('bot-symbol').textContent = bot.symbol || '-'
           document.getElementById('bot-timeframe').textContent = bot.timeframe || '-'
-          document.getElementById('bot-mode').textContent = bot.mode?.testnet ? 'TESTNET' : 'LIVE'
-          document.getElementById('bot-running-count').textContent = bot.runningCount ?? 0
-          document.getElementById('bot-auto').innerHTML = formatBoolPill(data.config?.autoTradingEnabled !== false)
-          document.getElementById('bot-last-tick').textContent = bot.lastTickAt || '-'
+          const modeEl = document.getElementById('bot-mode')
+          if (modeEl) {
+            modeEl.textContent = bot.mode?.testnet ? 'TESTNET' : 'LIVE'
+            modeEl.className = 'status-pill ' + (bot.mode?.testnet ? 'pill-warn' : 'pill-ok')
+          }
+          const autoEl = document.getElementById('bot-auto')
+          if (autoEl) autoEl.innerHTML = formatBoolPill(data.config?.autoTradingEnabled !== false)
           document.getElementById('bot-next-tick').textContent =
             bot.nextTickEtaMs != null ? Math.round(bot.nextTickEtaMs / 1000) + 's' : '-'
 
           const strategies = data.strategies || []
+          latestStrategies = strategies
           updatePositionActivity(strategies, data.market || {})
-          const container = document.getElementById('strategies-cards')
-          if (strategies.length === 0) {
-            container.innerHTML = '<div class="strategy-card card">No strategies</div>'
-          } else {
-            container.innerHTML = strategies.map(s => {
-              const posText = s.position?.open ? s.position.side + ' ' + formatAmount(s.position.amount) : 'Flat'
-              const runningPill = s.running ? '<span class="status-pill pill-ok">Running</span>' : '<span class="status-pill pill-warn">Stopped</span>'
-              const hasPosition = s.position?.open === true
-              const startStopBtn = s.id === 'manual'
-                ? ''
-                : '<button class="secondary strategy-btn" data-id="' + s.id + '" data-running="' + s.running + '">' + (s.running ? 'Stop' : 'Start') + '</button>'
-              const buyBtn = '<button class="primary strategy-buy-btn" data-id="' + s.id + '"' + (hasPosition ? ' disabled title="Already have position">Buy</button>' : '>Buy</button>')
-              const sellBtn = '<button class="danger strategy-sell-btn" data-id="' + s.id + '"' + (!hasPosition ? ' disabled title="No position to close">Sell</button>' : '>Sell</button>')
-              const resetPnlBtn = '<button class="secondary strategy-reset-pnl-btn" data-id="' + s.id + '" title="Set realized PnL to 0">Reset PnL</button>'
-              const name = (s.name || s.id).replace(/</g, '&lt;').replace(/>/g, '&gt;')
-              const desc = (s.description || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-              const pnlColor = (v) => (v ?? 0) >= 0 ? '#22c55e' : '#ef4444'
-              const r = s.realizedPnl ?? 0
-              const u = s.unrealizedPnl ?? 0
-              const t = s.totalPnl ?? 0
-              const openedCount = s.positionsOpened ?? 0
-              const wins = s.wins ?? 0
-              const losses = s.losses ?? 0
-              const trades = s.trades ?? (wins + losses)
-              const winRatePct = s.winRate != null ? (s.winRate * 100).toFixed(1) + '%' : '–'
-              const maxDd = s.maxDrawdown ?? 0
-              function formatMs(ms) {
-                if (ms == null || isNaN(ms) || ms <= 0) return '–'
-                const sec = Math.round(ms / 1000)
-                if (sec < 60) return sec + 's'
-                const min = Math.round(sec / 60)
-                if (min < 60) return min + 'm'
-                const h = (min / 60).toFixed(1)
-                return h + 'h'
-              }
-              const avgDur = formatMs(s.avgTradeDurationMs)
-              const exposurePct = s.exposure != null ? (s.exposure * 100).toFixed(1) + '%' : '–'
-              const selectedClass = s.id === selectedStrategyId ? ' strategy-card--selected' : ''
-              return '<div class="strategy-card card' + selectedClass + '" data-strategy-id="' + s.id + '">' +
-                '<h2>' + name + '</h2>' +
-                (desc ? '<p class="strategy-desc">' + desc + '</p>' : '') +
-                '<div class="row"><span class="label">Status</span><span class="value">' + runningPill + '</span></div>' +
-                '<div class="row"><span class="label">Positions opened</span><span class="value">' + openedCount + '</span></div>' +
-                '<div class="row"><span class="label">Wins / losses</span><span class="value">' + wins + ' / ' + losses + ' (' + winRatePct + ')</span></div>' +
-                '<div class="row"><span class="label">Avg trade duration</span><span class="value">' + avgDur + '</span></div>' +
-                '<div class="row"><span class="label">Exposure</span><span class="value">' + exposurePct + '</span></div>' +
-                '<div class="row"><span class="label">Max drawdown</span><span class="value" style="color:' + pnlColor(maxDd) + '">' + formatPnl(maxDd) + '</span></div>' +
-                '<div class="row"><span class="label">Realized PnL</span><span class="value" style="color:' + pnlColor(r) + '">' + formatPnl(s.realizedPnl).replace(' USDT', '') + '</span></div>' +
-                '<div class="row"><span class="label">Unrealized PnL</span><span class="value" style="color:' + pnlColor(u) + '">' + formatPnl(s.unrealizedPnl).replace(' USDT', '') + '</span></div>' +
-                '<div class="row"><span class="label">Total PnL</span><span class="value" style="color:' + pnlColor(t) + '">' + formatPnl(s.totalPnl) + '</span></div>' +
-                '<div class="row"><span class="label">Position</span><span class="value">' + posText + '</span></div>' +
-                '<div class="row"><span class="label">Last decision</span><span class="value">' + (s.lastDecision || '–') + '</span></div>' +
-                '<div class="action-wrap">' + startStopBtn + ' ' + buyBtn + ' ' + sellBtn + ' ' + resetPnlBtn + '</div>' +
-                '</div>'
-            }).join('')
-            container.querySelectorAll('.strategy-card').forEach(card => {
-              card.addEventListener('click', () => {
-                const id = card.dataset.strategyId || null
-                selectedStrategyId = id
-                container.querySelectorAll('.strategy-card').forEach(c => c.classList.remove('strategy-card--selected'))
-                card.classList.add('strategy-card--selected')
-                try {
-                  if (selectedStrategyId) {
-                    localStorage.setItem('selectedStrategyId', selectedStrategyId)
-                  } else {
-                    localStorage.removeItem('selectedStrategyId')
-                  }
-                  localStorage.removeItem('customWindowStart')
-                  localStorage.removeItem('customWindowEnd')
-                } catch (err) {
-                  console.error(err)
-                }
-                customWindow = null
-                // Re-render chart with focused indicators and markers
-                if (lastCandles.length) {
-                  renderChart(lastCandles)
-                } else {
-                  fetchCandles().then(renderChart).catch(console.error)
-                }
-              })
-            })
 
-            container.querySelectorAll('.strategy-btn').forEach(btn => {
-              btn.onclick = async () => {
-                const id = btn.dataset.id
-                const running = btn.dataset.running === 'true'
-                const action = running ? 'stop' : 'start'
-                try {
-                  await fetch('/api/strategies/' + id + '/' + action, { method: 'POST' })
-                  await refreshStatus()
-                } catch (e) {
-                  document.getElementById('action-status').textContent = 'Failed to ' + action
-                }
-              }
-            })
-            container.querySelectorAll('.strategy-buy-btn').forEach(btn => {
-              if (btn.disabled) return
-              btn.onclick = async () => {
-                const id = btn.dataset.id
-                document.getElementById('action-status').textContent = 'Opening long for ' + id + '…'
-                try {
-                  const res = await fetch('/api/strategies/' + id + '/buy', { method: 'POST' })
-                  const data = await res.json().catch(() => ({}))
-                  if (!res.ok) {
-                    document.getElementById('action-status').textContent = data.error || 'Buy failed'
-                    return
+          const tbody = document.getElementById('strategies-tbody')
+          const detailPane = document.getElementById('strategy-detail-pane')
+          if (tbody) {
+            if (strategies.length === 0) {
+              tbody.innerHTML = '<tr><td colspan="9">No strategies</td></tr>'
+            } else {
+              const sorted = [...strategies].sort((a, b) => {
+                const aShort = a.id && a.id.startsWith('short_')
+                const bShort = b.id && b.id.startsWith('short_')
+                if (aShort !== bShort) return aShort ? 1 : -1
+                return (a.name || a.id).localeCompare(b.name || b.id)
+              })
+              const pnlColor = (v) => (v ?? 0) >= 0 ? '#22c55e' : '#ef4444'
+              tbody.innerHTML = sorted.map(s => {
+                const posText = s.position?.open ? s.position.side + ' ' + formatAmount(s.position.amount) : 'Flat'
+                const runningPill = s.running ? 'Running' : 'Stopped'
+                const hasPosition = s.position?.open === true
+                const isShort = s.id && s.id.startsWith('short_')
+                const isManual = s.id === 'manual'
+                const startStopBtn = s.id === 'manual' ? '' : '<button class="secondary strategy-btn" data-id="' + s.id + '" data-running="' + s.running + '">' + (s.running ? 'Stop' : 'Start') + '</button> '
+                const buyBtn = isShort ? '' : '<button class="primary strategy-buy-btn" data-id="' + s.id + '"' + (hasPosition ? ' disabled' : '') + '>Long</button> '
+                const shortBtn = isShort ? '<button class="primary strategy-short-btn" data-id="' + s.id + '"' + (hasPosition ? ' disabled' : '') + '>Short</button> ' : ''
+                const sellBtn = '<button class="danger strategy-sell-btn" data-id="' + s.id + '"' + (!hasPosition ? ' disabled' : '') + '>Close</button> '
+                const resetBtn = '<button class="secondary strategy-reset-pnl-btn" data-id="' + s.id + '">Reset PnL</button>'
+                const name = (s.name || s.id).replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                const typeTag = isManual ? 'Utility' : isShort ? 'Short' : 'Long'
+                const wins = s.wins ?? 0
+                const losses = s.losses ?? 0
+                const exposurePct = s.exposure != null ? (s.exposure * 100).toFixed(1) + '%' : '–'
+                const t = s.totalPnl ?? 0
+                const selected = s.id === selectedStrategyId ? ' selected' : ''
+                return '<tr class="clickable' + selected + '" data-strategy-id="' + s.id + '">' +
+                  '<td>' + name + '</td>' +
+                  '<td>' + typeTag + '</td>' +
+                  '<td>' + runningPill + '</td>' +
+                  '<td class="numeric">' + wins + '/' + losses + '</td>' +
+                  '<td class="numeric" style="color:' + pnlColor(t) + '">' + formatPnl(s.totalPnl).replace(' USDT', '') + '</td>' +
+                  '<td class="numeric">' + exposurePct + '</td>' +
+                  '<td>' + posText + '</td>' +
+                  '<td>' + (s.lastDecision || '–') + '</td>' +
+                  '<td>' + startStopBtn + buyBtn + shortBtn + sellBtn + resetBtn + '</td></tr>'
+              }).join('')
+              tbody.querySelectorAll('tr[data-strategy-id]').forEach(tr => {
+                tr.addEventListener('click', (e) => {
+                  if (e.target.closest('button')) return
+                  const id = tr.dataset.strategyId || null
+                  selectedStrategyId = id
+                  tbody.querySelectorAll('tr.selected').forEach(r => r.classList.remove('selected'))
+                  tr.classList.add('selected')
+                  const strat = strategies.find(x => x.id === id)
+                  if (detailPane) {
+                    detailPane.classList.remove('empty')
+                    detailPane.innerHTML = strat ? strategyDetailHtml(strat) : 'Click a strategy row.'
+                    if (!strat) detailPane.classList.add('empty')
                   }
-                  document.getElementById('action-status').textContent = 'Position opened.'
-                  await refreshStatus()
-                } catch (e) {
-                  document.getElementById('action-status').textContent = 'Buy failed: ' + e.message
+                  try {
+                    if (selectedStrategyId) localStorage.setItem('selectedStrategyId', selectedStrategyId)
+                    else localStorage.removeItem('selectedStrategyId')
+                    localStorage.removeItem('customWindowStart')
+                    localStorage.removeItem('customWindowEnd')
+                  } catch (err) { console.error(err) }
+                  customWindow = null
+                  updateChartFocusLabel()
+                  if (lastCandles.length) renderChart(lastCandles)
+                  else fetchCandles().then(renderChart).catch(console.error)
+                })
+              })
+              const selectedStrat = strategies.find(s => s.id === selectedStrategyId)
+              if (detailPane) {
+                if (selectedStrat) {
+                  detailPane.classList.remove('empty')
+                  detailPane.innerHTML = strategyDetailHtml(selectedStrat)
+                } else {
+                  detailPane.classList.add('empty')
+                  detailPane.innerHTML = 'Click a strategy row to see details.'
                 }
               }
-            })
-            container.querySelectorAll('.strategy-sell-btn').forEach(btn => {
-              if (btn.disabled) return
-              btn.onclick = async () => {
-                const id = btn.dataset.id
-                document.getElementById('action-status').textContent = 'Closing position for ' + id + '…'
-                try {
-                  const res = await fetch('/api/strategies/' + id + '/sell', { method: 'POST' })
-                  const data = await res.json().catch(() => ({}))
-                  if (!res.ok) {
-                    document.getElementById('action-status').textContent = data.error || 'Sell failed'
-                    return
-                  }
-                  document.getElementById('action-status').textContent = 'Position closed.'
-                  await refreshStatus()
-                } catch (e) {
-                  document.getElementById('action-status').textContent = 'Sell failed: ' + e.message
-                }
-              }
-            })
-            container.querySelectorAll('.strategy-reset-pnl-btn').forEach(btn => {
-              btn.onclick = async () => {
-                const id = btn.dataset.id
-                try {
-                  const res = await fetch('/api/strategies/' + id + '/reset-pnl', { method: 'POST' })
-                  if (!res.ok) {
-                    document.getElementById('action-status').textContent = 'Reset PnL failed'
-                    return
-                  }
-                  document.getElementById('action-status').textContent = 'PnL reset for ' + id + '.'
-                  await refreshStatus()
-                } catch (e) {
-                  document.getElementById('action-status').textContent = 'Reset failed: ' + e.message
-                }
-              }
-            })
+            }
           }
 
           const balances = data.portfolio?.balances || {}
@@ -978,11 +1470,26 @@
               rtCfg.takeProfitPct != null ? rtCfg.takeProfitPct : envCfg.takeProfitPct ?? ''
           }
 
+          const budget = data.config?.budget || {}
+          const budgetGlobalEl = document.getElementById('budget-global')
+          const budgetPerEl = document.getElementById('budget-per-strategy')
+          if (budgetGlobalEl) {
+            budgetGlobalEl.textContent = (budget.globalBudgetQuote != null && budget.globalBudgetQuote > 0)
+              ? formatQuote(budget.globalBudgetQuote) + ' USDT'
+              : 'Full portfolio'
+          }
+          if (budgetPerEl) {
+            budgetPerEl.textContent = (budget.strategyBudgetQuote != null && budget.strategyBudgetQuote > 0)
+              ? formatQuote(budget.strategyBudgetQuote) + ' USDT'
+              : 'Full portfolio'
+          }
+
           const market = data.market || {}
           document.getElementById('chart-close').textContent = formatPrice(market.lastPrice)
           document.getElementById('chart-ema9').textContent = formatPrice(market.ema9)
           document.getElementById('chart-ema20').textContent = formatPrice(market.ema20)
-          document.getElementById('chart-ema21').textContent = formatPrice(market.ema21)
+          const ema21El = document.getElementById('chart-ema21')
+          if (ema21El) ema21El.textContent = formatPrice(market.ema21)
           document.getElementById('chart-ema50').textContent = formatPrice(market.ema50)
           document.getElementById('chart-ema200').textContent = formatPrice(market.ema200)
 
@@ -997,6 +1504,10 @@
           document.getElementById('pnl-unrealized').style.color = (aggregateUnrealized ?? 0) >= 0 ? '#22c55e' : '#ef4444'
           document.getElementById('pnl-total').textContent = formatPnl(aggregateTotal)
           document.getElementById('pnl-total').style.color = (aggregateTotal ?? 0) >= 0 ? '#22c55e' : '#ef4444'
+
+          updateChartFocusLabel()
+
+          await updateAnalysisPanel(strategies)
         } catch (err) {
           document.getElementById('action-status').textContent = 'Error: ' + err.message
         }
@@ -1097,11 +1608,24 @@
               row.addEventListener('click', () => {
                 if (t0.strategyId) {
                   selectedStrategyId = t0.strategyId
-                  const cards = document.querySelectorAll('.strategy-card')
-                  cards.forEach(c => c.classList.remove('strategy-card--selected'))
-                  const card = document.querySelector('.strategy-card[data-strategy-id="' + t0.strategyId + '"]')
-                  if (card) card.classList.add('strategy-card--selected')
+                  const tbody = document.getElementById('strategies-tbody')
+                  const detailPane = document.getElementById('strategy-detail-pane')
+                  if (tbody) {
+                    tbody.querySelectorAll('tr.selected').forEach(r => r.classList.remove('selected'))
+                    const row = tbody.querySelector('tr[data-strategy-id="' + t0.strategyId + '"]')
+                    if (row) row.classList.add('selected')
+                  }
+                  if (detailPane && latestStrategies.length) {
+                    const strat = latestStrategies.find(s => s.id === t0.strategyId)
+                    if (strat) {
+                      detailPane.classList.remove('empty')
+                      detailPane.innerHTML = strategyDetailHtml(strat)
+                    }
+                  }
+                  const strategiesTab = document.querySelector('.tab[data-tab="strategies"]')
+                  if (strategiesTab) strategiesTab.click()
                 }
+                updateChartFocusLabel()
                 if (!lastCandles.length) return
                 const ts = t0.timestamp
                 if (!ts) return
@@ -1141,25 +1665,51 @@
 
       document.getElementById('buy-btn').addEventListener('click', async () => {
         const statusEl = document.getElementById('action-status')
-        statusEl.textContent = 'Sending manual BUY...'
+        const amountRaw = document.getElementById('manual-amount').value
+        const unit = document.getElementById('manual-unit').value
+        const amount = parseFloat(amountRaw)
+        const body = (typeof amount === 'number' && amount > 0 && unit) ? { amount, unit } : {}
+        statusEl.textContent = body.amount ? `Buying ${amount} ${unit === 'quote' ? 'USDT' : 'BTC'}…` : 'Opening full position (BUY)...'
         try {
-          await postJson('/api/manual-buy', {})
-          statusEl.textContent = 'Manual BUY sent.'
+          const res = await fetch('/api/manual-buy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          })
+          const data = await res.json().catch(() => ({}))
+          if (!res.ok) {
+            statusEl.textContent = data.error || 'Buy failed'
+            return
+          }
+          statusEl.textContent = data.order ? `Buy order placed (${data.order.id}).` : 'Position opened.'
           await refreshStatus()
         } catch (err) {
-          statusEl.textContent = 'Manual BUY failed: ' + err.message
+          statusEl.textContent = 'Buy failed: ' + err.message
         }
       })
 
       document.getElementById('sell-btn').addEventListener('click', async () => {
         const statusEl = document.getElementById('action-status')
-        statusEl.textContent = 'Sending manual SELL...'
+        const amountRaw = document.getElementById('manual-amount').value
+        const unit = document.getElementById('manual-unit').value
+        const amount = parseFloat(amountRaw)
+        const body = (typeof amount === 'number' && amount > 0 && unit) ? { amount, unit } : {}
+        statusEl.textContent = body.amount ? `Selling ${amount} ${unit === 'quote' ? 'USDT' : 'BTC'}…` : 'Closing full position (SELL)...'
         try {
-          await postJson('/api/manual-sell', {})
-          statusEl.textContent = 'Manual SELL sent.'
+          const res = await fetch('/api/manual-sell', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          })
+          const data = await res.json().catch(() => ({}))
+          if (!res.ok) {
+            statusEl.textContent = data.error || 'Sell failed'
+            return
+          }
+          statusEl.textContent = data.order ? `Sell order placed (${data.order.id}).` : 'Position closed.'
           await refreshStatus()
         } catch (err) {
-          statusEl.textContent = 'Manual SELL failed: ' + err.message
+          statusEl.textContent = 'Sell failed: ' + err.message
         }
       })
 
@@ -1179,6 +1729,22 @@
           await refreshStatus()
         } catch (err) {
           statusEl.textContent = 'Config update failed: ' + err.message
+        }
+      })
+
+      document.getElementById('reset-config-btn').addEventListener('click', async () => {
+        const statusEl = document.getElementById('action-status')
+        statusEl.textContent = 'Resetting risk config to .env defaults...'
+        try {
+          const res = await fetch('/api/config/reset', { method: 'POST' })
+          if (!res.ok) {
+            statusEl.textContent = 'Reset failed'
+            return
+          }
+          statusEl.textContent = 'Risk config reset to .env defaults.'
+          await refreshStatus()
+        } catch (err) {
+          statusEl.textContent = 'Reset failed: ' + err.message
         }
       })
 
@@ -1268,6 +1834,123 @@
       setInterval(refreshStatus, 5000)   // UI / status every 5s
       setInterval(refreshChart, 20000)  // chart every 20s
       setInterval(refreshFees, 20000)   // fees every 20s
+
+      const rawJsonEl = document.getElementById('raw-json')
+      const rawJsonToggle = document.getElementById('toggle-raw-json')
+      if (rawJsonEl && rawJsonToggle) {
+        let rawVisible = false
+        rawJsonToggle.addEventListener('click', () => {
+          rawVisible = !rawVisible
+          rawJsonEl.style.display = rawVisible ? 'block' : 'none'
+          rawJsonToggle.textContent = rawVisible ? 'Hide' : 'Show'
+        })
+      }
+
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          const tabId = tab.getAttribute('data-tab')
+          if (!tabId) return
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+          document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'))
+          tab.classList.add('active')
+          const panel = document.getElementById('panel-' + tabId)
+          if (panel) panel.classList.add('active')
+        })
+      })
+
+      document.querySelectorAll('.analysis-table .sortable').forEach(th => {
+        th.addEventListener('click', () => {
+          const key = th.getAttribute('data-sort')
+          if (!key) return
+          if (analysisSortBy === key) analysisSortDesc = !analysisSortDesc
+          else { analysisSortBy = key; analysisSortDesc = key === 'name' || key === 'type' ? false : true }
+          document.querySelectorAll('.analysis-table .sortable').forEach(h => {
+            h.classList.remove('sorted-asc', 'sorted-desc')
+            if (h.getAttribute('data-sort') === analysisSortBy) h.classList.add(analysisSortDesc ? 'sorted-desc' : 'sorted-asc')
+          })
+          updateAnalysisPanel(latestStrategies)
+        })
+      })
+
+      const analysisTimeRangeEl = document.getElementById('analysis-time-range')
+      if (analysisTimeRangeEl) {
+        analysisTimeRangeEl.addEventListener('change', () => { updateAnalysisPanel(latestStrategies) })
+      }
+      const analysisEquityStrategyEl = document.getElementById('analysis-equity-strategy')
+      if (analysisEquityStrategyEl) {
+        analysisEquityStrategyEl.addEventListener('change', () => { updateAnalysisPanel(latestStrategies) })
+      }
+
+      const activityGoto = document.getElementById('activity-goto-trades')
+      if (activityGoto) {
+        activityGoto.addEventListener('click', (e) => {
+          e.preventDefault()
+          const tab = document.querySelector('.tab[data-tab="trades"]')
+          if (tab) tab.click()
+        })
+      }
+
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.strategy-btn')
+        if (btn) {
+          e.preventDefault()
+          const id = btn.dataset.id
+          const running = btn.dataset.running === 'true'
+          const action = running ? 'stop' : 'start'
+          fetch('/api/strategies/' + id + '/' + action, { method: 'POST' }).then(() => refreshStatus()).catch(() => { document.getElementById('action-status').textContent = 'Failed to ' + action })
+          return
+        }
+        const buyBtn = e.target.closest('.strategy-buy-btn')
+        if (buyBtn && !buyBtn.disabled) {
+          e.preventDefault()
+          const id = buyBtn.dataset.id
+          document.getElementById('action-status').textContent = 'Opening long for ' + id + '…'
+          fetch('/api/strategies/' + id + '/buy', { method: 'POST' })
+            .then(res => res.json().catch(() => ({})).then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+              if (!ok) document.getElementById('action-status').textContent = data.error || 'Buy failed'
+              else { document.getElementById('action-status').textContent = 'Position opened.'; refreshStatus() }
+            })
+            .catch(err => { document.getElementById('action-status').textContent = 'Buy failed: ' + err.message })
+          return
+        }
+        const shortBtn = e.target.closest('.strategy-short-btn')
+        if (shortBtn && !shortBtn.disabled) {
+          e.preventDefault()
+          const id = shortBtn.dataset.id
+          document.getElementById('action-status').textContent = 'Opening short for ' + id + '…'
+          fetch('/api/strategies/' + id + '/short', { method: 'POST' })
+            .then(res => res.json().catch(() => ({})).then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+              if (!ok) document.getElementById('action-status').textContent = data.error || 'Short failed'
+              else { document.getElementById('action-status').textContent = 'Short position opened.'; refreshStatus() }
+            })
+            .catch(err => { document.getElementById('action-status').textContent = 'Short failed: ' + err.message })
+          return
+        }
+        const sellBtn = e.target.closest('.strategy-sell-btn')
+        if (sellBtn && !sellBtn.disabled) {
+          e.preventDefault()
+          const id = sellBtn.dataset.id
+          document.getElementById('action-status').textContent = 'Closing position for ' + id + '…'
+          fetch('/api/strategies/' + id + '/sell', { method: 'POST' })
+            .then(res => res.json().catch(() => ({})).then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+              if (!ok) document.getElementById('action-status').textContent = data.error || 'Sell failed'
+              else { document.getElementById('action-status').textContent = 'Position closed.'; refreshStatus() }
+            })
+            .catch(err => { document.getElementById('action-status').textContent = 'Sell failed: ' + err.message })
+          return
+        }
+        const resetBtn = e.target.closest('.strategy-reset-pnl-btn')
+        if (resetBtn) {
+          e.preventDefault()
+          const id = resetBtn.dataset.id
+          fetch('/api/strategies/' + id + '/reset-pnl', { method: 'POST' })
+            .then(res => { if (!res.ok) throw new Error(); document.getElementById('action-status').textContent = 'PnL reset for ' + id + '.'; return refreshStatus() })
+            .catch(() => { document.getElementById('action-status').textContent = 'Reset PnL failed' })
+        }
+      })
     </script>
   </body>
   <div id="toast-container" class="toast-container"></div>
