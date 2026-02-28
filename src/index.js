@@ -373,6 +373,13 @@ app.get('/api/status', async (req, res) => {
       }
     }
 
+    function strategyDisplayName (name, id) {
+    if (!name) return id
+    if (id === 'manual') return name
+    if (id && id.startsWith('short_')) return name + ' [short]'
+    return name + ' [long]'
+  }
+
     const strategies = STRATEGY_IDS.map(id => {
       const state = loadState(id)
       const s = getStrategy(id)
@@ -417,7 +424,7 @@ app.get('/api/status', async (req, res) => {
 
       return {
         id,
-        name: s?.name ?? id,
+        name: strategyDisplayName(s?.name ?? id, id),
         description: s?.description ?? '',
         positionsOpened: state.positionsOpened ?? 0,
         wins,
