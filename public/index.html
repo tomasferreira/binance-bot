@@ -338,6 +338,8 @@
       <div class="topbar-right">
         <span class="label">Total PnL</span>
         <span class="value" id="pnl-total">-</span>
+        <button type="button" id="top-close-all-btn" class="danger" disabled title="Close all open positions">Close all</button>
+        <button type="button" id="top-reset-pnl-btn" class="secondary" title="Reset all realized PnLs and trade history">Reset PnL</button>
       </div>
     </header>
 
@@ -1637,6 +1639,8 @@
           const posContentEl = document.getElementById('position-content')
           const closeAllBtn = document.getElementById('close-all-positions-btn')
           if (closeAllBtn) closeAllBtn.disabled = withPosition.length === 0
+          const topCloseAllBtn = document.getElementById('top-close-all-btn')
+          if (topCloseAllBtn) topCloseAllBtn.disabled = withPosition.length === 0
           if (withPosition.length === 0) {
             posContentEl.innerHTML =
               '<div class="row"><span class="label">Status</span><span class="value">No open positions</span></div>'
@@ -1970,7 +1974,7 @@
         }
       })
 
-      document.getElementById('reset-all-pnl-btn').addEventListener('click', async () => {
+      async function resetAllPnl () {
         const statusEl = document.getElementById('action-status')
         if (!confirm('Reset realized PnL and erase trade history for all strategies?')) return
         statusEl.textContent = 'Resetting all PnLs…'
@@ -1985,7 +1989,9 @@
         } catch (err) {
           statusEl.textContent = 'Reset failed: ' + err.message
         }
-      })
+      }
+      document.getElementById('reset-all-pnl-btn').addEventListener('click', resetAllPnl)
+      document.getElementById('top-reset-pnl-btn').addEventListener('click', resetAllPnl)
 
       async function toggleAutoTrading () {
         const statusEl = document.getElementById('action-status')
@@ -2180,18 +2186,25 @@
             .catch(err => { document.getElementById('action-status').textContent = 'Sell failed: ' + err.message })
           return
         }
-        const closeAllBtnClick = e.target.closest('#close-all-positions-btn')
+        const closeAllBtnClick = e.target.closest('#close-all-positions-btn') || e.target.closest('#top-close-all-btn')
         if (closeAllBtnClick && !closeAllBtnClick.disabled) {
           e.preventDefault()
           document.getElementById('action-status').textContent = 'Closing all positions…'
-          closeAllBtnClick.disabled = true
+          document.getElementById('close-all-positions-btn').disabled = true
+          const topBtn = document.getElementById('top-close-all-btn')
+          if (topBtn) topBtn.disabled = true
           fetch('/api/close-all', { method: 'POST' })
             .then(res => res.json().catch(() => ({})).then(data => ({ ok: res.ok, data })))
             .then(({ ok, data }) => {
               if (!ok) document.getElementById('action-status').textContent = data.error || 'Close all failed'
               else { document.getElementById('action-status').textContent = (data.closed ?? 0) + ' position(s) closed.'; refreshStatus() }
             })
-            .catch(err => { document.getElementById('action-status').textContent = 'Close all failed: ' + err.message; document.getElementById('close-all-positions-btn').disabled = false })
+            .catch(err => {
+              document.getElementById('action-status').textContent = 'Close all failed: ' + err.message
+              document.getElementById('close-all-positions-btn').disabled = false
+              const tb = document.getElementById('top-close-all-btn')
+              if (tb) tb.disabled = false
+            })
           return
         }
         const resetBtn = e.target.closest('.strategy-reset-pnl-btn')
