@@ -303,6 +303,8 @@
       .strategy-table tr.clickable { cursor: pointer; }
       .strategy-table tr.clickable:hover { background: #1f2937; }
       .strategy-table tr.selected { background: rgba(34,197,94,0.15); }
+      .strategy-table tr.regime-active { border-left: 3px solid #22c55e; }
+      #analysis-tbody tr.regime-active { border-left: 3px solid #22c55e; }
       .strategies-layout { display: grid; grid-template-columns: 1fr 280px; gap: 1rem; align-items: start; }
       @media (max-width: 900px) { .strategies-layout { grid-template-columns: 1fr; } }
       .strategy-detail { background: #111827; border-radius: 0.5rem; padding: 1rem; border: 1px solid #1f2937; position: sticky; top: 0.5rem; }
@@ -1403,7 +1405,8 @@
             const expStr = s._expectancy != null ? formatPnl(s._expectancy).replace(' USDT', '') : '–'
             const sortinoStr = s._sortino == null ? '–' : (s._sortino === Infinity ? '∞' : (s._sortino === -Infinity ? '-∞' : s._sortino.toFixed(2)))
             const tpdStr = s._tradesPerDay != null ? s._tradesPerDay.toFixed(1) : '–'
-            return '<tr>' +
+            const regimeActiveClass = s.regimeActive ? ' class="regime-active"' : ''
+            return '<tr' + regimeActiveClass + '>' +
               '<td>' + name + '</td>' +
               '<td class="numeric">' + typeTag + '</td>' +
               '<td class="numeric" style="color:' + pnlColor(m.totalPnl) + '">' + formatPnl(m.totalPnl).replace(' USDT', '') + '</td>' +
@@ -1566,7 +1569,8 @@
                 const name = (s.name || s.id).replace(/</g, '&lt;').replace(/>/g, '&gt;')
                 const typeTag = isManual ? 'Utility' : isShort ? 'Short' : 'Long'
                 const selected = s.id === selectedStrategyId ? ' selected' : ''
-                return '<tr class="clickable' + selected + '" data-strategy-id="' + s.id + '">' +
+                const regimeActive = s.regimeActive ? ' regime-active' : ''
+                return '<tr class="clickable' + selected + regimeActive + '" data-strategy-id="' + s.id + '">' +
                   '<td>' + name + '</td>' +
                   '<td>' + typeTag + '</td>' +
                   '<td>' + runningPill + '</td>' +

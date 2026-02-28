@@ -4,7 +4,7 @@ import { logger } from './logger.js'
 import { getExchange } from './exchange.js'
 import { loadState, saveState, migrateLegacyState } from './stateMulti.js'
 import { loadRunner, setRunning, setRegimeFilterEnabled } from './runner.js'
-import { STRATEGY_IDS, getStrategy, evaluateStrategy } from './strategies/registry.js'
+import { STRATEGY_IDS, getStrategy, evaluateStrategy, isRegimeActive } from './strategies/registry.js'
 import { getOrderStrategyMap } from './orderStrategy.js'
 import { maybeClosePosition, openLongPosition, openShortPosition, closePositionNow } from './tradeManager.js'
 import { logOpenOrders } from './orders.js'
@@ -343,6 +343,8 @@ app.get('/api/status', async (req, res) => {
       logger.warn('Regime fetch or calculation failed', { err: err.message })
     }
 
+    const regime = { volatility: volatilityRegime, trend: trendRegime, trendDirection }
+
     logger.debug('exchange.fetchOpenOrders request (/api/status)', { symbol })
     const openOrders = await exchange.fetchOpenOrders(symbol)
     logger.debug('exchange.fetchOpenOrders response (/api/status)', { count: openOrders.length })
@@ -438,7 +440,8 @@ app.get('/api/status', async (req, res) => {
         closedTradesHistory: history,
         sinceReset,
         last7d,
-        last30d
+        last30d,
+        regimeActive: isRegimeActive(id, regime, runner.regimeFilterEnabled !== false)
       }
     })
 

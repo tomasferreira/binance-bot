@@ -82,6 +82,15 @@ export function getStrategy (id) {
   return strategies[id] ?? null
 }
 
+/** True if this strategy is allowed to enter in the current regime (for dashboard highlighting). */
+export function isRegimeActive (id, regime, regimeFilterEnabled) {
+  if (!regimeFilterEnabled) return true
+  if (!regime) return true
+  const filter = REGIME_FILTERS[id]
+  if (!filter) return true
+  return !!filter(regime)
+}
+
 export function evaluateStrategy (id, ohlcv, state, context = {}) {
   const s = getStrategy(id)
   if (!s?.evaluate) return { action: 'hold', detail: {} }
