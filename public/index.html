@@ -504,7 +504,7 @@
               <option value="all">All time</option>
               <option value="last7d">Last 7 days</option>
               <option value="last30d">Last 30 days</option>
-              <option value="sinceReset">Since last PnL reset</option>
+              <option value="sinceReset" selected>Since last PnL reset</option>
             </select>
           </div>
           <div class="row">
@@ -770,7 +770,7 @@
       let analysisEquityChart = null
       let analysisSortBy = 'totalPnl'
       let analysisSortDesc = true
-      let analysisTimeRange = 'all'
+      let analysisTimeRange = 'sinceReset'
       let analysisTradesData = {}
       let selectedStrategyId = null
       let latestTrades = []
@@ -1328,7 +1328,7 @@
       async function updateAnalysisPanel (strategies) {
         const tbody = document.getElementById('analysis-tbody')
         if (!tbody) return
-        analysisTimeRange = document.getElementById('analysis-time-range')?.value || 'all'
+        analysisTimeRange = document.getElementById('analysis-time-range')?.value || 'sinceReset'
         try {
           const res = await fetch('/api/trades?limit=500')
           if (res.ok) {
