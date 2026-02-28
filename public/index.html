@@ -1335,8 +1335,19 @@
             const data = await res.json()
             const list = Array.isArray(data.trades) ? data.trades : []
             const byStrategy = {}
+            const now = Date.now()
+            const range = analysisTimeRange
             list.forEach(t => {
               const id = t.strategyId || '_unknown_'
+              let include = true
+              if (range === 'last7d') include = (now - t.timestamp) <= 7 * 24 * 60 * 60 * 1000
+              else if (range === 'last30d') include = (now - t.timestamp) <= 30 * 24 * 60 * 60 * 1000
+              else if (range === 'sinceReset') {
+                const strat = (strategies || []).find(s => s.id === id)
+                const resetAt = strat?.pnlResetAt ? new Date(strat.pnlResetAt).getTime() : 0
+                include = t.timestamp >= resetAt
+              }
+              if (!include) return
               if (!byStrategy[id]) byStrategy[id] = { count: 0, fee: 0 }
               byStrategy[id].count += 1
               if (t.fee && (t.fee.currency === 'USDT' || t.fee.currency === 'BNB')) byStrategy[id].fee += Number(t.fee.cost || 0)
