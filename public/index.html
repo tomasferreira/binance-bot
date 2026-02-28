@@ -339,7 +339,7 @@
         <span class="label">Total PnL</span>
         <span class="value" id="pnl-total">-</span>
         <button type="button" id="top-close-all-btn" class="danger" disabled title="Close all open positions">Close all</button>
-        <button type="button" id="top-reset-pnl-btn" class="secondary" title="Reset all realized PnLs and trade history">Reset PnL</button>
+        <button type="button" id="top-reset-pnl-btn" class="secondary" title="Reset stats and trade history for all strategies">Reset stats & trades</button>
       </div>
     </header>
 
@@ -511,7 +511,7 @@
               <option value="all">All time</option>
               <option value="last7d">Last 7 days</option>
               <option value="last30d">Last 30 days</option>
-              <option value="sinceReset" selected>Since last PnL reset</option>
+              <option value="sinceReset" selected>Since last stats reset</option>
             </select>
           </div>
           <div class="row">
@@ -643,7 +643,7 @@
         </div>
         <div class="section">
           <div class="section-title">Danger zone</div>
-          <button class="secondary" id="reset-all-pnl-btn">Reset all realized PnLs</button>
+          <button class="secondary" id="reset-all-pnl-btn">Reset all stats and trades</button>
           <small id="action-status"></small>
         </div>
         <div class="section">
@@ -826,7 +826,7 @@
           actions += '<button class="primary strategy-short-btn" data-id="' + s.id + '"' + (hasPosition ? ' disabled' : '') + '>Open short</button> '
         }
         actions += '<button class="danger strategy-sell-btn" data-id="' + s.id + '"' + (!hasPosition ? ' disabled' : '') + '>Close</button> '
-        actions += '<button class="secondary strategy-reset-pnl-btn" data-id="' + s.id + '">Reset PnL</button>'
+        actions += '<button class="secondary strategy-reset-pnl-btn" data-id="' + s.id + '">Reset stats & trades</button>'
         return '<div class="section-title">' + name + '</div>' +
           (desc ? '<p style="margin:0.5rem 0; font-size:0.85rem; color:#9ca3af">' + desc + '</p>' : '') +
           '<div class="row"><span class="label">Status</span><span class="value">' + (s.running ? 'Running' : 'Stopped') + '</span></div>' +
@@ -1575,7 +1575,7 @@
                 const buyBtn = isShort ? '' : '<button class="primary strategy-buy-btn" data-id="' + s.id + '"' + (hasPosition ? ' disabled' : '') + '>Long</button> '
                 const shortBtn = isShort ? '<button class="primary strategy-short-btn" data-id="' + s.id + '"' + (hasPosition ? ' disabled' : '') + '>Short</button> ' : ''
                 const sellBtn = '<button class="danger strategy-sell-btn" data-id="' + s.id + '"' + (!hasPosition ? ' disabled' : '') + '>Close</button> '
-                const resetBtn = '<button class="secondary strategy-reset-pnl-btn" data-id="' + s.id + '">Reset PnL</button>'
+                const resetBtn = '<button class="secondary strategy-reset-pnl-btn" data-id="' + s.id + '">Reset stats & trades</button>'
                 const name = (s.name || s.id).replace(/</g, '&lt;').replace(/>/g, '&gt;')
                 const typeTag = isManual ? 'Utility' : isShort ? 'Short' : 'Long'
                 const selected = s.id === selectedStrategyId ? ' selected' : ''
@@ -1976,15 +1976,15 @@
 
       async function resetAllPnl () {
         const statusEl = document.getElementById('action-status')
-        if (!confirm('Reset realized PnL and erase trade history for all strategies?')) return
-        statusEl.textContent = 'Resetting all PnLs…'
+        if (!confirm('Reset stats and trade history for all strategies?')) return
+        statusEl.textContent = 'Resetting stats and trades…'
         try {
           const res = await fetch('/api/reset-all-pnl', { method: 'POST' })
           if (!res.ok) {
             statusEl.textContent = 'Reset failed'
             return
           }
-          statusEl.textContent = 'All PnLs reset.'
+          statusEl.textContent = 'Stats and trades reset.'
           await refreshStatus()
         } catch (err) {
           statusEl.textContent = 'Reset failed: ' + err.message
@@ -2212,8 +2212,8 @@
           e.preventDefault()
           const id = resetBtn.dataset.id
           fetch('/api/strategies/' + id + '/reset-pnl', { method: 'POST' })
-            .then(res => { if (!res.ok) throw new Error(); document.getElementById('action-status').textContent = 'PnL reset for ' + id + '.'; return refreshStatus() })
-            .catch(() => { document.getElementById('action-status').textContent = 'Reset PnL failed' })
+            .then(res => { if (!res.ok) throw new Error(); document.getElementById('action-status').textContent = 'Stats and trades reset for ' + id + '.'; return refreshStatus() })
+            .catch(() => { document.getElementById('action-status').textContent = 'Reset failed' })
         }
       })
     </script>
