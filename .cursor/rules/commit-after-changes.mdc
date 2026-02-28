@@ -1,0 +1,18 @@
+---
+description: Always commit changes after making them, with a message summarizing the user's request
+alwaysApply: true
+---
+
+# Commit after changes
+
+When the user asks you to make code changes:
+
+1. **After completing the requested work**, run a git commit (stage the changed files and commit).
+2. **Commit message**: Use a short description of **what the user asked for**, not a technical list of file edits. Examples:
+   - User: "Add a dark mode toggle" → commit: "Add dark mode toggle to settings"
+   - User: "Show fees in the analysis table" → commit: "Show fees in analysis table"
+   - User: "Fix the chart tooltip when there's no data" → commit: "Fix chart tooltip when there's no data"
+
+If the user explicitly says not to commit, or to leave commits for them, skip committing.
+
+Use `git add` for the files you changed (or that are clearly part of the same change), then `git commit -m "..."`. Request `git_write` permission when running git commit.
