@@ -486,22 +486,22 @@
             <table class="strategy-table analysis-table">
               <thead>
                 <tr>
-                  <th class="sortable" data-sort="name">Strategy</th>
-                  <th class="sortable numeric" data-sort="type">Type</th>
-                  <th class="sortable numeric" data-sort="totalPnl">Total PnL</th>
-                  <th class="sortable numeric" data-sort="realizedPnl">Realized</th>
-                  <th class="sortable numeric" data-sort="unrealizedPnl">Unrealized</th>
-                  <th class="sortable numeric" data-sort="wins">W/L</th>
-                  <th class="sortable numeric" data-sort="winRate">Win rate %</th>
-                  <th class="sortable numeric" data-sort="avgWin">Avg win</th>
-                  <th class="sortable numeric" data-sort="avgLoss">Avg loss</th>
-                  <th class="sortable numeric" data-sort="sharpe">Sharpe</th>
-                  <th class="sortable numeric" data-sort="maxDrawdown">Max DD</th>
-                  <th class="sortable numeric" data-sort="trades">Trades</th>
-                  <th class="sortable numeric" data-sort="tradesHistory">Trades (hist)</th>
-                  <th class="sortable numeric" data-sort="fees">Fees (USDT)</th>
-                  <th class="sortable numeric" data-sort="exposure">Exposure %</th>
-                  <th class="sortable numeric" data-sort="avgDuration">Avg duration</th>
+                  <th class="sortable" data-sort="name" title="Strategy name">Strategy</th>
+                  <th class="sortable numeric" data-sort="type" title="Long or Short">Type</th>
+                  <th class="sortable numeric" data-sort="totalPnl" title="Realized + unrealized PnL for the selected time range">Total PnL</th>
+                  <th class="sortable numeric" data-sort="realizedPnl" title="Closed-trade PnL in the selected time range">Realized</th>
+                  <th class="sortable numeric" data-sort="unrealizedPnl" title="Open position PnL (mark-to-market)">Unrealized</th>
+                  <th class="sortable numeric" data-sort="wins" title="Winning trades / losing trades in the selected range">W/L</th>
+                  <th class="sortable numeric" data-sort="winRate" title="% of closed trades that were profitable">Win rate %</th>
+                  <th class="sortable numeric" data-sort="avgWin" title="Average PnL per winning trade">Avg win</th>
+                  <th class="sortable numeric" data-sort="avgLoss" title="Average PnL per losing trade">Avg loss</th>
+                  <th class="sortable numeric" data-sort="sharpe" title="Simplified Sharpe: mean(PnL) / std(PnL) over closed trades in range">Sharpe</th>
+                  <th class="sortable numeric" data-sort="maxDrawdown" title="Largest peak-to-trough drop in equity">Max DD</th>
+                  <th class="sortable numeric" data-sort="trades" title="Number of closed trades in the selected time range">Trades</th>
+                  <th class="sortable numeric" data-sort="tradesHistory" title="Trade count from exchange history (last 500)">Trades (hist)</th>
+                  <th class="sortable numeric" data-sort="fees" title="Total fees (USDT) from exchange for this strategy">Fees (USDT)</th>
+                  <th class="sortable numeric" data-sort="exposure" title="% of strategy budget currently in position">Exposure %</th>
+                  <th class="sortable numeric" data-sort="avgDuration" title="Average time positions were held">Avg duration</th>
                 </tr>
               </thead>
               <tbody id="analysis-tbody">
