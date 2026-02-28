@@ -48,7 +48,11 @@ export function buildStatusPayload (deps) {
     minusDiNow,
     regimeTf,
     regimeCandles,
-    openOrders
+    openOrders,
+    volumeLast = null,
+    volumeAvg20 = null,
+    recentHigh20 = null,
+    recentLow20 = null
   } = deps
 
   const now = Date.now()
@@ -78,6 +82,10 @@ export function buildStatusPayload (deps) {
       exposure = totalTradeDurationMs / (now - firstTradeAtMs)
     }
     const maxDrawdown = Number(state.maxDrawdown ?? 0)
+    const peakEquity = Number(state.peakEquity ?? 0)
+    const currentEquity = realized + unrealized
+    const currentDrawdown = Math.max(0, peakEquity - currentEquity)
+    const currentDrawdownPct = peakEquity > 0 ? (currentDrawdown / peakEquity) * 100 : 0
 
     const history = Array.isArray(state.closedTradesHistory) ? state.closedTradesHistory : []
     const pnlResetAt = state.pnlResetAt || null
@@ -103,6 +111,10 @@ export function buildStatusPayload (deps) {
       avgTradeDurationMs,
       exposure,
       maxDrawdown,
+      peakEquity,
+      currentDrawdown,
+      currentDrawdownPct,
+      avgHoldTimeMin: closedTrades > 0 ? totalTradeDurationMs / closedTrades / 60000 : null,
       running: runner.running.includes(id),
       realizedPnl: realized,
       unrealizedPnl: unrealized,
@@ -190,6 +202,14 @@ export function buildStatusPayload (deps) {
       ema200,
       macd,
       macdSignal,
+      volumeLast: volumeLast ?? null,
+      volumeAvg20: volumeAvg20 ?? null,
+      volumeRatio: (volumeAvg20 != null && volumeAvg20 > 0 && volumeLast != null) ? Math.round((volumeLast / volumeAvg20) * 100) / 100 : null,
+      recentHigh20: recentHigh20 ?? null,
+      recentLow20: recentLow20 ?? null,
+      pctFromEma200: (lastPrice != null && ema200 != null && ema200 > 0) ? Math.round(((lastPrice - ema200) / ema200) * 10000) / 100 : null,
+      pctFromRecentHigh: (lastPrice != null && recentHigh20 != null && recentHigh20 > 0) ? Math.round(((lastPrice - recentHigh20) / recentHigh20) * 10000) / 100 : null,
+      pctFromRecentLow: (lastPrice != null && recentLow20 != null && recentLow20 > 0) ? Math.round(((lastPrice - recentLow20) / recentLow20) * 10000) / 100 : null,
       regime: {
         timeframe: regimeTf,
         candles: regimeCandles,

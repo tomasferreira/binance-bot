@@ -82,6 +82,18 @@
               <span class="label">Direction</span>
               <span class="value" id="regime-direction">–</span>
             </div>
+            <div class="row">
+              <span class="label">Volume (vs avg 20)</span>
+              <span class="value" id="market-volume-ratio">–</span>
+            </div>
+            <div class="row">
+              <span class="label">Price vs EMA 200</span>
+              <span class="value" id="market-pct-ema200">–</span>
+            </div>
+            <div class="row">
+              <span class="label">Price vs 20-bar high/low</span>
+              <span class="value" id="market-pct-levels">–</span>
+            </div>
           </div>
         </div>
         <div class="section">
@@ -202,6 +214,8 @@
           </div>
         </div>
         <div class="section">
+          <div class="section-title">Win rate by side</div>
+          <div id="analysis-winrate-by-side" style="display:flex;gap:2rem;flex-wrap:wrap;margin-bottom:0.75rem;font-size:0.9rem;"></div>
           <div class="section-title">Top / Bottom by PnL</div>
           <div id="analysis-top-bottom" style="display:flex;gap:2rem;flex-wrap:wrap;margin-bottom:0.5rem;"></div>
         </div>
@@ -223,11 +237,19 @@
                   <th class="sortable numeric" data-sort="avgLoss" title="Average PnL per losing trade">Avg loss</th>
                   <th class="sortable numeric" data-sort="sharpe" title="Simplified Sharpe: mean(PnL) / std(PnL) over closed trades in range">Sharpe</th>
                   <th class="sortable numeric" data-sort="maxDrawdown" title="Largest peak-to-trough drop in equity">Max DD</th>
+                  <th class="sortable numeric" data-sort="calmar" title="Return ÷ max drawdown (range)">Calmar</th>
+                  <th class="sortable numeric" data-sort="recovery" title="Net profit ÷ max drawdown">Recovery</th>
+                  <th class="sortable numeric" data-sort="currentDrawdownPct" title="Current drawdown % from peak">Curr DD %</th>
                   <th class="sortable numeric" data-sort="trades" title="Number of closed trades in the selected time range">Trades</th>
                   <th class="sortable numeric" data-sort="tradesHistory" title="Trade count from exchange history (last 500)">Trades (hist)</th>
                   <th class="sortable numeric" data-sort="fees" title="Total fees (USDT) from exchange for this strategy">Fees (USDT)</th>
                   <th class="sortable numeric" data-sort="exposure" title="% of strategy budget currently in position">Exposure %</th>
                   <th class="sortable numeric" data-sort="avgDuration" title="Average time positions were held">Avg duration</th>
+                  <th class="numeric" title="Current win/loss streak">Streak</th>
+                  <th class="numeric" title="Max consecutive wins / losses">Max streak</th>
+                  <th class="sortable numeric" data-sort="avgHoldTimeMin" title="Avg hold time in minutes">Avg hold (min)</th>
+                  <th class="numeric" title="Avg fee per trade (USDT)">Cost/trade</th>
+                  <th class="sortable numeric" data-sort="timeInProfitPct" title="% of trades at new equity high">Time in profit %</th>
                   <th class="sortable numeric" data-sort="profitFactor" title="Gross profit ÷ gross loss; >1 = profitable">Profit factor</th>
                   <th class="sortable numeric" data-sort="expectancy" title="Average USDT per trade">Expectancy</th>
                   <th class="sortable numeric" data-sort="maxWin" title="Largest single winning trade">Max win</th>
@@ -238,7 +260,7 @@
                 </tr>
               </thead>
               <tbody id="analysis-tbody">
-                <tr><td colspan="23">Loading…</td></tr>
+                <tr><td colspan="31">Loading…</td></tr>
               </tbody>
             </table>
           </div>

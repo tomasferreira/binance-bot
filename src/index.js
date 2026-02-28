@@ -270,6 +270,21 @@ app.get('/api/status', async (req, res) => {
     const macd = macdLine[lastIdx] ?? null
     const macdSignal = signalLine[lastIdx] ?? null
 
+    const lookback = Math.min(20, ohlcv.length)
+    let volumeLast = null
+    let volumeAvg20 = null
+    let recentHigh20 = null
+    let recentLow20 = null
+    if (ohlcv.length >= 1) {
+      volumeLast = ohlcv[ohlcv.length - 1][5] ?? null
+      if (lookback >= 1) {
+        const volSlice = ohlcv.slice(-lookback).map(c => c[5] ?? 0)
+        volumeAvg20 = volSlice.reduce((a, b) => a + b, 0) / volSlice.length
+        recentHigh20 = Math.max(...ohlcv.slice(-lookback).map(c => c[2] ?? 0))
+        recentLow20 = Math.min(...ohlcv.slice(-lookback).map(c => c[3] ?? Infinity))
+      }
+    }
+
     const regimeTf = config.trading.regimeTimeframe || '1h'
     const regimeCandles = config.trading.regimeCandles ?? 200
     let regime = { volatility: 'neutral', trend: 'weak', trendDirection: 'neutral' }
@@ -323,7 +338,11 @@ app.get('/api/status', async (req, res) => {
       minusDiNow,
       regimeTf,
       regimeCandles,
-      openOrders
+      openOrders,
+      volumeLast,
+      volumeAvg20,
+      recentHigh20,
+      recentLow20
     })
     res.json(payload)
   } catch (err) {

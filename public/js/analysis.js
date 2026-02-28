@@ -3,6 +3,40 @@ import { state } from './state.js'
 
 const Chart = window.Chart
 
+function streaksFromHistory (entries) {
+  if (!entries?.length) return { consecutiveWins: 0, consecutiveLosses: 0, maxConsecutiveWins: 0, maxConsecutiveLosses: 0 }
+  const pnls = entries.map(e => Number(e.pnl ?? 0))
+  let cw = 0; let cl = 0; let maxW = 0; let maxL = 0
+  for (let i = pnls.length - 1; i >= 0; i--) {
+    if (pnls[i] > 0) { cw++; cl = 0; if (cw > maxW) maxW = cw }
+    else if (pnls[i] < 0) { cl++; cw = 0; if (cl > maxL) maxL = cl }
+    else break
+  }
+  return { consecutiveWins: cw, consecutiveLosses: cl, maxConsecutiveWins: maxW, maxConsecutiveLosses: maxL }
+}
+
+function maxDrawdownFromHistory (entries) {
+  if (!entries?.length) return 0
+  let peak = 0; let maxDd = 0; let cum = 0
+  for (const e of entries) {
+    cum += Number(e.pnl ?? 0)
+    if (cum > peak) peak = cum
+    const dd = peak - cum
+    if (dd > maxDd) maxDd = dd
+  }
+  return maxDd
+}
+
+function timeInProfitPctFromHistory (entries) {
+  if (!entries?.length) return null
+  let peak = 0; let atNewHigh = 0; let cum = 0
+  for (const e of entries) {
+    cum += Number(e.pnl ?? 0)
+    if (cum >= peak) { atNewHigh++; if (cum > peak) peak = cum }
+  }
+  return (atNewHigh / entries.length) * 100
+}
+
 function getMetricsForRange (s) {
   if (state.analysisTimeRange === 'all') {
     return {
@@ -100,7 +134,29 @@ function computeExtraMetrics (entries, s) {
   const lastEntry = entries.length ? entries.reduce((a, b) => new Date(b.timestamp).getTime() > new Date(a.timestamp).getTime() ? b : a) : null
   const lastTradeTs = lastEntry ? new Date(lastEntry.timestamp).getTime() : null
   const lastTradeStr = lastEntry ? formatDate24h(lastEntry.timestamp) : '–'
-  return { profitFactor, expectancy, maxWin, maxLoss, sortino, tradesPerDay, lastTradeStr, lastTradeTs }
+
+  const realizedPnl = pnls.reduce((a, b) => a + b, 0)
+  const maxDdInRange = maxDrawdownFromHistory(entries)
+  const calmarRatio = maxDdInRange > 0 ? realizedPnl / maxDdInRange : null
+  const recoveryFactor = maxDdInRange > 0 ? realizedPnl / maxDdInRange : null
+  const streaks = streaksFromHistory(entries)
+  const timeInProfitPct = timeInProfitPctFromHistory(entries)
+
+  return {
+    profitFactor,
+    expectancy,
+    maxWin,
+    maxLoss,
+    sortino,
+    tradesPerDay,
+    lastTradeStr,
+    lastTradeTs,
+    calmarRatio,
+    recoveryFactor,
+    maxDrawdownInRange: maxDdInRange,
+    ...streaks,
+    timeInProfitPct
+  }
 }
 
 export async function updateAnalysisPanel (strategies) {
@@ -141,15 +197,37 @@ export async function updateAnalysisPanel (strategies) {
     const extra = computeExtraMetrics(hist, s)
     const td = state.analysisTradesData[s.id] || {}
     const typeTag = s.id && s.id.startsWith('short_') ? 'Short' : 'Long'
-    return { ...s, _metrics: m, _typeTag: typeTag, _sharpe: sharpe, _tradesHistory: td.count || 0, _fees: td.fee || 0, _profitFactor: extra.profitFactor, _expectancy: extra.expectancy, _maxWin: extra.maxWin, _maxLoss: extra.maxLoss, _sortino: extra.sortino, _tradesPerDay: extra.tradesPerDay, _lastTradeStr: extra.lastTradeStr, _lastTradeTs: extra.lastTradeTs }
+    return {
+      ...s,
+      _metrics: m,
+      _typeTag: typeTag,
+      _sharpe: sharpe,
+      _tradesHistory: td.count || 0,
+      _fees: td.fee || 0,
+      _profitFactor: extra.profitFactor,
+      _expectancy: extra.expectancy,
+      _maxWin: extra.maxWin,
+      _maxLoss: extra.maxLoss,
+      _sortino: extra.sortino,
+      _tradesPerDay: extra.tradesPerDay,
+      _lastTradeStr: extra.lastTradeStr,
+      _lastTradeTs: extra.lastTradeTs,
+      _calmarRatio: extra.calmarRatio,
+      _recoveryFactor: extra.recoveryFactor,
+      _consecutiveWins: extra.consecutiveWins,
+      _consecutiveLosses: extra.consecutiveLosses,
+      _maxConsecutiveWins: extra.maxConsecutiveWins,
+      _maxConsecutiveLosses: extra.maxConsecutiveLosses,
+      _timeInProfitPct: extra.timeInProfitPct
+    }
   })
 
   const sorted = [...list].sort((a, b) => {
     const sortKey = state.analysisSortBy === 'avgDuration' ? 'avgTradeDurationMs' : state.analysisSortBy
-    const extraKeys = { type: '_typeTag', sharpe: '_sharpe', tradesHistory: '_tradesHistory', fees: '_fees', profitFactor: '_profitFactor', expectancy: '_expectancy', maxWin: '_maxWin', maxLoss: '_maxLoss', sortino: '_sortino', tradesPerDay: '_tradesPerDay', lastTrade: '_lastTradeTs' }
+    const extraKeys = { type: '_typeTag', sharpe: '_sharpe', tradesHistory: '_tradesHistory', fees: '_fees', profitFactor: '_profitFactor', expectancy: '_expectancy', maxWin: '_maxWin', maxLoss: '_maxLoss', sortino: '_sortino', tradesPerDay: '_tradesPerDay', lastTrade: '_lastTradeTs', calmar: '_calmarRatio', recovery: '_recoveryFactor', timeInProfitPct: '_timeInProfitPct' }
     const extraKey = extraKeys[state.analysisSortBy]
-    const va = extraKey ? (extraKey === '_lastTradeTs' ? a._lastTradeTs : a[extraKey]) : (a._metrics && a._metrics[sortKey]) != null ? a._metrics[sortKey] : a[state.analysisSortBy]
-    const vb = extraKey ? (extraKey === '_lastTradeTs' ? b._lastTradeTs : b[extraKey]) : (b._metrics && b._metrics[sortKey]) != null ? b._metrics[sortKey] : b[state.analysisSortBy]
+    const va = extraKey ? (extraKey === '_lastTradeTs' ? a._lastTradeTs : a[extraKey]) : (state.analysisSortBy === 'currentDrawdownPct' || state.analysisSortBy === 'avgHoldTimeMin') ? a[state.analysisSortBy] : (a._metrics && a._metrics[sortKey]) != null ? a._metrics[sortKey] : a[state.analysisSortBy]
+    const vb = extraKey ? (extraKey === '_lastTradeTs' ? b._lastTradeTs : b[extraKey]) : (state.analysisSortBy === 'currentDrawdownPct' || state.analysisSortBy === 'avgHoldTimeMin') ? b[state.analysisSortBy] : (b._metrics && b._metrics[sortKey]) != null ? b._metrics[sortKey] : b[state.analysisSortBy]
     if (state.analysisSortBy === 'name' || state.analysisSortBy === 'type') {
       const sa = (va ?? '').toString()
       const sb = (vb ?? '').toString()
@@ -171,7 +249,7 @@ export async function updateAnalysisPanel (strategies) {
   if (totalTradesEl) totalTradesEl.textContent = totalTradesInRange.toLocaleString()
 
   if (sorted.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="23">No strategies</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="31">No strategies</td></tr>'
   } else {
     tbody.innerHTML = sorted.map(s => {
       const m = s._metrics
@@ -198,11 +276,19 @@ export async function updateAnalysisPanel (strategies) {
         '<td class="numeric" style="color:#ef4444">' + (m.avgLoss != null ? formatPnl(m.avgLoss).replace(' USDT', '') : '–') + '</td>' +
         '<td class="numeric">' + sharpeStr + '</td>' +
         '<td class="numeric" style="color:#ef4444">' + (m.maxDrawdown != null ? formatPnl(m.maxDrawdown).replace(' USDT', '') : '–') + '</td>' +
+        '<td class="numeric">' + (s._calmarRatio != null ? s._calmarRatio.toFixed(2) : '–') + '</td>' +
+        '<td class="numeric">' + (s._recoveryFactor != null ? s._recoveryFactor.toFixed(2) : '–') + '</td>' +
+        '<td class="numeric" style="color:#ef4444">' + (s.currentDrawdownPct != null && s.currentDrawdownPct > 0 ? s.currentDrawdownPct.toFixed(1) + '%' : '–') + '</td>' +
         '<td class="numeric">' + (m.trades ?? 0) + '</td>' +
         '<td class="numeric">' + (s._tradesHistory ?? 0) + '</td>' +
         '<td class="numeric">' + (s._fees != null ? s._fees.toFixed(4) : '–') + '</td>' +
         '<td class="numeric">' + exposurePct + '</td>' +
         '<td class="numeric">' + avgDur + '</td>' +
+        '<td class="numeric">' + ((s._consecutiveWins > 0 ? s._consecutiveWins + 'W' : '') || (s._consecutiveLosses > 0 ? s._consecutiveLosses + 'L' : '') || '–') + '</td>' +
+        '<td class="numeric">' + (s._maxConsecutiveWins > 0 || s._maxConsecutiveLosses > 0 ? (s._maxConsecutiveWins || 0) + ' / ' + (s._maxConsecutiveLosses || 0) : '–') + '</td>' +
+        '<td class="numeric">' + (s.avgHoldTimeMin != null ? s.avgHoldTimeMin.toFixed(1) : '–') + '</td>' +
+        '<td class="numeric">' + (s._fees != null && (m.trades ?? 0) > 0 ? (s._fees / m.trades).toFixed(4) : '–') + '</td>' +
+        '<td class="numeric">' + (s._timeInProfitPct != null ? s._timeInProfitPct.toFixed(1) + '%' : '–') + '</td>' +
         '<td class="numeric">' + pfStr + '</td>' +
         '<td class="numeric" style="color:' + pnlColor(s._expectancy) + '">' + expStr + '</td>' +
         '<td class="numeric" style="color:#22c55e">' + (s._maxWin != null ? formatPnl(s._maxWin).replace(' USDT', '') : '–') + '</td>' +
@@ -211,6 +297,24 @@ export async function updateAnalysisPanel (strategies) {
         '<td class="numeric">' + tpdStr + '</td>' +
         '<td class="numeric">' + (s._lastTradeStr || '–') + '</td></tr>'
     }).join('')
+  }
+
+  const winRateBySideEl = document.getElementById('analysis-winrate-by-side')
+  if (winRateBySideEl && sorted.length > 0) {
+    const longStrats = sorted.filter(s => !s.id.startsWith('short_'))
+    const shortStrats = sorted.filter(s => s.id.startsWith('short_'))
+    const agg = (arr) => {
+      const wins = arr.reduce((a, s) => a + (s._metrics?.wins ?? 0), 0)
+      const losses = arr.reduce((a, s) => a + (s._metrics?.losses ?? 0), 0)
+      const trades = wins + losses
+      const wr = trades > 0 ? (wins / trades * 100).toFixed(1) : '–'
+      return { wins, losses, trades, wr }
+    }
+    const longAgg = agg(longStrats)
+    const shortAgg = agg(shortStrats)
+    winRateBySideEl.innerHTML =
+      '<div><span class="section-title" style="margin-bottom:0.25rem;">Long</span> <span style="color:#9ca3af">' + longAgg.wins + 'W / ' + longAgg.losses + 'L</span> · Win rate <span style="color:#22c55e">' + longAgg.wr + '%</span></div>' +
+      '<div><span class="section-title" style="margin-bottom:0.25rem;">Short</span> <span style="color:#9ca3af">' + shortAgg.wins + 'W / ' + shortAgg.losses + 'L</span> · Win rate <span style="color:#22c55e">' + shortAgg.wr + '%</span></div>'
   }
 
   const topBottomEl = document.getElementById('analysis-top-bottom')

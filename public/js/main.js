@@ -173,6 +173,12 @@ async function refreshStatus () {
     if (trendEl) trendEl.textContent = regime.trend ? (regime.trend.charAt(0).toUpperCase() + regime.trend.slice(1)) + (regime.adx != null ? ' (ADX ' + regime.adx + ')' : '') : '–'
     const dirEl = document.getElementById('regime-direction')
     if (dirEl) dirEl.textContent = regime.trendDirection ? (regime.trendDirection.charAt(0).toUpperCase() + regime.trendDirection.slice(1)) : '–'
+    const volRatioEl = document.getElementById('market-volume-ratio')
+    if (volRatioEl) volRatioEl.textContent = market.volumeRatio != null ? market.volumeRatio.toFixed(2) + '×' : '–'
+    const pctEmaEl = document.getElementById('market-pct-ema200')
+    if (pctEmaEl) pctEmaEl.textContent = market.pctFromEma200 != null ? (market.pctFromEma200 >= 0 ? '+' : '') + market.pctFromEma200 + '%' : '–'
+    const pctLevelsEl = document.getElementById('market-pct-levels')
+    if (pctLevelsEl) pctLevelsEl.textContent = (market.pctFromRecentHigh != null && market.pctFromRecentLow != null) ? (market.pctFromRecentHigh >= 0 ? '+' : '') + market.pctFromRecentHigh + '% / ' + (market.pctFromRecentLow >= 0 ? '+' : '') + market.pctFromRecentLow + '%' : '–'
 
     const strategiesForPnl = data.strategies || []
     const aggregateRealized = data.pnl?.realized ?? strategiesForPnl.reduce((a, s) => a + (Number(s.realizedPnl) || 0), 0)
