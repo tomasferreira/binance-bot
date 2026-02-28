@@ -1,9 +1,9 @@
-import { formatPrice, formatAmount, formatQuote, formatPnl, escapeHtml } from './utils.js'
+import { formatPrice, formatAmount, formatQuote, formatPnl, escapeHtml, formatTime24h, formatTimeAgo, formatDate24h } from './utils.js'
 import { state } from './state.js'
 
 export function addActivityEvent (message, level, showToast) {
-  const now = new Date()
-  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  const now = Date.now()
+  const timeStr = formatTime24h(now, true) + ' (' + formatTimeAgo(now) + ')'
   const item = { time: timeStr, message, level }
   state.activityEvents.unshift(item)
   if (state.activityEvents.length > 50) state.activityEvents.pop()
@@ -124,9 +124,9 @@ export function updateTradesPanel (data, callbacks) {
       const t0 = trades[0]
       const n = trades.length
       const timeStr = n === 1
-        ? (t0.timestamp ? new Date(t0.timestamp).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '–')
+        ? (t0.timestamp ? formatDate24h(t0.timestamp) : '–')
         : (t0.timestamp && trades[n - 1].timestamp
-          ? new Date(t0.timestamp).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) + ' … ' + new Date(trades[n - 1].timestamp).toLocaleString(undefined, { timeStyle: 'short' })
+          ? formatDate24h(t0.timestamp) + ' … ' + formatTime24h(trades[n - 1].timestamp) + ' (' + formatTimeAgo(trades[n - 1].timestamp) + ')'
           : '–')
       const orderIdStr = grp.orderId != null ? String(grp.orderId) : '–'
       const sideClass = t0.side === 'buy' ? 'side-buy' : 'side-sell'

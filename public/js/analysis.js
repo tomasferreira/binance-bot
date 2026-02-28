@@ -1,4 +1,4 @@
-import { formatPnl } from './utils.js'
+import { formatPnl, formatDate24h, formatTime24h } from './utils.js'
 import { state } from './state.js'
 
 const Chart = window.Chart
@@ -99,7 +99,7 @@ function computeExtraMetrics (entries, s) {
   const tradesPerDay = entries.length && daysInRange > 0 ? entries.length / daysInRange : null
   const lastEntry = entries.length ? entries.reduce((a, b) => new Date(b.timestamp).getTime() > new Date(a.timestamp).getTime() ? b : a) : null
   const lastTradeTs = lastEntry ? new Date(lastEntry.timestamp).getTime() : null
-  const lastTradeStr = lastEntry ? (() => { const d = new Date(lastEntry.timestamp); const ago = Math.round((now - d.getTime()) / (86400 * 1000)); return ago === 0 ? 'Today' : ago === 1 ? '1d ago' : ago < 30 ? ago + 'd ago' : d.toLocaleDateString() })() : '–'
+  const lastTradeStr = lastEntry ? formatDate24h(lastEntry.timestamp) : '–'
   return { profitFactor, expectancy, maxWin, maxLoss, sortino, tradesPerDay, lastTradeStr, lastTradeTs }
 }
 
@@ -278,7 +278,7 @@ export async function updateAnalysisPanel (strategies) {
     const sel = (strategies || []).find(s => s.id === selectedId)
     const history = sel ? getFilteredHistoryForRange(sel) : []
     let cum = 0
-    const equityLabels = history.map(e => new Date(e.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }))
+    const equityLabels = history.map(e => formatDate24h(e.timestamp, { includeAgo: false }))
     const equityData = history.map(e => { cum += Number(e.pnl ?? 0); return cum })
     const eqData = { labels: equityLabels, datasets: [{ label: 'Cumulative PnL', data: equityData, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', fill: true, tension: 0.2 }] }
     const eqOpts = {

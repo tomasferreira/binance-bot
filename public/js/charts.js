@@ -1,4 +1,5 @@
 import { state } from './state.js'
+import { formatTime24h } from './utils.js'
 
 const Chart = window.Chart
 
@@ -23,9 +24,7 @@ export function renderChart (candles) {
   }
   if (!view.length) return
 
-  const labels = view.map(c =>
-    new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  )
+  const labels = view.map(c => formatTime24h(c.timestamp))
   const closes = view.map(c => c.close)
   const ema9 = view.map(c => c.ema9)
   const ema20 = view.map(c => c.ema20)
