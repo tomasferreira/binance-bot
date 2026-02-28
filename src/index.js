@@ -376,8 +376,11 @@ app.get('/api/status', async (req, res) => {
     function strategyDisplayName (name, id) {
     if (!name) return id
     if (id === 'manual') return name
-    if (id && id.startsWith('short_')) return name + ' [short]'
-    return name + ' [long]'
+    let n = String(name)
+      .replace(/^Short\s+/i, '')
+      .replace(/\s+\((Long|Short)\)$/i, '')
+    if (id && id.startsWith('short_')) return n + ' [short]'
+    return n + ' [long]'
   }
 
     const strategies = STRATEGY_IDS.map(id => {
