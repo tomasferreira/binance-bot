@@ -3,13 +3,16 @@ import express from 'express'
 import { config } from './config.js'
 import { logger } from './logger.js'
 import { getExchange } from './exchange.js'
-import { loadState, saveState, migrateLegacyState } from './stateMulti.js'
+import { loadState, saveState, migrateLegacyState, resetPnlState } from './stateMulti.js'
 import { loadRunner, setRunning, setRegimeFilterEnabled } from './runner.js'
 import { STRATEGY_IDS, getStrategy, evaluateStrategy, isRegimeActive } from './strategies/registry.js'
 import { getOrderStrategyMap } from './orderStrategy.js'
 import { maybeClosePosition, openLongPosition, openShortPosition, closePositionNow } from './tradeManager.js'
 import { logOpenOrders } from './orders.js'
 import { getEMACrossSignal, calculateEMA, calculateMACD, calculateRSI, calculateBollinger, calculateATR, calculateADX } from './indicators.js'
+import { computeRegime } from './regime.js'
+import { getEffectiveTradingConfig, computeUnrealizedPnl } from './runtimeConfig.js'
+import { buildStatusPayload } from './status.js'
 
 const { symbol, timeframe, pollIntervalMs } = config.trading
 const apiPort = Number(process.env.API_PORT || 3000)
@@ -90,34 +93,8 @@ async function fetchMarketDataChunked (requestedLimit) {
 async function getRegime () {
   try {
     const regimeOhlcv = await fetchRegimeData()
-    if (!Array.isArray(regimeOhlcv) || regimeOhlcv.length < 30) return null
-    const atrArr = calculateATR(regimeOhlcv, 14)
-    const atrNow = atrArr.length ? atrArr[atrArr.length - 1] : null
-    const atrLookback = 50
-    const atrAvg = (atrArr.length >= atrLookback)
-      ? atrArr.slice(-atrLookback).reduce((a, b) => a + b, 0) / atrLookback
-      : (atrArr.length ? atrArr.reduce((a, b) => a + b, 0) / atrArr.length : null)
-    let volatility = 'neutral'
-    if (atrNow != null && atrAvg != null && atrAvg > 0) {
-      const ratio = atrNow / atrAvg
-      if (ratio >= 1.2) volatility = 'high'
-      else if (ratio <= 0.8) volatility = 'low'
-    }
-    const { adx: adxArr, plusDi: plusDiArr, minusDi: minusDiArr } = calculateADX(regimeOhlcv, 14)
-    const adxNow = adxArr.length ? adxArr[adxArr.length - 1] : null
-    const plusDiNow = plusDiArr.length ? plusDiArr[plusDiArr.length - 1] : null
-    const minusDiNow = minusDiArr.length ? minusDiArr[minusDiArr.length - 1] : null
-    let trend = 'weak'
-    if (adxNow != null) {
-      if (adxNow >= 25) trend = 'trending'
-      else if (adxNow < 20) trend = 'ranging'
-    }
-    let trendDirection = 'neutral'
-    if (plusDiNow != null && minusDiNow != null) {
-      if (plusDiNow > minusDiNow) trendDirection = 'bullish'
-      else if (minusDiNow > plusDiNow) trendDirection = 'bearish'
-    }
-    return { volatility, trend, trendDirection }
+    const computed = computeRegime(regimeOhlcv)
+    return computed ? { volatility: computed.volatility, trend: computed.trend, trendDirection: computed.trendDirection } : null
   } catch (err) {
     logger.warn('getRegime failed', { err: err.message })
     return null
@@ -263,25 +240,6 @@ app.use((req, res, next) => {
   next()
 })
 
-// Helper to compute effective runtime config
-function getEffectiveTradingConfig (state) {
-  const runtime = state.runtimeConfig || {}
-  const riskPerTrade =
-    typeof runtime.riskPerTrade === 'number' && runtime.riskPerTrade > 0
-      ? runtime.riskPerTrade
-      : config.trading.riskPerTrade
-  const stopLossPct =
-    typeof runtime.stopLossPct === 'number' && runtime.stopLossPct > 0
-      ? runtime.stopLossPct
-      : config.trading.stopLossPct
-  const takeProfitPct =
-    typeof runtime.takeProfitPct === 'number' && runtime.takeProfitPct > 0
-      ? runtime.takeProfitPct
-      : config.trading.takeProfitPct
-
-  return { riskPerTrade, stopLossPct, takeProfitPct }
-}
-
 // Status endpoint used by the dashboard
 app.get('/api/status', async (req, res) => {
   try {
@@ -314,247 +272,60 @@ app.get('/api/status', async (req, res) => {
 
     const regimeTf = config.trading.regimeTimeframe || '1h'
     const regimeCandles = config.trading.regimeCandles ?? 200
-    let volatilityRegime = 'neutral'
+    let regime = { volatility: 'neutral', trend: 'weak', trendDirection: 'neutral' }
     let volatilityRatio = null
-    let trendRegime = 'weak'
     let adxNow = null
-    let trendDirection = 'neutral'
     let plusDiNow = null
     let minusDiNow = null
     try {
       const regimeOhlcv = await fetchRegimeData()
-      if (Array.isArray(regimeOhlcv) && regimeOhlcv.length >= 30) {
-        const atrArr = calculateATR(regimeOhlcv, 14)
-        const atrNow = atrArr.length ? atrArr[atrArr.length - 1] : null
-        const atrLookback = 50
-        const atrAvg = (atrArr.length >= atrLookback)
-          ? atrArr.slice(-atrLookback).reduce((a, b) => a + b, 0) / atrLookback
-          : (atrArr.length ? atrArr.reduce((a, b) => a + b, 0) / atrArr.length : null)
-        volatilityRatio = (atrNow != null && atrAvg != null && atrAvg > 0) ? atrNow / atrAvg : null
-        if (volatilityRatio != null) {
-          if (volatilityRatio >= 1.2) volatilityRegime = 'high'
-          else if (volatilityRatio <= 0.8) volatilityRegime = 'low'
-        }
-        const { adx: adxArr, plusDi: plusDiArr, minusDi: minusDiArr } = calculateADX(regimeOhlcv, 14)
-        adxNow = adxArr.length ? adxArr[adxArr.length - 1] : null
-        plusDiNow = plusDiArr.length ? plusDiArr[plusDiArr.length - 1] : null
-        minusDiNow = minusDiArr.length ? minusDiArr[minusDiArr.length - 1] : null
-        if (adxNow != null) {
-          if (adxNow >= 25) trendRegime = 'trending'
-          else if (adxNow < 20) trendRegime = 'ranging'
-        }
-        if (plusDiNow != null && minusDiNow != null) {
-          if (plusDiNow > minusDiNow) trendDirection = 'bullish'
-          else if (minusDiNow > plusDiNow) trendDirection = 'bearish'
-        }
+      const computed = computeRegime(regimeOhlcv)
+      if (computed) {
+        regime = { volatility: computed.volatility, trend: computed.trend, trendDirection: computed.trendDirection }
+        volatilityRatio = computed.volatilityRatio ?? null
+        adxNow = computed.adxNow ?? null
+        plusDiNow = computed.plusDiNow ?? null
+        minusDiNow = computed.minusDiNow ?? null
       }
     } catch (err) {
       logger.warn('Regime fetch or calculation failed', { err: err.message })
     }
 
-    const regime = { volatility: volatilityRegime, trend: trendRegime, trendDirection }
-
     logger.debug('exchange.fetchOpenOrders request (/api/status)', { symbol })
     const openOrders = await exchange.fetchOpenOrders(symbol)
     logger.debug('exchange.fetchOpenOrders response (/api/status)', { count: openOrders.length })
-    const now = Date.now()
-    const now7d = now - 7 * 24 * 60 * 60 * 1000
-    const now30d = now - 30 * 24 * 60 * 60 * 1000
-
-    function statsFromHistory (entries) {
-      if (!Array.isArray(entries) || entries.length === 0) {
-        return { realizedPnl: 0, wins: 0, losses: 0, trades: 0, winRate: null, avgWin: null, avgLoss: null }
-      }
-      const realizedPnl = entries.reduce((sum, e) => sum + Number(e.pnl ?? 0), 0)
-      const wins = entries.filter(e => (e.pnl ?? 0) > 0).length
-      const losses = entries.filter(e => (e.pnl ?? 0) < 0).length
-      const trades = entries.length
-      const totalWinPnl = entries.filter(e => (e.pnl ?? 0) > 0).reduce((s, e) => s + e.pnl, 0)
-      const totalLossPnl = entries.filter(e => (e.pnl ?? 0) < 0).reduce((s, e) => s + e.pnl, 0)
-      return {
-        realizedPnl,
-        wins,
-        losses,
-        trades,
-        winRate: trades > 0 ? wins / trades : null,
-        avgWin: wins > 0 ? totalWinPnl / wins : null,
-        avgLoss: losses > 0 ? totalLossPnl / losses : null
-      }
-    }
-
-    function strategyDisplayName (name, id) {
-    if (!name) return id
-    if (id === 'manual') return name
-    let n = String(name)
-      .replace(/^Short\s+/i, '')
-      .replace(/\s+\((Long|Short)\)$/i, '')
-    if (id && id.startsWith('short_')) return n + ' [short]'
-    return n + ' [long]'
-  }
-
-    const strategies = STRATEGY_IDS.map(id => {
-      const state = loadState(id)
-      const s = getStrategy(id)
-      const realized = Number(state.realizedPnl ?? 0)
-      let unrealized = 0
-      if (state.openPosition && lastPrice != null) {
-        const { side, entryPrice, amount } = state.openPosition
-        if (side === 'long') {
-          unrealized = (lastPrice - entryPrice) * amount
-        } else if (side === 'short') {
-          unrealized = (entryPrice - lastPrice) * amount
-        }
-      }
-      unrealized = Number(unrealized)
-      const wins = state.wins ?? 0
-      const losses = state.losses ?? 0
-      const trades = wins + losses
-      const totalWinPnl = Number(state.totalWinPnl ?? 0)
-      const totalLossPnl = Number(state.totalLossPnl ?? 0)
-      const closedTrades = state.closedTrades ?? trades
-      const totalTradeDurationMs = state.totalTradeDurationMs ?? 0
-      const firstTradeAtMs = state.firstTradeAt ? Date.parse(state.firstTradeAt) : null
-      const winRate = trades > 0 ? wins / trades : null
-      const avgPnlPerTrade = trades > 0 ? (totalWinPnl + totalLossPnl) / trades : null
-      const avgWin = wins > 0 ? totalWinPnl / wins : null
-      const avgLoss = losses > 0 ? totalLossPnl / losses : null
-      const avgTradeDurationMs = closedTrades > 0 ? totalTradeDurationMs / closedTrades : null
-      let exposure = null
-      if (firstTradeAtMs && now > firstTradeAtMs) {
-        exposure = totalTradeDurationMs / (now - firstTradeAtMs)
-      }
-      const maxDrawdown = Number(state.maxDrawdown ?? 0)
-
-      const history = Array.isArray(state.closedTradesHistory) ? state.closedTradesHistory : []
-      const pnlResetAt = state.pnlResetAt || null
-      const sinceResetEntries = pnlResetAt ? history.filter(e => new Date(e.timestamp).getTime() >= new Date(pnlResetAt).getTime()) : []
-      const last7dEntries = history.filter(e => new Date(e.timestamp).getTime() >= now7d)
-      const last30dEntries = history.filter(e => new Date(e.timestamp).getTime() >= now30d)
-      const sinceReset = statsFromHistory(sinceResetEntries)
-      const last7d = statsFromHistory(last7dEntries)
-      const last30d = statsFromHistory(last30dEntries)
-
-      return {
-        id,
-        name: strategyDisplayName(s?.name ?? id, id),
-        description: s?.description ?? '',
-        positionsOpened: state.positionsOpened ?? 0,
-        wins,
-        losses,
-        trades,
-        winRate,
-        avgPnlPerTrade,
-        avgWin,
-        avgLoss,
-        avgTradeDurationMs,
-        exposure,
-        maxDrawdown,
-        running: runner.running.includes(id),
-        realizedPnl: realized,
-        unrealizedPnl: unrealized,
-        totalPnl: realized + unrealized,
-        position: state.openPosition ? { open: true, ...state.openPosition } : { open: false },
-        lastDecision: lastDecisionByStrategy[id] ?? 'none',
-        pnlResetAt,
-        closedTradesHistory: history,
-        sinceReset,
-        last7d,
-        last30d,
-        regimeActive: isRegimeActive(id, regime, runner.regimeFilterEnabled !== false)
-      }
+    const payload = buildStatusPayload({
+      runner,
+      lastDecisionByStrategy,
+      loadState,
+      getStrategy,
+      STRATEGY_IDS,
+      isRegimeActive,
+      config,
+      getStrategyBudget,
+      getEffectiveTradingConfig,
+      lastTickAt,
+      pollIntervalMs,
+      symbol,
+      balance,
+      lastPrice,
+      ema9,
+      ema20,
+      ema21,
+      ema50,
+      ema200,
+      macd,
+      macdSignal,
+      regime,
+      volatilityRatio,
+      adxNow,
+      plusDiNow,
+      minusDiNow,
+      regimeTf,
+      regimeCandles,
+      openOrders
     })
-
-    const firstState = loadState(runner.running[0] || STRATEGY_IDS[0])
-    const { riskPerTrade, stopLossPct, takeProfitPct } = getEffectiveTradingConfig(firstState)
-    const regimeFilterEnabled = runner.regimeFilterEnabled !== false
-    const nextTickEtaMs =
-      lastTickAt != null ? Math.max(0, pollIntervalMs - (now - Date.parse(lastTickAt))) : null
-
-    const totalRealized = strategies.reduce((a, s) => a + (s.realizedPnl ?? 0), 0)
-    const totalUnrealized = strategies.reduce((a, s) => a + (s.unrealizedPnl ?? 0), 0)
-    const firstOpen = strategies.find(s => s.position.open)
-
-    res.json({
-      bot: {
-        symbol,
-        timeframe,
-        mode: {
-          testnet: config.binance.testnet,
-          testingMode: config.trading.testingMode
-        },
-        lastTickAt,
-        nextTickEtaMs,
-        runningCount: runner.running.length
-      },
-      config: {
-        autoTradingEnabled: firstState.autoTradingEnabled !== false,
-        regimeFilterEnabled,
-        env: {
-          riskPerTrade: config.trading.riskPerTrade,
-          stopLossPct: config.trading.stopLossPct,
-          takeProfitPct: config.trading.takeProfitPct
-        },
-        runtime: firstState.runtimeConfig || {},
-        assetsToLog: config.trading.assetsToLog,
-        budget: {
-          globalBudgetQuote: config.trading.globalBudgetQuote || null,
-          strategyBudgetQuote: getStrategyBudget(),
-          strategyCount: STRATEGY_IDS.length
-        },
-        candlesLimit: config.trading.closedTradesHistoryLimit ?? 500
-      },
-      strategies,
-      portfolio: {
-        balances: {
-          BTC: {
-            total: balance.total?.BTC ?? 0,
-            free: balance.free?.BTC ?? 0,
-            used: balance.used?.BTC ?? 0
-          },
-          USDT: {
-            total: balance.total?.USDT ?? 0,
-            free: balance.free?.USDT ?? 0,
-            used: balance.used?.USDT ?? 0
-          }
-        }
-      },
-      position: firstOpen ? firstOpen.position : { open: false },
-      orders: {
-        openOrders: openOrders.map(o => ({
-          id: o.id,
-          side: o.side,
-          amount: o.amount,
-          price: o.price || null,
-          status: o.status
-        }))
-      },
-      market: {
-        lastPrice,
-        ema9,
-        ema20,
-        ema21,
-        ema50,
-        ema200,
-        macd,
-        macdSignal,
-        regime: {
-          timeframe: regimeTf,
-          candles: regimeCandles,
-          volatility: volatilityRegime,
-          volatilityRatio: volatilityRatio != null ? Math.round(volatilityRatio * 100) / 100 : null,
-          trend: trendRegime,
-          adx: adxNow != null ? Math.round(adxNow * 10) / 10 : null,
-          trendDirection,
-          plusDi: plusDiNow != null ? Math.round(plusDiNow * 10) / 10 : null,
-          minusDi: minusDiNow != null ? Math.round(minusDiNow * 10) / 10 : null
-        }
-      },
-      pnl: {
-        realized: Number(totalRealized),
-        unrealized: Number(totalUnrealized),
-        total: Number(totalRealized) + Number(totalUnrealized)
-      }
-    })
+    res.json(payload)
   } catch (err) {
     logger.error('Error in /api/status', err)
     res.status(500).json({ error: 'Failed to fetch status' })
@@ -765,20 +536,7 @@ app.post('/api/strategies/:id/reset-pnl', (req, res) => {
     if (!STRATEGY_IDS.includes(id)) {
       return res.status(400).json({ error: 'Unknown strategy' })
     }
-    const state = loadState(id)
-    state.realizedPnl = 0
-    state.wins = 0
-    state.losses = 0
-    state.positionsOpened = 0
-    state.totalWinPnl = 0
-    state.totalLossPnl = 0
-    state.closedTrades = 0
-    state.totalTradeDurationMs = 0
-    state.firstTradeAt = null
-    state.peakEquity = 0
-    state.maxDrawdown = 0
-    state.closedTradesHistory = []
-    state.pnlResetAt = new Date().toISOString()
+    const state = resetPnlState(loadState(id))
     saveState(id, state)
     logger.info(`PnL + win/loss counters + trade history reset for strategy: ${id}`)
     res.json({
@@ -799,21 +557,7 @@ app.post('/api/reset-all-pnl', (req, res) => {
   try {
     logger.debug('HTTP POST /api/reset-all-pnl')
     for (const id of STRATEGY_IDS) {
-      const state = loadState(id)
-      state.realizedPnl = 0
-      state.wins = 0
-      state.losses = 0
-      state.positionsOpened = 0
-      state.totalWinPnl = 0
-      state.totalLossPnl = 0
-      state.closedTrades = 0
-      state.totalTradeDurationMs = 0
-      state.firstTradeAt = null
-      state.peakEquity = 0
-      state.maxDrawdown = 0
-      state.closedTradesHistory = []
-      state.pnlResetAt = new Date().toISOString()
-      saveState(id, state)
+      saveState(id, resetPnlState(loadState(id)))
     }
     logger.info('PnL + win/loss counters + trade history reset for all strategies')
     res.json({ status: 'ok' })

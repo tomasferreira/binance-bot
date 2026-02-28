@@ -102,3 +102,23 @@ export function saveState (strategyId, state) {
     throw err
   }
 }
+
+/** Return a copy of state with PnL and trade stats reset; sets pnlResetAt to now. */
+export function resetPnlState (state) {
+  return {
+    ...state,
+    realizedPnl: 0,
+    wins: 0,
+    losses: 0,
+    positionsOpened: 0,
+    totalWinPnl: 0,
+    totalLossPnl: 0,
+    closedTrades: 0,
+    totalTradeDurationMs: 0,
+    firstTradeAt: null,
+    peakEquity: 0,
+    maxDrawdown: 0,
+    closedTradesHistory: [],
+    pnlResetAt: new Date().toISOString()
+  }
+}

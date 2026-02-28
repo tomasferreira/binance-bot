@@ -1,6 +1,7 @@
 import { config } from './config.js'
 import { getExchange } from './exchange.js'
 import { calculatePositionSize } from './risk.js'
+import { getEffectiveTradingConfig } from './runtimeConfig.js'
 import { logger } from './logger.js'
 import { recordOrderStrategy } from './orderStrategy.js'
 import { loadState } from './stateMulti.js'
@@ -24,46 +25,33 @@ export async function syncBalanceQuote () {
   return quoteBalance
 }
 
-export async function openLongPosition (state, marketPrice, strategyId = null, entryDetail = null, budgetQuote = null) {
+/**
+ * Internal: open a long or short position. SL/TP and order side depend on side.
+ * @param {'long'|'short'} side
+ */
+async function openPosition (state, marketPrice, side, strategyId, entryDetail, budgetQuote) {
   const exchange = getExchange()
-
   const quoteBalance = (budgetQuote != null && budgetQuote > 0) ? budgetQuote : await syncBalanceQuote()
   if (!quoteBalance) {
-    logger.warn('No quote balance available; cannot open position')
+    logger.warn(`No quote balance available; cannot open ${side} position`)
     return state
   }
 
-  const {
-    riskPerTrade,
-    stopLossPct,
-    takeProfitPct
-  } = state.runtimeConfig || {}
+  const { riskPerTrade: effectiveRiskPerTrade, stopLossPct: effectiveStopLossPct, takeProfitPct: effectiveTakeProfitPct } = getEffectiveTradingConfig(state)
 
-  const effectiveRiskPerTrade =
-    typeof riskPerTrade === 'number' && riskPerTrade > 0
-      ? riskPerTrade
-      : config.trading.riskPerTrade
-  const effectiveStopLossPct =
-    typeof stopLossPct === 'number' && stopLossPct > 0
-      ? stopLossPct
-      : config.trading.stopLossPct
-  const effectiveTakeProfitPct =
-    typeof takeProfitPct === 'number' && takeProfitPct > 0
-      ? takeProfitPct
-      : config.trading.takeProfitPct
+  let stopLossPrice, takeProfitPrice
+  if (side === 'long') {
+    stopLossPrice = marketPrice * (1 - effectiveStopLossPct + feeRate) / (1 + feeRate)
+    takeProfitPrice = marketPrice * (1 + effectiveTakeProfitPct + 2 * feeRate)
+  } else {
+    stopLossPrice = marketPrice * (1 + effectiveStopLossPct)
+    takeProfitPrice = marketPrice * (1 - effectiveTakeProfitPct)
+  }
 
-  // SL/TP adjusted for round-trip fee so net loss/profit matches intended %
-  const stopLossPrice = marketPrice * (1 - effectiveStopLossPct + feeRate) / (1 + feeRate)
-  const takeProfitPrice = marketPrice * (1 + effectiveTakeProfitPct + 2 * feeRate)
-
-  logger.debug('openLongPosition: computed risk config', {
+  logger.debug(`openPosition(${side}): computed risk config`, {
     strategyId,
     marketPrice,
-    budgetQuote,
     quoteBalance,
-    effectiveRiskPerTrade,
-    effectiveStopLossPct,
-    effectiveTakeProfitPct,
     stopLossPrice,
     takeProfitPrice
   })
@@ -77,7 +65,7 @@ export async function openLongPosition (state, marketPrice, strategyId = null, e
   })
 
   if (amount <= 0) {
-    logger.warn('Calculated zero or negative position size; skipping trade')
+    logger.warn(`Calculated zero or negative position size for ${side}; skipping trade`)
     return state
   }
 
@@ -85,26 +73,28 @@ export async function openLongPosition (state, marketPrice, strategyId = null, e
     const maxAmountByBudget = budgetQuote / marketPrice
     if (amount > maxAmountByBudget) {
       amount = Math.floor(maxAmountByBudget * 1e6) / 1e6
-      logger.debug('openLongPosition: capped amount to budget', { budgetQuote, marketPrice, maxAmountByBudget, amount })
+      logger.debug(`openPosition(${side}): capped amount to budget`, { amount })
     }
   }
 
   if (amount <= 0) {
-    logger.warn('Position size zero after budget cap; skipping trade')
+    logger.warn(`Position size zero after budget cap for ${side}; skipping trade`)
     return state
   }
 
-  logger.info(
-    `Opening LONG position on ${symbol} at ${marketPrice}, amount ${amount}, SL ${stopLossPrice}, TP ${takeProfitPrice}`
-  )
-  logger.debug('exchange.createMarketBuyOrder request', { symbol, amount })
-  const order = await exchange.createMarketBuyOrder(symbol, amount)
-  logger.debug('exchange.createMarketBuyOrder response', { order })
-  logger.info(`Market BUY order placed: id=${order.id}, status=${order.status}`)
-  if (strategyId) recordOrderStrategy(order.id, strategyId, strategyId === 'manual' ? 'Manual' : 'Entry', entryDetail ?? null)
+  const sideLabel = side.toUpperCase()
+  logger.info(`Opening ${sideLabel} position on ${symbol} at ${marketPrice}, amount ${amount}, SL ${stopLossPrice}, TP ${takeProfitPrice}`)
+
+  const order = side === 'long'
+    ? await exchange.createMarketBuyOrder(symbol, amount)
+    : await exchange.createMarketSellOrder(symbol, amount)
+  logger.info(`Market ${side === 'long' ? 'BUY' : 'SELL'} order placed: id=${order.id}, status=${order.status}`)
+
+  const recordReason = strategyId === 'manual' ? 'Manual' : (side === 'short' ? 'Short entry' : 'Entry')
+  if (strategyId) recordOrderStrategy(order.id, strategyId, recordReason, entryDetail ?? null)
 
   const newPosition = {
-    side: 'long',
+    side,
     symbol,
     entryPrice: marketPrice,
     amount,
@@ -115,103 +105,15 @@ export async function openLongPosition (state, marketPrice, strategyId = null, e
   }
 
   const positionsOpened = (state.positionsOpened ?? 0) + 1
-  return { ...state, openPosition: newPosition, lastSignal: 'long', positionsOpened }
+  return { ...state, openPosition: newPosition, lastSignal: side, positionsOpened }
+}
+
+export async function openLongPosition (state, marketPrice, strategyId = null, entryDetail = null, budgetQuote = null) {
+  return openPosition(state, marketPrice, 'long', strategyId, entryDetail, budgetQuote)
 }
 
 export async function openShortPosition (state, marketPrice, strategyId = null, entryDetail = null, budgetQuote = null) {
-  const exchange = getExchange()
-
-  const quoteBalance = (budgetQuote != null && budgetQuote > 0) ? budgetQuote : await syncBalanceQuote()
-  if (!quoteBalance) {
-    logger.warn('No quote balance available; cannot open short position')
-    return state
-  }
-
-  const {
-    riskPerTrade,
-    stopLossPct,
-    takeProfitPct
-  } = state.runtimeConfig || {}
-
-  const effectiveRiskPerTrade =
-    typeof riskPerTrade === 'number' && riskPerTrade > 0
-      ? riskPerTrade
-      : config.trading.riskPerTrade
-  const effectiveStopLossPct =
-    typeof stopLossPct === 'number' && stopLossPct > 0
-      ? stopLossPct
-      : config.trading.stopLossPct
-  const effectiveTakeProfitPct =
-    typeof takeProfitPct === 'number' && takeProfitPct > 0
-      ? takeProfitPct
-      : config.trading.takeProfitPct
-
-  // For shorts, SL is above entry, TP is below entry.
-  // We keep fee-aware sizing via calculatePositionSize; price levels are simple percentages.
-  const stopLossPrice = marketPrice * (1 + effectiveStopLossPct)
-  const takeProfitPrice = marketPrice * (1 - effectiveTakeProfitPct)
-
-  logger.debug('openShortPosition: computed risk config', {
-    strategyId,
-    marketPrice,
-    budgetQuote,
-    quoteBalance,
-    effectiveRiskPerTrade,
-    effectiveStopLossPct,
-    effectiveTakeProfitPct,
-    stopLossPrice,
-    takeProfitPrice
-  })
-
-  let amount = calculatePositionSize({
-    balanceQuote: quoteBalance,
-    entryPrice: marketPrice,
-    stopLossPrice,
-    riskPerTrade: effectiveRiskPerTrade,
-    feeRatePct: feeRate
-  })
-
-  if (amount <= 0) {
-    logger.warn('Calculated zero or negative position size for short; skipping trade')
-    return state
-  }
-
-  if (budgetQuote != null && budgetQuote > 0) {
-    const maxAmountByBudget = budgetQuote / marketPrice
-    if (amount > maxAmountByBudget) {
-      amount = Math.floor(maxAmountByBudget * 1e6) / 1e6
-      logger.debug('openShortPosition: capped amount to budget', { budgetQuote, marketPrice, maxAmountByBudget, amount })
-    }
-  }
-
-  if (amount <= 0) {
-    logger.warn('Position size zero after budget cap for short; skipping trade')
-    return state
-  }
-
-  logger.info(
-    `Opening SHORT position on ${symbol} at ${marketPrice}, amount ${amount}, SL ${stopLossPrice}, TP ${takeProfitPrice}`
-  )
-
-  logger.debug('exchange.createMarketSellOrder request (short entry)', { symbol, amount })
-  const order = await exchange.createMarketSellOrder(symbol, amount)
-  logger.debug('exchange.createMarketSellOrder response (short entry)', { order })
-  logger.info(`Market SELL (short) order placed: id=${order.id}, status=${order.status}`)
-  if (strategyId) recordOrderStrategy(order.id, strategyId, strategyId === 'manual' ? 'Manual' : 'Short entry', entryDetail ?? null)
-
-  const newPosition = {
-    side: 'short',
-    symbol,
-    entryPrice: marketPrice,
-    amount,
-    stopLoss: stopLossPrice,
-    takeProfit: takeProfitPrice,
-    openedAt: new Date().toISOString(),
-    lastPrice: marketPrice
-  }
-
-  const positionsOpened = (state.positionsOpened ?? 0) + 1
-  return { ...state, openPosition: newPosition, lastSignal: 'short', positionsOpened }
+  return openPosition(state, marketPrice, 'short', strategyId, entryDetail, budgetQuote)
 }
 
 // Immediately closes any open position at market, ignoring SL/TP levels.
