@@ -189,6 +189,11 @@ async function refreshStatus () {
     document.getElementById('pnl-realized').style.color = pnlColor(aggregateRealized)
     document.getElementById('pnl-unrealized').textContent = formatPnl(aggregateUnrealized)
     document.getElementById('pnl-unrealized').style.color = pnlColor(aggregateUnrealized)
+    const pnlUnrealizedTopEl = document.getElementById('pnl-unrealized-top')
+    if (pnlUnrealizedTopEl) {
+      pnlUnrealizedTopEl.textContent = formatPnl(aggregateUnrealized)
+      pnlUnrealizedTopEl.style.color = pnlColor(aggregateUnrealized)
+    }
     document.getElementById('pnl-total').textContent = formatPnl(aggregateTotal)
     document.getElementById('pnl-total').style.color = pnlColor(aggregateTotal)
 
