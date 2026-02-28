@@ -140,7 +140,7 @@ export function updateTradesPanel (data, callbacks) {
 
   const tbody = document.getElementById('trades-tbody')
   if (groups.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10">No trades</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="11">No trades</td></tr>'
   } else {
     tbody.innerHTML = groups.map((grp, grpIdx) => {
       const trades = grp.trades
@@ -155,6 +155,9 @@ export function updateTradesPanel (data, callbacks) {
       const sideClass = t0.side === 'buy' ? 'side-buy' : 'side-sell'
       const strategyStr = t0.strategyName || t0.strategyId || '–'
       const reasonStr = t0.reason || '–'
+      const orderPnl = t0.orderPnl != null ? t0.orderPnl : null
+      const pnlStr = orderPnl != null ? formatPnl(orderPnl).replace(' USDT', '') : '–'
+      const pnlColor = orderPnl != null ? (orderPnl >= 0 ? '#22c55e' : '#ef4444') : 'inherit'
       const detailStr = n === 1 ? formatDetail(t0.detail) : (n + ' fills')
       const totalAmount = trades.reduce((s, t) => s + (Number(t.amount) || 0), 0)
       const totalCost = trades.reduce((s, t) => s + (Number(t.cost) || 0), 0)
@@ -168,6 +171,7 @@ export function updateTradesPanel (data, callbacks) {
         '<td class="' + sideClass + '">' + (t0.side || '–') + (n > 1 ? ' <span class="fill-badge">' + n + '</span>' : '') + '</td>' +
         '<td>' + strategyStr + '</td>' +
         '<td>' + reasonStr + '</td>' +
+        '<td class="numeric" style="color:' + pnlColor + '">' + pnlStr + '</td>' +
         '<td class="detail-cell" title="' + (n === 1 ? formatDetail(t0.detail).replace(/"/g, '&quot;') : '') + '">' + detailStr + '</td>' +
         '<td>' + formatAmount(totalAmount) + '</td>' +
         '<td>' + formatPrice(avgPrice) + '</td>' +

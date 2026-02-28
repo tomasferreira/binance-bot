@@ -152,11 +152,11 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
     : await exchange.createMarketBuyOrder(symbol, amount)
   logger.debug('exchange market order response (close)', { orderSide, order })
   logger.info(`Market ${orderSide.toUpperCase()} order placed: id=${order.id}, status=${order.status}`)
-  if (strategyId) recordOrderStrategy(order.id, strategyId, reason, exitDetail ?? null)
 
   const pnl = side === 'short'
     ? (position.entryPrice - marketPrice) * amount
     : (marketPrice - position.entryPrice) * amount
+  if (strategyId) recordOrderStrategy(order.id, strategyId, reason, exitDetail ?? null, pnl)
   const realizedPnl = (state.realizedPnl ?? 0) + pnl
   logger.info(`Closed position PnL: ${pnl.toFixed(2)} USDT, realized total: ${realizedPnl.toFixed(2)}`)
   let wins = state.wins ?? 0

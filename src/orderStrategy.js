@@ -25,15 +25,15 @@ function loadMap () {
   }
 }
 
-/** @param {string} orderId @param {string} strategyId @param {string} [reason] @param {object} [detail] indicator values that triggered the trade */
-export function recordOrderStrategy (orderId, strategyId, reason = null, detail = null) {
+/** @param {string} orderId @param {string} strategyId @param {string} [reason] @param {object} [detail] @param {number} [pnl] PnL when this order closed a position */
+export function recordOrderStrategy (orderId, strategyId, reason = null, detail = null, pnl = null) {
   if (!orderId || !strategyId) return
   try {
     ensureDataDir()
     const map = loadMap()
-    const hasMeta = reason != null || (detail != null && typeof detail === 'object')
+    const hasMeta = reason != null || (detail != null && typeof detail === 'object') || (pnl != null && typeof pnl === 'number')
     map[String(orderId)] = hasMeta
-      ? { strategyId, reason: reason ?? null, detail: detail && typeof detail === 'object' ? detail : null }
+      ? { strategyId, reason: reason ?? null, detail: detail && typeof detail === 'object' ? detail : null, pnl: typeof pnl === 'number' ? pnl : null }
       : strategyId
     fs.writeFileSync(filePath, JSON.stringify(map, null, 2))
   } catch (err) {

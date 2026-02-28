@@ -681,6 +681,7 @@ app.get('/api/trades', async (req, res) => {
       const strategyId = typeof raw === 'string' ? raw : (raw?.strategyId ?? null)
       const reason = typeof raw === 'object' && raw != null ? (raw.reason ?? null) : null
       const detail = typeof raw === 'object' && raw != null && raw.detail ? raw.detail : null
+      const orderPnl = typeof raw === 'object' && raw != null && typeof raw.pnl === 'number' ? raw.pnl : null
       const strategy = strategyId ? getStrategy(strategyId) : null
       return {
         id: t.id,
@@ -694,7 +695,8 @@ app.get('/api/trades', async (req, res) => {
         strategyId: strategyId ?? null,
         strategyName: strategy?.name ?? strategyId ?? null,
         reason: reason ?? null,
-        detail: detail ?? null
+        detail: detail ?? null,
+        orderPnl
       }
     })
 
