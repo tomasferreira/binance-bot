@@ -1,15 +1,38 @@
 import { formatPrice, formatAmount, formatQuote, formatPnl, escapeHtml, formatTime24h, formatTimeAgo, formatDate24h } from './utils.js'
 import { state } from './state.js'
 
+function formatActivityTime (ev) {
+  if (ev.timestamp != null) return formatTime24h(ev.timestamp, true) + ' (' + formatTimeAgo(ev.timestamp) + ')'
+  return ev.time != null ? String(ev.time) : '–'
+}
+
+/** Re-render activity list DOM so "ago" timestamps update (call on each poll). */
+export function refreshActivityListDisplay () {
+  if (!state.activityEvents.length) return
+  const listEl = document.getElementById('activity-list')
+  if (listEl) {
+    listEl.innerHTML = state.activityEvents
+      .map(ev => '<div class="activity-item">' +
+        '<span class="activity-time">' + escapeHtml(formatActivityTime(ev)) + '</span>' +
+        '<span class="activity-message">' + escapeHtml(ev.message) + '</span></div>')
+      .join('')
+  }
+  const overviewEl = document.getElementById('activity-overview')
+  if (overviewEl) {
+    overviewEl.innerHTML = state.activityEvents.slice(0, 5).map(ev => '<div class="activity-item">' +
+      '<span class="activity-time">' + escapeHtml(formatActivityTime(ev)) + '</span>' +
+      '<span class="activity-message">' + escapeHtml(ev.message) + '</span></div>').join('') || '<small>No recent events.</small>'
+  }
+}
+
 export function addActivityEvent (message, level, showToast) {
   const now = Date.now()
-  const timeStr = formatTime24h(now, true) + ' (' + formatTimeAgo(now) + ')'
-  const item = { time: timeStr, message, level }
+  const item = { timestamp: now, message, level }
   state.activityEvents.unshift(item)
   if (state.activityEvents.length > 50) state.activityEvents.pop()
   const html = state.activityEvents
     .map(ev => '<div class="activity-item">' +
-      '<span class="activity-time">' + escapeHtml(ev.time) + '</span>' +
+      '<span class="activity-time">' + escapeHtml(formatActivityTime(ev)) + '</span>' +
       '<span class="activity-message">' + escapeHtml(ev.message) + '</span>' +
     '</div>')
     .join('')
@@ -17,7 +40,7 @@ export function addActivityEvent (message, level, showToast) {
   if (listEl) listEl.innerHTML = html
   const overviewEl = document.getElementById('activity-overview')
   if (overviewEl) overviewEl.innerHTML = state.activityEvents.slice(0, 5).map(ev => '<div class="activity-item">' +
-    '<span class="activity-time">' + escapeHtml(ev.time) + '</span>' +
+    '<span class="activity-time">' + escapeHtml(formatActivityTime(ev)) + '</span>' +
     '<span class="activity-message">' + escapeHtml(ev.message) + '</span></div>').join('') || '<small>No recent events.</small>'
   if (showToast) showToast(message, level)
 }

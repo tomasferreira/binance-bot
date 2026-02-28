@@ -4,7 +4,7 @@ import { state } from './state.js'
 import { updateChartFocusLabel, strategyDetailHtml, updateStrategiesPanel } from './strategies.js'
 import { updateAnalysisPanel } from './analysis.js'
 import { fetchCandles, renderChart } from './charts.js'
-import { updatePositionActivity, addActivityEvent, updateTradesPanel } from './trades.js'
+import { updatePositionActivity, addActivityEvent, updateTradesPanel, refreshActivityListDisplay } from './trades.js'
 
 let audioCtx = null
 function playNotificationSound () {
@@ -81,6 +81,7 @@ async function refreshStatus () {
     const strategies = data.strategies || []
     state.latestStrategies = strategies
     updatePositionActivity(strategies, data.market || {}, showToast)
+    refreshActivityListDisplay()
 
     const balances = data.portfolio?.balances || {}
     const btc = balances.BTC || {}
