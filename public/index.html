@@ -474,6 +474,10 @@
               <option value="sinceReset">Since last PnL reset</option>
             </select>
           </div>
+          <div class="row">
+            <span class="label">Total trades in range</span>
+            <span class="value" id="analysis-total-trades" title="Sum of closed trades across all strategies for the selected period">–</span>
+          </div>
         </div>
         <div class="section">
           <div class="section-title">Top / Bottom by PnL</div>
@@ -1259,6 +1263,10 @@
         })
 
         const pnlColor = (v) => (v ?? 0) >= 0 ? '#22c55e' : '#ef4444'
+        const totalTradesInRange = sorted.reduce((sum, s) => sum + (s._metrics?.trades ?? 0), 0)
+        const totalTradesEl = document.getElementById('analysis-total-trades')
+        if (totalTradesEl) totalTradesEl.textContent = totalTradesInRange.toLocaleString()
+
         if (sorted.length === 0) {
           tbody.innerHTML = '<tr><td colspan="23">No strategies</td></tr>'
         } else {
