@@ -581,6 +581,29 @@ app.post('/api/strategies/:id/short', async (req, res) => {
   }
 })
 
+// Close all open positions (all strategies)
+app.post('/api/close-all', async (req, res) => {
+  try {
+    logger.debug('HTTP POST /api/close-all')
+    const ohlcv = await fetchMarketData(2)
+    const lastClose = ohlcv[ohlcv.length - 1][4]
+    const closed = []
+    for (const id of STRATEGY_IDS) {
+      let state = loadState(id)
+      if (!state.openPosition) continue
+      logger.info(`Close-all: closing position for strategy ${id}`)
+      state = await closePositionNow(state, lastClose, id, 'Close all')
+      saveState(id, state)
+      closed.push(id)
+    }
+    logger.info('Close-all finished', { closed: closed.length, strategies: closed })
+    res.json({ status: 'ok', closed: closed.length, strategies: closed })
+  } catch (err) {
+    logger.error('Error in close-all', err)
+    res.status(500).json({ error: 'Close all failed' })
+  }
+})
+
 // Close position for a specific strategy
 app.post('/api/strategies/:id/sell', async (req, res) => {
   try {

@@ -357,6 +357,9 @@
           <div class="section">
             <div class="section-title">Open positions</div>
             <div id="position-content">Loading…</div>
+            <div style="margin-top: 0.5rem;">
+              <button type="button" id="close-all-positions-btn" class="danger" disabled title="Close all open positions across every strategy">Close all positions</button>
+            </div>
           </div>
         </div>
         <div class="section">
@@ -1510,6 +1513,8 @@
           const strategiesForPos = data.strategies || []
           const withPosition = strategiesForPos.filter(s => s.position?.open)
           const posContentEl = document.getElementById('position-content')
+          const closeAllBtn = document.getElementById('close-all-positions-btn')
+          if (closeAllBtn) closeAllBtn.disabled = withPosition.length === 0
           if (withPosition.length === 0) {
             posContentEl.innerHTML =
               '<div class="row"><span class="label">Status</span><span class="value">No open positions</span></div>'
@@ -2012,6 +2017,20 @@
               else { document.getElementById('action-status').textContent = 'Position closed.'; refreshStatus() }
             })
             .catch(err => { document.getElementById('action-status').textContent = 'Sell failed: ' + err.message })
+          return
+        }
+        const closeAllBtnClick = e.target.closest('#close-all-positions-btn')
+        if (closeAllBtnClick && !closeAllBtnClick.disabled) {
+          e.preventDefault()
+          document.getElementById('action-status').textContent = 'Closing all positions…'
+          closeAllBtnClick.disabled = true
+          fetch('/api/close-all', { method: 'POST' })
+            .then(res => res.json().catch(() => ({})).then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+              if (!ok) document.getElementById('action-status').textContent = data.error || 'Close all failed'
+              else { document.getElementById('action-status').textContent = (data.closed ?? 0) + ' position(s) closed.'; refreshStatus() }
+            })
+            .catch(err => { document.getElementById('action-status').textContent = 'Close all failed: ' + err.message; document.getElementById('close-all-positions-btn').disabled = false })
           return
         }
         const resetBtn = e.target.closest('.strategy-reset-pnl-btn')
