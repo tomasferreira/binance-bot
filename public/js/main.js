@@ -77,8 +77,11 @@ async function refreshStatus () {
       autoEl.textContent = on ? 'ON' : 'OFF'
       autoEl.className = 'status-pill ' + (on ? 'pill-ok' : 'pill-warn')
     }
-
     const strategies = data.strategies || []
+    const openPositionsCount = strategies.filter(s => s.position?.open).length
+    const positionsEl = document.getElementById('bot-positions')
+    if (positionsEl) positionsEl.textContent = openPositionsCount + ' / ' + strategies.length
+
     state.latestStrategies = strategies
     updatePositionActivity(strategies, data.market || {}, showToast)
     refreshActivityListDisplay()
