@@ -102,6 +102,7 @@ async function getRegime () {
   }
 }
 
+/** @param ohlcv - Closed candles only (last forming candle excluded); lastClose is current price for SL/TP and orders. */
 async function tickStrategy (strategyId, ohlcv, lastClose, context = {}) {
   let state = loadState(strategyId)
   const autoTradingEnabled = state.autoTradingEnabled !== false
@@ -154,6 +155,8 @@ async function botTick () {
     logger.info('--- Bot tick start ---')
     const [ohlcv, regime] = await Promise.all([fetchMarketData(), getRegime()])
     const lastClose = ohlcv[ohlcv.length - 1][4]
+    // Strategy entry/exit signals use only closed candles; current price (lastClose) is used for SL/TP and orders
+    const ohlcvClosed = ohlcv.length > 1 ? ohlcv.slice(0, -1) : ohlcv
     const runner = loadRunner()
     const context = {
       regime: regime || undefined,
@@ -167,7 +170,7 @@ async function botTick () {
 
     for (const strategyId of runner.running) {
       try {
-        await tickStrategy(strategyId, ohlcv, lastClose, context)
+        await tickStrategy(strategyId, ohlcvClosed, lastClose, context)
       } catch (err) {
         logger.error(`Error in strategy ${strategyId}`, err)
       }
