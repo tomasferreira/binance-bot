@@ -1,0 +1,26 @@
+{
+  "http": {
+    "apiPort": 3000
+  },
+  "logging": {
+    "level": "INFO",
+    "maxSizeMB": 10,
+    "maxFiles": 5
+  },
+  "trading": {
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "pollIntervalMs": 60000,
+    "riskPerTrade": 0.01,
+    "stopLossPct": 0.02,
+    "takeProfitPct": 0.04,
+    "feeRatePct": 0.001,
+    "globalBudgetQuote": 10000,
+    "testingMode": false,
+    "assetsToLog": "BTC,USDT",
+    "closedTradesHistoryLimit": 2000,
+    "regimeTimeframe": "15m",
+    "regimeCandles": 300,
+    "regimeFilterEnabled": true
+  }
+}

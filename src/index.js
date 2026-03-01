@@ -15,7 +15,7 @@ import { getEffectiveTradingConfig, computeUnrealizedPnl } from './runtimeConfig
 import { buildStatusPayload } from './status.js'
 
 const { symbol, timeframe, pollIntervalMs } = config.trading
-const apiPort = Number(process.env.API_PORT || 3000)
+const apiPort = config.http.apiPort
 
 // Prevent macOS from sleeping while the bot is running
 let caffeinateChild = null
