@@ -1,46 +1,52 @@
-# Binance EMA Bot
+# Binance Multi-Strategy Bot
 
 A Node.js trading application that connects to Binance (testnet or live) via CCXT and runs multiple technical strategies on a configurable symbol and timeframe. It combines a headless engine that evaluates indicators and manages positions with a web dashboard for monitoring, control, and analysis.
 
 ## Overview
 
-The app maintains a set of independent strategies, each with its own state and optional open position. On a fixed interval it fetches OHLCV data and EMAs from the exchange, evaluates each enabled strategy, and opens or closes positions according to signals and risk rules. A built-in HTTP server serves a single-page dashboard that shows live status, portfolio, charts, and performance analytics. State is persisted to disk so the process can be restarted without losing positions or strategy history.
+The app runs a set of **independent strategies** (EMA crossovers, MACD, RSI, Bollinger, ATR-based, range, Donchian, and others), each with its own state and optional open position. On a fixed interval it fetches OHLCV data, evaluates each enabled strategy on **closed candles only** (the current forming candle is excluded from signals to avoid repainting), and opens or closes positions according to signals and risk rules. **Current price** is still used for stop loss, take profit, and order execution. A built-in HTTP server serves a single-page dashboard with live status, portfolio, charts, trades (including PnL per closed trade), and performance analytics. State is persisted to disk so the process can be restarted without losing positions or strategy history.
+
+## Configuration
+
+- **Secrets and environment** — Stored in `.env`: `BINANCE_API_KEY`, `BINANCE_API_SECRET`, and `TESTNET`. Copy `.env.example` to `.env` and fill in your keys.
+- **App settings** — Stored in `config.json` at the project root (symbol, timeframe, poll interval, risk, stop loss, take profit, fees, budget, regime, logging, etc.). Any key can be overridden by an environment variable. See **CONFIG.md** for a full reference of every setting and its env override.
 
 ## Trading Engine
 
-- **Symbol and timeframe** — Configurable (e.g. BTC/USDT, 15m). The same symbol and timeframe are shared by all strategies.
-- **Strategies** — Pluggable modules (EMA crossovers, MACD, RSI, Bollinger, multi-timeframe trend, ATR-based, and others). Each strategy has a unique id, can be long or short, and exposes an `evaluate(ohlcv, state)` function that returns actions such as buy, sell, or hold.
-- **Execution** — Orders are placed and closed via CCXT. Position size is derived from a configurable risk-per-trade and optional per-strategy or global budget. Stop loss and take profit percentages can be set globally and applied to each position.
-- **State** — Each strategy has its own state file under `data/` (e.g. open position, entry price, PnL history). The engine also keeps a mapping of order ids to strategies so trade history can be attributed correctly.
-- **Auto trading** — A global toggle enables or disables automatic opening and closing of positions; the dashboard and API still allow manual buy/sell and closing.
+- **Symbol and timeframe** — Configurable in `config.json` (e.g. BTC/USDT, 15m). The same symbol and timeframe are shared by all strategies.
+- **Strategies** — Pluggable modules; each has a unique id, can be long or short, and exposes an `evaluate(ohlcv, state)` function. Entry and exit **signals** use only closed candles; **SL/TP and orders** use current price.
+- **Regime filter** — Volatility and trend are computed on a separate, higher timeframe (e.g. 1h). When enabled, strategies only enter when the regime fits (e.g. long strategies in bullish trend). Can be toggled in the dashboard.
+- **Execution** — Orders are placed and closed via CCXT. Position size is derived from risk-per-trade and optional global budget (split equally across strategies).
+- **State** — Each strategy has its own state file under `data/` (open position, entry price, PnL history). Order-to-strategy mapping is stored so trade history and PnL are attributed correctly.
+- **Auto trading** — A global toggle enables or disables automatic opening and closing; the dashboard and API still allow manual buy/sell and closing.
 
 ## Dashboard
 
 The dashboard is a single HTML front end that talks to the backend REST API. It is organized into tabs:
 
-- **Overview** — Bot mode (testnet/live), symbol, timeframe, next tick ETA, auto-trading status, portfolio balances (e.g. BTC and USDT), aggregate realized/unrealized/total PnL, and a summary of open positions. A price chart shows candles and EMAs, with entry and exit markers for all strategies.
-- **Strategies** — A table of all strategies (long and short) with name, type, running state, W/L, total PnL, exposure, current position, last decision, and actions: start/stop, long/short, close, reset PnL. Selecting a row shows a detail pane and focuses the chart on that strategy’s entries and exits.
-- **Trades & Activity** — List of recent activity and a link to the trades view. Trade history is loaded from the API (exchange trades plus strategy attribution).
-- **Analysis** — Performance analytics with a time-range filter (all time, last 7 days, last 30 days, or since last PnL reset). Includes a sortable table of metrics per strategy (total/realized/unrealized PnL, W/L, win rate, avg win/loss, Sharpe, max drawdown, trades, trades from history, fees, exposure, avg duration, profit factor, expectancy, max win, max loss, Sortino, trades per day, last trade). Top 3 and bottom 3 strategies by PnL, bar charts for total PnL and win rate, and an equity curve (cumulative PnL over time) for a selected strategy. Column headers have hover tooltips.
-- **Settings** — Budget display, auto-trading toggle, risk per trade and stop loss / take profit inputs with apply and reset-to-env-defaults. Manual portfolio controls: amount and unit (e.g. BTC or USDT) for one-off buy/sell without using a specific strategy’s risk size.
+- **Overview** — Top bar: symbol, timeframe, testnet/live mode, auto-trading toggle, **open positions / total strategies**, unrealized and total PnL, and actions (close all, reset stats). Below: portfolio balances, open positions summary, market regime (volatility, trend, direction, volume, price vs levels), and a price chart with candles and EMAs plus entry/exit markers per strategy.
+- **Strategies** — Table of all strategies with name, running state, W/L, PnL, exposure, position, last decision, and actions (start/stop, long/short, close, reset PnL). Selecting a row shows a detail pane and focuses the chart on that strategy.
+- **Trades & Activity** — Recent activity list and trades view: exchange trades with strategy attribution, reason, **PnL for closed positions**, amount, price, cost, fee.
+- **Analysis** — Performance analytics with time-range filter (all time, 7d, 30d, since reset). Sortable table of metrics per strategy (PnL, W/L, win rate, Sharpe, max drawdown, fees, profit factor, expectancy, Sortino, etc.), top/bottom strategies, bar charts, and equity curve for a selected strategy.
+- **Settings** — Budget, auto-trading, risk/SL/TP with apply and reset. Manual portfolio buy/sell (amount + unit).
 
 ## Risk and Configuration
 
-- **Risk per trade** — Fraction of quote (or strategy budget) risked per position. Used with stop distance to compute position size.
-- **Stop loss / take profit** — Percentage from entry; applied when the engine or exchange logic closes the position.
-- **Budget** — Optional global or per-strategy quote budget caps; if unset, the bot can use full available balance within exchange limits.
-- **Testnet** — The app can run against Binance testnet or live; mode is chosen via environment configuration.
+- **Risk per trade** — Fraction of quote (or strategy budget) risked per position; used with stop distance for position sizing.
+- **Stop loss / take profit** — Percentage from entry; applied when the engine closes the position.
+- **Budget** — Optional global quote cap in `config.json`; split equally across strategies. If 0, each strategy can use full balance.
+- **Testnet** — Set `TESTNET=true` in `.env` for Binance testnet; `false` for live.
 
 ## Data and Logging
 
-- **State** — Stored under `data/`: one state file per strategy (positions, PnL reset timestamp, closed-trade history for analytics), plus runner and order-strategy mapping. Not intended to be edited by hand while the process is running.
-- **Logging** — Winston is used for console and file logging (e.g. `logs/bot.log`). Log level and format are configurable.
+- **State** — Under `data/`: one state file per strategy, runner state, and order-strategy map. Do not edit while the process is running.
+- **Logging** — Winston; console and file (e.g. `logs/bot.log`). Level and file size in `config.json`.
 
 ## Technology
 
 - **Runtime** — Node.js (ES modules).
-- **Exchange** — CCXT for Binance connectivity (candles, account, orders, trades).
-- **Server** — Express for the API and for serving the static dashboard.
-- **Front end** — Single HTML file with inline CSS and JavaScript; Chart.js for candlestick, line, and bar charts.
+- **Exchange** — CCXT for Binance (candles, account, orders, trades).
+- **Server** — Express for the API and static dashboard.
+- **Front end** — Single HTML file, Chart.js for candlestick and line charts.
 
 The application is designed to run continuously, polling for new candles and updating positions and dashboard data on a fixed schedule while keeping full control and visibility through the web interface.
