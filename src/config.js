@@ -85,3 +85,27 @@ export const config = {
     logDir: new URL('../logs', import.meta.url).pathname
   }
 }
+
+export function validateConfig (cfg) {
+  const errors = []
+  const t = cfg.trading || {}
+  if (!t.symbol) errors.push('trading.symbol is required')
+  if (!t.timeframe) errors.push('trading.timeframe is required')
+  if (!(t.pollIntervalMs > 0)) errors.push('trading.pollIntervalMs must be > 0')
+  if (!(t.riskPerTrade > 0 && t.riskPerTrade <= 1)) errors.push('trading.riskPerTrade must be in (0, 1]')
+  if (!(t.stopLossPct > 0)) errors.push('trading.stopLossPct must be > 0')
+  if (!(t.takeProfitPct > 0)) errors.push('trading.takeProfitPct must be > 0')
+  if (t.stopLossPct > 0 && t.takeProfitPct > 0 && t.takeProfitPct <= t.stopLossPct) {
+    errors.push('trading.takeProfitPct must be greater than trading.stopLossPct')
+  }
+  if (!(t.feeRatePct >= 0)) errors.push('trading.feeRatePct must be >= 0')
+  const limit = t.closedTradesHistoryLimit
+  if (!(limit >= 100 && limit <= 10000)) {
+    errors.push('trading.closedTradesHistoryLimit must be between 100 and 10000')
+  }
+  if (errors.length) {
+    throw new Error('Invalid trading config: ' + errors.join('; '))
+  }
+}
+
+validateConfig(config)
