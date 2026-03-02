@@ -20,6 +20,43 @@ The app runs a set of **independent strategies** (EMA crossovers, MACD, RSI, Bol
 - **State** — Each strategy has its own state file under `data/` (open position, entry price, PnL history). Order-to-strategy mapping is stored so trade history and PnL are attributed correctly.
 - **Auto trading** — A global toggle enables or disables automatic opening and closing; the dashboard and API still allow manual buy/sell and closing. You can also set it on startup via CLI flags (see below).
 
+## Built-in strategies
+
+All strategies run on the same symbol and timeframe and respect the global regime filter, risk settings, and SL/TP. Each one is independent and can be enabled/disabled from the dashboard.
+
+### Long-biased strategies
+
+- **EMA Crossover (50/200) – `ema_crossover`**: Classic trend-following crossover; looks for the 50-period EMA crossing above the 200-period EMA to enter long in emerging uptrends.
+- **EMA Fast Crossover – `ema_fast_crossover`**: Shorter-period EMA crossover that reacts faster than the 50/200 pair, aiming to capture earlier trend shifts at the cost of more noise.
+- **Multi-EMA (9/21/50) – `multi_ema`**: Requires a bullish “stack” of EMAs (price > EMA9 > EMA21 > EMA50) to enter long and exits when the fast EMA (9) loses the medium EMA (21).
+- **Price vs EMA – `price_vs_ema`**: Trend-following filter that goes long when price is persistently above a key EMA and stands aside when price falls back below it.
+- **RSI Pullback – `rsi_pullback`**: Attempts to join uptrends on pullbacks, buying when RSI dips from overbought toward neutral while price remains in a broader bullish context.
+- **MACD Line Crossover – `macd`**: Uses the MACD line crossing above its signal line to detect bullish momentum shifts and enter long.
+- **MACD Histogram Long – `macd_histogram_long`**: Focuses on the MACD histogram moving from negative to positive (or strengthening positive) to capture momentum builds after pullbacks.
+- **RSI + MACD Combo – `rsi_macd_combo`**: Combines RSI (for overbought/oversold and pullbacks) with MACD (for trend direction) to require confluence before entering long.
+- **Bollinger Mean Revert – `bollinger_mean_revert`**: Mean-reversion strategy that buys when price washes out near/below the lower Bollinger Band in otherwise range-bound or low-vol regimes.
+- **Bollinger Squeeze Breakout – `bollinger_squeeze`**: Watches for Bollinger Band “squeezes” (low volatility) and then enters on breakouts when volatility expands and trend resumes.
+- **Donchian Breakout – `donchian_breakout`**: Trend-following breakout using Donchian channels; goes long when price breaks above a recent high channel after consolidation.
+- **Stochastic Oversold – `stochastic_oversold`**: Uses the stochastic oscillator to buy oversold pullbacks in uptrends or ranges, aiming for bounces back toward the middle of the range.
+- **ATR Trend – `atr_trend`**: Follows trends using ATR-based trailing levels; enters when price pushes away from the ATR band in the trend direction and manages exits as price revisits the band.
+- **ATR Breakout – `atr_breakout`**: Looks for large ATR-sized moves beyond recent ranges, entering long on strong range expansions that signal the start or continuation of a trend.
+- **Volume EMA Crossover – `volume_ema_crossover`**: Enhances EMA crossover logic by requiring volume to break above a volume EMA, favoring signals that occur with stronger participation.
+- **Multi-TF Trend – `multi_tf_trend`**: Uses EMAs and/or MACD across multiple timeframes (e.g. higher TF trend + local TF trigger) to only enter long when both agree.
+- **Range Bounce – `range_bounce`**: Pure mean-reversion in sideways markets; buys near defined range lows and aims to exit near the middle or upper portion of the range.
+
+### Short-biased strategies
+
+- **Short Trend (EMA 50/200) – `short_trend`**: Mirror of the EMA trend logic for downtrends; goes short when price < EMA50 < EMA200 (bearish stack) and exits when price reclaims EMA50 or the stack breaks.
+- **Short Breakdown – `short_breakdown`**: Short trend-following breakout that sells when price breaks down below recent support or range lows and continues lower.
+- **Short Overbought – `short_overbought`**: Mean-reversion / contrarian short; looks for overbought rallies (e.g. high RSI) in bearish regimes and enters short as momentum stalls.
+- **Short MACD – `short_macd`**: Uses MACD crossing below its signal line (or staying negative) to detect downside momentum and initiate short positions.
+- **Short MACD Histogram – `short_macd_histogram`**: Focuses on the MACD histogram rolling over from positive to negative or weakening positive to catch momentum shifts to the downside.
+- **Short Rejection – `short_rejection`**: Shorts failed breakouts and wick rejections near resistance (often using EMAs/Bollinger levels), betting on price snapping back lower instead of continuing higher.
+
+### Manual strategy
+
+- **Manual – `manual`**: Does not generate automatic entries or exits. Exposes a strategy card in the dashboard so you can open/close positions manually while still using the same risk, PnL, and analytics pipeline.
+
 ## Dashboard
 
 The dashboard is a single HTML front end that talks to the backend REST API. It is organized into tabs:
