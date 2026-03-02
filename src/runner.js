@@ -67,6 +67,19 @@ export function setRunning (strategyId, running) {
   return runner
 }
 
+export function setAllRunning (running) {
+  const runner = loadRunner()
+  if (running) {
+    runner.running = [...STRATEGY_IDS]
+    logger.info('All strategies started')
+  } else {
+    runner.running = []
+    logger.info('All strategies stopped')
+  }
+  saveRunner(runner)
+  return runner
+}
+
 export function setRegimeFilterEnabled (enabled) {
   const runner = loadRunner()
   runner.regimeFilterEnabled = !!enabled

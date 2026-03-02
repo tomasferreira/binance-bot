@@ -335,6 +335,30 @@ async function resetAllPnl () {
 document.getElementById('reset-all-pnl-btn').addEventListener('click', resetAllPnl)
 document.getElementById('top-reset-pnl-btn').addEventListener('click', resetAllPnl)
 
+async function startAllStrategies () {
+  const statusEl = document.getElementById('action-status')
+  statusEl.textContent = 'Starting all strategies...'
+  try {
+    await postJson('/api/strategies/start-all', {})
+    statusEl.textContent = 'All strategies started.'
+    await refreshStatus()
+  } catch (err) {
+    statusEl.textContent = 'Start all failed: ' + err.message
+  }
+}
+
+async function stopAllStrategies () {
+  const statusEl = document.getElementById('action-status')
+  statusEl.textContent = 'Stopping all strategies...'
+  try {
+    await postJson('/api/strategies/stop-all', {})
+    statusEl.textContent = 'All strategies stopped.'
+    await refreshStatus()
+  } catch (err) {
+    statusEl.textContent = 'Stop all failed: ' + err.message
+  }
+}
+
 async function toggleAutoTrading () {
   const statusEl = document.getElementById('action-status')
   statusEl.textContent = 'Toggling auto trading...'
@@ -347,6 +371,11 @@ async function toggleAutoTrading () {
 }
 document.getElementById('toggle-auto-btn').addEventListener('click', toggleAutoTrading)
 document.getElementById('bot-auto').addEventListener('click', toggleAutoTrading)
+
+const startAllBtn = document.getElementById('start-all-strategies-btn')
+if (startAllBtn) startAllBtn.addEventListener('click', startAllStrategies)
+const stopAllBtn = document.getElementById('stop-all-strategies-btn')
+if (stopAllBtn) stopAllBtn.addEventListener('click', stopAllStrategies)
 
 document.getElementById('regime-awareness-cb').addEventListener('change', async () => {
   const statusEl = document.getElementById('action-status')

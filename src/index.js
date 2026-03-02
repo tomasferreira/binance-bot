@@ -4,7 +4,7 @@ import { config } from './config.js'
 import { logger } from './logger.js'
 import { getExchange } from './exchange.js'
 import { loadState, saveState, migrateLegacyState, resetPnlState } from './stateMulti.js'
-import { loadRunner, setRunning, setRegimeFilterEnabled } from './runner.js'
+import { loadRunner, setRunning, setRegimeFilterEnabled, setAllRunning } from './runner.js'
 import { STRATEGY_IDS, getStrategy, evaluateStrategy, isRegimeActive } from './strategies/registry.js'
 import { getOrderStrategyMap } from './orderStrategy.js'
 import { maybeClosePosition, openLongPosition, openShortPosition, closePositionNow } from './tradeManager.js'
@@ -469,6 +469,28 @@ app.post('/api/strategies/:id/stop', (req, res) => {
   } catch (err) {
     logger.error('Error stopping strategy', err)
     res.status(500).json({ error: 'Failed to stop' })
+  }
+})
+
+app.post('/api/strategies/start-all', (req, res) => {
+  try {
+    logger.debug('HTTP POST /api/strategies/start-all')
+    const runner = setAllRunning(true)
+    res.json({ status: 'ok', running: runner.running })
+  } catch (err) {
+    logger.error('Error starting all strategies', err)
+    res.status(500).json({ error: 'Failed to start all' })
+  }
+})
+
+app.post('/api/strategies/stop-all', (req, res) => {
+  try {
+    logger.debug('HTTP POST /api/strategies/stop-all')
+    const runner = setAllRunning(false)
+    res.json({ status: 'ok', running: runner.running })
+  } catch (err) {
+    logger.error('Error stopping all strategies', err)
+    res.status(500).json({ error: 'Failed to stop all' })
   }
 })
 
