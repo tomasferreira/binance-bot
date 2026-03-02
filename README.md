@@ -18,7 +18,7 @@ The app runs a set of **independent strategies** (EMA crossovers, MACD, RSI, Bol
 - **Regime filter** — Volatility and trend are computed on a separate, higher timeframe (e.g. 1h). When enabled, strategies only enter when the regime fits (e.g. long strategies in bullish trend). Can be toggled in the dashboard.
 - **Execution** — Orders are placed and closed via CCXT. Position size is derived from risk-per-trade and optional global budget (split equally across strategies).
 - **State** — Each strategy has its own state file under `data/` (open position, entry price, PnL history). Order-to-strategy mapping is stored so trade history and PnL are attributed correctly.
-- **Auto trading** — A global toggle enables or disables automatic opening and closing; the dashboard and API still allow manual buy/sell and closing.
+- **Auto trading** — A global toggle enables or disables automatic opening and closing; the dashboard and API still allow manual buy/sell and closing. You can also set it on startup via CLI flags (see below).
 
 ## Dashboard
 
@@ -50,3 +50,35 @@ The dashboard is a single HTML front end that talks to the backend REST API. It 
 - **Front end** — Single HTML file, Chart.js for candlestick and line charts.
 
 The application is designed to run continuously, polling for new candles and updating positions and dashboard data on a fixed schedule while keeping full control and visibility through the web interface.
+
+## Running the bot
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start the bot (default auto-trading state is whatever is stored in strategy state / last dashboard setting):
+
+```bash
+npm start
+```
+
+You can also force the global auto-trading flag on startup using CLI flags (same effect as the dashboard toggle applied to all strategies):
+
+- **Force auto-trading OFF for all strategies:**
+
+  ```bash
+  npm start -- --auto-off
+  # or
+  npm start -- --no-auto
+  ```
+
+- **Force auto-trading ON for all strategies:**
+
+  ```bash
+  npm start -- --auto-on
+  ```
+
+These flags update `autoTradingEnabled` in each strategy’s state before the main loop starts.

@@ -184,8 +184,24 @@ async function botTick () {
   }
 }
 
+function applyStartupFlags () {
+  const argv = process.argv.slice(2)
+  const autoOff = argv.includes('--auto-off') || argv.includes('--no-auto')
+  const autoOn = argv.includes('--auto-on')
+  if (autoOff || autoOn) {
+    const value = autoOn || !autoOff ? true : false
+    for (const id of STRATEGY_IDS) {
+      const state = loadState(id)
+      state.autoTradingEnabled = value
+      saveState(id, state)
+    }
+    logger.info(`Startup flag: set autoTradingEnabled=${value} for all strategies`)
+  }
+}
+
 async function main () {
   migrateLegacyState(STRATEGY_IDS[0])
+  applyStartupFlags()
   logger.info(`Starting multi-strategy bot on ${symbol} (${timeframe}), interval=${pollIntervalMs}ms`)
   const runner = loadRunner()
   logger.info(`Running strategies: ${runner.running.join(', ') || 'none'}`)
