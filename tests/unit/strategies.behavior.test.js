@@ -128,3 +128,22 @@ describe('short_rejection behavior', () => {
   })
 })
 
+
+// 4) generic invariant: no strategy should emit enter-* when a position is already open
+
+import { STRATEGY_IDS, getStrategy } from '../../src/strategies/registry.js'
+
+describe('all strategies invariants', () => {
+  it('does not return enter-long/enter-short when openPosition is set', () => {
+    const ohlcv = makeFlatOhlcv(300)
+    for (const id of STRATEGY_IDS) {
+      const strat = getStrategy(id)
+      const state = { openPosition: { side: 'long' } }
+      const res = strat.evaluate(ohlcv, state)
+      expect(res).toBeTruthy()
+      expect(res.action).not.toBe('enter-long')
+      expect(res.action).not.toBe('enter-short')
+    }
+  })
+})
+
