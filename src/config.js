@@ -3,9 +3,15 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
-dotenv.config()
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const envPath = path.resolve(__dirname, '../.env')
+
+if (!fs.existsSync(envPath)) {
+  throw new Error('Missing .env file at project root. Copy .env.example to .env and set BINANCE_API_KEY, BINANCE_API_SECRET, and TESTNET.')
+}
+
+dotenv.config({ path: envPath })
+
 const configPath = path.resolve(__dirname, '../config.json')
 
 let fileConfig = {}
