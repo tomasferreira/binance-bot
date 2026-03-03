@@ -158,6 +158,14 @@ async function botTick () {
     // Strategy entry/exit signals use only closed candles; current price (lastClose) is used for SL/TP and orders
     const ohlcvClosed = ohlcv.length > 1 ? ohlcv.slice(0, -1) : ohlcv
     const runner = loadRunner()
+    // Global view of auto-trading: we treat it as OFF if the first strategy's
+    // state has autoTradingEnabled === false (dashboard toggle updates all).
+    const sampleId = STRATEGY_IDS[0]
+    const sampleState = sampleId ? loadState(sampleId) : null
+    const globalAutoTradingEnabled = sampleState ? sampleState.autoTradingEnabled !== false : true
+    if (!globalAutoTradingEnabled) {
+      logger.warn('Auto trading is OFF globally (no strategies will open/close positions automatically this tick)')
+    }
     const context = {
       regime: regime || undefined,
       regimeFilterEnabled: runner.regimeFilterEnabled !== false
@@ -165,7 +173,8 @@ async function botTick () {
     logger.debug('botTick state', {
       runningStrategies: runner.running,
       lastClose,
-      regimeFilterEnabled: context.regimeFilterEnabled
+      regimeFilterEnabled: context.regimeFilterEnabled,
+      globalAutoTradingEnabled
     })
 
     for (const strategyId of runner.running) {
