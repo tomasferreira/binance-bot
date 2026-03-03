@@ -34,6 +34,7 @@ function getStrategyBudget () {
 }
 
 let lastTickAt = null
+let lastClosedCandleTs = null
 const lastDecisionByStrategy = {}
 
 const BINANCE_KLINES_MAX = 1000
@@ -106,6 +107,9 @@ async function getRegime () {
 async function tickStrategy (strategyId, ohlcv, lastClose, context = {}) {
   let state = loadState(strategyId)
   const autoTradingEnabled = state.autoTradingEnabled !== false
+  const isNewClosedCandle = context?.isNewClosedCandle === true
+  const useCloseOnlyExits = config.trading.closeOnlyExits === true
+
   logger.debug('tickStrategy start', {
     strategyId,
     lastClose,
@@ -114,7 +118,16 @@ async function tickStrategy (strategyId, ohlcv, lastClose, context = {}) {
     side: state.openPosition?.side || null
   })
 
-  state = await maybeClosePosition(state, lastClose, strategyId)
+  // SL/TP handling:
+  // - Default (closeOnlyExits = false): check on every tick using current price.
+  // - closeOnlyExits = true: check only once per newly closed candle, using the
+  //   closed candle's close price instead of the live lastClose.
+  if (!useCloseOnlyExits || isNewClosedCandle) {
+    const stopPrice = useCloseOnlyExits && Array.isArray(ohlcv) && ohlcv.length
+      ? ohlcv[ohlcv.length - 1][4]
+      : lastClose
+    state = await maybeClosePosition(state, stopPrice, strategyId)
+  }
 
   if (state.openPosition) {
     const decision = evaluateStrategy(strategyId, ohlcv, state, context)
@@ -157,6 +170,9 @@ async function botTick () {
     const lastClose = ohlcv[ohlcv.length - 1][4]
     // Strategy entry/exit signals use only closed candles; current price (lastClose) is used for SL/TP and orders
     const ohlcvClosed = ohlcv.length > 1 ? ohlcv.slice(0, -1) : ohlcv
+    const latestClosedTs = ohlcvClosed.length ? ohlcvClosed[ohlcvClosed.length - 1][0] : null
+    const isNewClosedCandle = latestClosedTs != null && latestClosedTs !== lastClosedCandleTs
+    if (isNewClosedCandle) lastClosedCandleTs = latestClosedTs
     const runner = loadRunner()
     // Global view of auto-trading: we treat it as OFF if the first strategy's
     // state has autoTradingEnabled === false (dashboard toggle updates all).
@@ -168,13 +184,15 @@ async function botTick () {
     }
     const context = {
       regime: regime || undefined,
-      regimeFilterEnabled: runner.regimeFilterEnabled !== false
+      regimeFilterEnabled: runner.regimeFilterEnabled !== false,
+      isNewClosedCandle
     }
     logger.debug('botTick state', {
       runningStrategies: runner.running,
       lastClose,
       regimeFilterEnabled: context.regimeFilterEnabled,
-      globalAutoTradingEnabled
+      globalAutoTradingEnabled,
+      isNewClosedCandle
     })
 
     for (const strategyId of runner.running) {

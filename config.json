@@ -16,6 +16,7 @@
     "takeProfitPct": 0.02,
     "feeRatePct": 0.001,
     "globalBudgetQuote": 10000,
+    "closeOnlyExits": false,
     "testingMode": false,
     "assetsToLog": "BTC,USDT",
     "closedTradesHistoryLimit": 2000,

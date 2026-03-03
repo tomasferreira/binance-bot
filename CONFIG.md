@@ -34,3 +34,4 @@ All keys can be overridden by environment variables (e.g. `SYMBOL`, `TIMEFRAME`)
 | `regimeTimeframe` | Higher timeframe for trend/volatility regime (e.g. `1h`). | `REGIME_TIMEFRAME` |
 | `regimeCandles` | Number of bars used to compute regime (100–1000). | `REGIME_CANDLES` |
 | `regimeFilterEnabled` | When `true`, strategies only enter when regime fits. Can be toggled in dashboard. | `REGIME_FILTER_ENABLED` |
+| `closeOnlyExits` | When `true`, SL/TP and strategy exits are only evaluated on closed candles (close-only behavior). Default `false`. | `CLOSE_ONLY_EXITS` |

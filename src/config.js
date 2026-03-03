@@ -62,7 +62,8 @@ const trading = {
   closedTradesHistoryLimit: Math.max(100, Math.min(10000, Number(rawClosedLimit))),
   regimeTimeframe: envOverride('REGIME_TIMEFRAME') ?? tradingFromFile.regimeTimeframe,
   regimeCandles: Math.max(100, Math.min(1000, Number(rawRegimeCandles))),
-  regimeFilterEnabled: envOverride('REGIME_FILTER_ENABLED', 'boolean') ?? tradingFromFile.regimeFilterEnabled
+  regimeFilterEnabled: envOverride('REGIME_FILTER_ENABLED', 'boolean') ?? tradingFromFile.regimeFilterEnabled,
+  closeOnlyExits: envOverride('CLOSE_ONLY_EXITS', 'boolean') ?? tradingFromFile.closeOnlyExits
 }
 
 const httpFromFile = fileConfig.http ?? {}
