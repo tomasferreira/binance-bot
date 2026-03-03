@@ -5,6 +5,7 @@ node_modules/
 .env
 .env.local
 .env.*.local
+config.json
 
 # Local runtime data and logs
 data/
