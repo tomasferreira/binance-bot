@@ -6,6 +6,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
+    "backtest": "node src/backtest.js",
     "test": "vitest",
     "test:watch": "vitest --watch"
   },

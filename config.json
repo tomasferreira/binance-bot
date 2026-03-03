@@ -13,7 +13,7 @@
     "pollIntervalMs": 60000,
     "riskPerTrade": 0.01,
     "stopLossPct": 0.01,
-    "takeProfitPct": 0.04,
+    "takeProfitPct": 0.02,
     "feeRatePct": 0.001,
     "globalBudgetQuote": 10000,
     "testingMode": false,
