@@ -102,6 +102,23 @@ export function evaluateStrategy (id, ohlcv, state, context = {}) {
   })
   const decision = s.evaluate(ohlcv, state, context)
   const action = decision?.action || 'hold'
+  // Highlight whenever a strategy **requests** an entry/exit, regardless of
+  // whether auto-trading, regime filter, or other constraints will actually
+  // execute the trade.
+  if (
+    action === 'enter-long' ||
+    action === 'enter-short' ||
+    action === 'exit-long' ||
+    action === 'exit-short'
+  ) {
+    logger.info(`strategy-decision: ${id} requested ${action}`, {
+      hasOpenPosition: !!state?.openPosition,
+      side: state?.openPosition?.side || null,
+      detail: decision?.detail || {},
+      regime: context?.regime || null,
+      regimeFilterEnabled: context?.regimeFilterEnabled !== false
+    })
+  }
   const regime = context?.regime
   const regimeFilterEnabled = context?.regimeFilterEnabled !== false
   const filter = REGIME_FILTERS[id]
