@@ -111,7 +111,7 @@ export function evaluateStrategy (id, ohlcv, state, context = {}) {
     action === 'exit-long' ||
     action === 'exit-short'
   ) {
-    logger.info(`strategy-decision: ${id} requested ${action}`, {
+    logger.warn(`strategy-decision: ${id} requested ${action}`, {
       hasOpenPosition: !!state?.openPosition,
       side: state?.openPosition?.side || null,
       detail: decision?.detail || {},
