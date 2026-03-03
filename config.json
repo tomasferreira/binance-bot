@@ -12,7 +12,7 @@
     "timeframe": "15m",
     "pollIntervalMs": 60000,
     "riskPerTrade": 0.01,
-    "stopLossPct": 0.02,
+    "stopLossPct": 0.01,
     "takeProfitPct": 0.04,
     "feeRatePct": 0.001,
     "globalBudgetQuote": 10000,
