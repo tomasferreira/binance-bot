@@ -398,6 +398,54 @@ app.get('/api/status', async (req, res) => {
   }
 })
 
+// Run a one-off backtest in a separate Node process.
+// Body: { days?: number, regime?: boolean, intrabar?: boolean }
+app.post('/api/backtest', (req, res) => {
+  try {
+    const { days, regime, intrabar } = req.body || {}
+    const args = ['src/backtest.js']
+    if (typeof days === 'number' && Number.isFinite(days) && days > 0) {
+      args.push(`--days=${days}`)
+    }
+    if (typeof regime === 'boolean') {
+      args.push(`--regime=${regime ? 'true' : 'false'}`)
+    }
+    if (typeof intrabar === 'boolean') {
+      args.push(`--intrabar=${intrabar ? 'true' : 'false'}`)
+    }
+
+    logger.info('HTTP POST /api/backtest spawn', { args })
+
+    const child = spawn(process.execPath, args, { cwd: process.cwd() })
+    let stdout = ''
+    let stderr = ''
+
+    child.stdout.on('data', (data) => {
+      stdout += data.toString()
+    })
+    child.stderr.on('data', (data) => {
+      stderr += data.toString()
+    })
+
+    child.on('error', (err) => {
+      logger.error('Backtest process failed to start', err)
+    })
+
+    child.on('close', (code) => {
+      logger.info('Backtest process exited', { code })
+    })
+
+    res.json({
+      status: 'started',
+      pid: child.pid,
+      args
+    })
+  } catch (err) {
+    logger.error('Error in /api/backtest', err)
+    res.status(500).json({ error: 'Backtest failed to start' })
+  }
+})
+
 // Manual buy: portfolio (amount + unit) or open full risk-sized position
 app.post('/api/manual-buy', async (req, res) => {
   try {
