@@ -3,7 +3,7 @@ import { fetchStatus, postJson } from './api.js'
 import { state } from './state.js'
 import { updateChartFocusLabel, strategyDetailHtml, updateStrategiesPanel } from './strategies.js'
 import { updateAnalysisPanel } from './analysis.js'
-import { fetchCandles, renderChart } from './charts.js'
+import { fetchCandles } from './charts.js'
 import { initFinancialChart, updateFinancialChart } from './financialChart.js'
 import { updatePositionActivity, addActivityEvent, updateTradesPanel, refreshActivityListDisplay } from './trades.js'
 import { initBacktestControls } from './backtest.js'
@@ -213,7 +213,6 @@ async function refreshStatus () {
 async function refreshChart () {
   try {
     const candles = await fetchCandles()
-    renderChart(candles)
     updateFinancialChart(candles)
   } catch (err) { console.error(err) }
 }
@@ -245,22 +244,7 @@ async function refreshFees () {
           if (strategiesTab) strategiesTab.click()
         }
         updateChartFocusLabel()
-        if (!state.lastCandles.length) return
-        const ts = t0.timestamp
-        if (!ts) return
-        const src = state.lastCandles
-        let idxC = src.findIndex(c => c.timestamp >= ts)
-        if (idxC === -1) idxC = src.length - 1
-        const half = 20
-        const start = Math.max(0, idxC - half)
-        const end = Math.min(src.length, idxC + half + 1)
-        state.customWindow = { start, end }
-        try {
-          localStorage.setItem('customWindowStart', String(start))
-          localStorage.setItem('customWindowEnd', String(end))
-          if (state.selectedStrategyId) localStorage.setItem('selectedStrategyId', state.selectedStrategyId)
-        } catch (err) { console.error(err) }
-        renderChart(state.lastCandles)
+        // Legacy Chart.js overview chart windowing removed; financial chart is global
       }
     })
   } catch (err) {
@@ -396,40 +380,6 @@ document.getElementById('regime-awareness-cb').addEventListener('change', async 
     cb.checked = !cb.checked
   }
 })
-
-const chartWindowSelect = document.getElementById('chart-window-select')
-if (chartWindowSelect) {
-  chartWindowSelect.value = state.chartWindowSize === 'all' ? 'all' : String(state.chartWindowSize)
-  chartWindowSelect.addEventListener('change', async (e) => {
-    const val = e.target.value
-    state.chartWindowSize = val === 'all' ? 'all' : Number(val)
-    state.customWindow = null
-    try {
-      localStorage.setItem('chartWindowSize', val)
-      localStorage.removeItem('customWindowStart')
-      localStorage.removeItem('customWindowEnd')
-    } catch (err) { console.error(err) }
-    try {
-      if (!state.lastCandles.length) state.lastCandles = await fetchCandles()
-      renderChart(state.lastCandles)
-    } catch (err) { console.error(err) }
-  })
-}
-
-const chartResetBtn = document.getElementById('chart-reset-btn')
-if (chartResetBtn) {
-  chartResetBtn.addEventListener('click', async () => {
-    state.customWindow = null
-    try {
-      localStorage.removeItem('customWindowStart')
-      localStorage.removeItem('customWindowEnd')
-    } catch (err) { console.error(err) }
-    try {
-      if (!state.lastCandles.length) state.lastCandles = await fetchCandles()
-      renderChart(state.lastCandles)
-    } catch (err) { console.error(err) }
-  })
-}
 
 initFinancialChart()
 refreshStatus()
