@@ -1,4 +1,4 @@
-import { getExchange } from './exchange.js'
+import { getTradingExchange } from './exchange.js'
 import { logger } from './logger.js'
 import { config } from './config.js'
 
@@ -6,7 +6,7 @@ const { symbol, assetsToLog } = config.trading
 
 export async function logPortfolio (state) {
   try {
-    const exchange = getExchange()
+    const exchange = getTradingExchange()
     const balance = await exchange.fetchBalance()
 
     const lines = (assetsToLog || []).map(asset => {

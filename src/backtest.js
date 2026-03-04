@@ -1,5 +1,6 @@
 import { config } from './config.js'
-import { getExchange } from './exchange.js'
+import { getTradingExchange, getDataExchange } from './exchange.js'
+import { getMarketDataSource } from './marketDataSource.js'
 import { STRATEGY_IDS, evaluateStrategy } from './strategies/registry.js'
 import { getEffectiveTradingConfig } from './runtimeConfig.js'
 import { calculatePositionSize } from './risk.js'
@@ -164,7 +165,8 @@ function backtestMetricsFromHistory (state) {
 }
 
 async function fetchHistoricalCandles (symbol, timeframe, sinceMs, limit = 5000) {
-  const exchange = getExchange()
+  const source = getMarketDataSource()
+  const exchange = source === 'testnet' ? getTradingExchange() : getDataExchange()
   logger.info(`Backtest: fetching candles for ${symbol} ${timeframe} since ${new Date(sinceMs).toISOString()}`)
   // CCXT will page automatically when since is provided; we cap limit for safety
   const candles = await exchange.fetchOHLCV(symbol, timeframe, sinceMs, limit)
@@ -340,7 +342,8 @@ async function runBacktest () {
   let regime = null
   if (regimeFilterEnabled) {
     try {
-      const regimeExchange = getExchange()
+      const source = getMarketDataSource()
+      const regimeExchange = source === 'testnet' ? getTradingExchange() : getDataExchange()
       const regimeTf = regimeTimeframe || '1h'
       const regimeLimit = Math.min(regimeCandles || 300, 1000)
       const regimeOhlcv = await regimeExchange.fetchOHLCV(symbol, regimeTf, undefined, regimeLimit)

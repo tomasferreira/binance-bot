@@ -103,18 +103,31 @@
         </div>
         <div class="section">
           <div class="section-title">Price & indicators</div>
-          <div class="row" style="margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0 1rem; align-items: center;">
-            <span class="label">Chart focus</span>
-            <span class="value" id="chart-focus-label" style="color: #22c55e;">—</span>
+          <!-- Top info row: time, OHLC, change, range -->
+          <div class="row" style="margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0.5rem 1rem; font-size: 0.85rem;">
+            <span class="label">Time</span><span class="value" id="financial-info-time">-</span>
+            <span class="label">O</span><span class="value" id="financial-info-open">-</span>
+            <span class="label">H</span><span class="value" id="financial-info-high">-</span>
+            <span class="label">L</span><span class="value" id="financial-info-low">-</span>
+            <span class="label">C</span><span class="value" id="financial-info-close">-</span>
+            <span class="label">Change</span><span class="value" id="financial-info-change">-</span>
+            <span class="label">Range</span><span class="value" id="financial-info-range">-</span>
           </div>
-          <div class="row" style="margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0 1rem;">
+          <!-- MA legend line: MA(7), MA(25), MA(99) -->
+          <div class="row" style="margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0.75rem 1.25rem; font-size: 0.85rem; color: #9ca3af;">
+            <span><span style="display:inline-block;width:10px;height:2px;background:#eab308;margin-right:4px;vertical-align:middle;"></span>MA(7) <span id="financial-ma-7" class="value">-</span></span>
+            <span><span style="display:inline-block;width:10px;height:2px;background:#6366f1;margin-right:4px;vertical-align:middle;"></span>MA(25) <span id="financial-ma-25" class="value">-</span></span>
+            <span><span style="display:inline-block;width:10px;height:2px;background:#f97316;margin-right:4px;vertical-align:middle;"></span>MA(99) <span id="financial-ma-99" class="value">-</span></span>
+          </div>
+          <!-- Legacy close & EMAs row (kept for quick reference) -->
+          <div class="row" style="margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0 1rem;">
             <span class="label">Close</span><span class="value" id="chart-close">-</span>
             <span class="label">EMA 9</span><span class="value" id="chart-ema9">-</span>
             <span class="label">EMA 20</span><span class="value" id="chart-ema20">-</span>
             <span class="label">EMA 50</span><span class="value" id="chart-ema50">-</span>
             <span class="label">EMA 200</span><span class="value" id="chart-ema200">-</span>
           </div>
-          <div class="row" style="margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem 1rem;">
+          <div class="row" style="margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem 1rem; display:none;">
             <select id="chart-window-select">
               <option value="20">Last 20</option>
               <option value="50">Last 50</option>
@@ -125,11 +138,18 @@
             </select>
             <button type="button" id="chart-reset-btn" class="secondary">Reset chart</button>
           </div>
+          <!-- Price chart -->
           <div class="chart-wrapper chart-wrapper-lg">
-            <canvas id="price-chart"></canvas>
+            <div id="financial-price-chart-container" style="width:100%;height:360px;"></div>
           </div>
-          <div class="chart-wrapper" style="height: 160px;">
-            <canvas id="macd-chart"></canvas>
+          <!-- Volume chart -->
+          <div class="chart-wrapper chart-wrapper-sm">
+            <div id="financial-volume-chart-container" style="width:100%;height:140px;"></div>
+          </div>
+          <!-- Volume legend under volume chart -->
+          <div class="row" style="margin-top: 0.35rem; flex-wrap: wrap; gap: 0.75rem 1.5rem; font-size: 0.85rem; color: #9ca3af;">
+            <span>Vol(BTC) <span id="financial-vol-base" class="value">-</span></span>
+            <span>Vol(USDT) <span id="financial-vol-quote" class="value">-</span></span>
           </div>
         </div>
         <div class="section">
@@ -410,6 +430,13 @@
             </label>
           </div>
           <div class="row">
+            <span class="label">Market data source</span>
+            <select id="market-data-source-select" style="background:#020617;border:1px solid #1f2937;border-radius:0.25rem;padding:0.2rem 0.4rem;color:#e5e7eb;font-size:0.85rem;">
+              <option value="live">Live</option>
+              <option value="testnet">Testnet</option>
+            </select>
+          </div>
+          <div class="row">
             <span class="label">Risk / trade</span>
             <input id="risk-input" type="number" step="0.001" min="0" placeholder="0.01" />
           </div>
@@ -532,6 +559,7 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <script type="module" src="js/main.js"></script>
   </body>
   <div id="toast-container" class="toast-container"></div>

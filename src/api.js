@@ -4,7 +4,8 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { config } from './config.js'
 import { logger } from './logger.js'
-import { getExchange } from './exchange.js'
+import { getTradingExchange } from './exchange.js'
+import { getMarketDataSource, setMarketDataSource } from './marketDataSource.js'
 import { loadState, saveState, resetPnlState } from './stateMulti.js'
 import { loadRunner, setRunning, setRegimeFilterEnabled, setAllRunning } from './runner.js'
 import { STRATEGY_IDS, getStrategy, isRegimeActive } from './strategies/registry.js'
@@ -74,7 +75,7 @@ export function createApp () {
     try {
       logger.debug('HTTP GET /api/status')
       const runner = loadRunner()
-      const exchange = getExchange()
+      const exchange = getTradingExchange()
       logger.debug('exchange.fetchBalance request (/api/status)', { symbol })
       const balance = await exchange.fetchBalance()
       logger.debug('exchange.fetchBalance response (/api/status)', {
@@ -315,7 +316,7 @@ export function createApp () {
 
       if (typeof amountParam === 'number' && amountParam > 0 && (unit === 'base' || unit === 'quote')) {
         const amountBase = unit === 'quote' ? amountParam / lastClose : amountParam
-        const exchange = getExchange()
+        const exchange = getTradingExchange()
         logger.info(`Manual portfolio BUY: ${amountBase} base (${unit === 'quote' ? amountParam + ' quote' : 'base'})`)
         const order = await exchange.createMarketBuyOrder(symbol, amountBase)
         logger.info(`Market BUY order placed: id=${order.id}, status=${order.status}`)
@@ -342,7 +343,7 @@ export function createApp () {
 
       if (typeof amountParam === 'number' && amountParam > 0 && (unit === 'base' || unit === 'quote')) {
         const amountBase = unit === 'quote' ? amountParam / lastClose : amountParam
-        const exchange = getExchange()
+        const exchange = getTradingExchange()
         logger.info(`Manual portfolio SELL: ${amountBase} base (${unit === 'quote' ? amountParam + ' quote' : 'base'})`)
         const order = await exchange.createMarketSellOrder(symbol, amountBase)
         logger.info(`Market SELL order placed: id=${order.id}, status=${order.status}`)
@@ -632,7 +633,7 @@ export function createApp () {
 
   app.get('/api/trades', async (req, res) => {
     try {
-      const exchange = getExchange()
+      const exchange = getTradingExchange()
       const limit = Math.min(Number(req.query.limit) || 50, 500)
       logger.debug('HTTP GET /api/trades', { limit })
       logger.debug('exchange.fetchMyTrades request', { symbol, limit })
@@ -683,11 +684,36 @@ export function createApp () {
     }
   })
 
+  // Market data source toggle (live vs testnet) for candles / regime / backtests.
+  app.get('/api/market-data-source', (req, res) => {
+    try {
+      const source = getMarketDataSource()
+      res.json({ source })
+    } catch (err) {
+      logger.error('Error in GET /api/market-data-source', err)
+      res.status(500).json({ error: 'Failed to get market data source' })
+    }
+  })
+
+  app.post('/api/market-data-source', async (req, res) => {
+    try {
+      const { source } = req.body || {}
+      if (source !== 'live' && source !== 'testnet') {
+        return res.status(400).json({ error: 'source must be "live" or "testnet"' })
+      }
+      setMarketDataSource(source)
+      res.json({ source: getMarketDataSource() })
+    } catch (err) {
+      logger.error('Error in POST /api/market-data-source', err)
+      res.status(500).json({ error: 'Failed to set market data source' })
+    }
+  })
+
   app.get('/api/candles', async (req, res) => {
     try {
       const maxCandles = config.trading.closedTradesHistoryLimit ?? 500
       const limit = Math.min(Math.max(1, Number(req.query.limit) || 200), maxCandles)
-      logger.debug('HTTP GET /api/candles', { limit })
+      logger.debug('HTTP GET /api/candles', { limit, source: getMarketDataSource() })
       const ohlcv = await fetchMarketData(limit)
 
       let lastValidClose = null
@@ -703,10 +729,13 @@ export function createApp () {
         return lastValidClose ?? raw
       })
 
+      const ema7 = calculateEMA(closes, 7)
       const ema9 = calculateEMA(closes, 9)
       const ema20 = calculateEMA(closes, 20)
       const ema21 = calculateEMA(closes, 21)
+      const ema25 = calculateEMA(closes, 25)
       const ema50 = calculateEMA(closes, 50)
+      const ema99 = calculateEMA(closes, 99)
       const ema200 = calculateEMA(closes, 200)
       const { macdLine, signalLine, histogram } = calculateMACD(closes, 12, 26, 9)
       const rsi14 = calculateRSI(closes, 14)
@@ -719,10 +748,13 @@ export function createApp () {
         low: candle[3],
         close: closes[idx],
         volume: candle[5],
+        ema7: ema7[idx] ?? null,
         ema9: ema9[idx] ?? null,
         ema20: ema20[idx] ?? null,
         ema21: ema21[idx] ?? null,
+        ema25: ema25[idx] ?? null,
         ema50: ema50[idx] ?? null,
+        ema99: ema99[idx] ?? null,
         ema200: ema200[idx] ?? null,
         macd: macdLine[idx] ?? null,
         macdSignal: signalLine[idx] ?? null,

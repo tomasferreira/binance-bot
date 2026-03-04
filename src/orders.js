@@ -1,4 +1,4 @@
-import { getExchange } from './exchange.js'
+import { getTradingExchange } from './exchange.js'
 import { logger } from './logger.js'
 import { config } from './config.js'
 
@@ -6,7 +6,7 @@ const { symbol } = config.trading
 
 export async function logOpenOrders () {
   try {
-    const exchange = getExchange()
+    const exchange = getTradingExchange()
     const orders = await exchange.fetchOpenOrders(symbol)
 
     if (!orders || orders.length === 0) {

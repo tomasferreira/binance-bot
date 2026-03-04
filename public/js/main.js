@@ -1,9 +1,10 @@
-import { formatPrice, formatAmount, formatQuote, formatPnl } from './utils.js'
-import { fetchStatus, postJson } from './api.js'
+import { formatPrice, formatAmount, formatQuote, formatPnl, formatDate24h } from './utils.js'
+import { fetchStatus, postJson, fetchMarketDataSource } from './api.js'
 import { state } from './state.js'
 import { updateChartFocusLabel, strategyDetailHtml, updateStrategiesPanel } from './strategies.js'
 import { updateAnalysisPanel } from './analysis.js'
-import { fetchCandles, renderChart } from './charts.js'
+import { fetchCandles } from './charts.js'
+import { initFinancialChart, updateFinancialChart } from './financialChart.js'
 import { updatePositionActivity, addActivityEvent, updateTradesPanel, refreshActivityListDisplay } from './trades.js'
 import { initBacktestControls } from './backtest.js'
 
@@ -59,6 +60,31 @@ try {
   }
 } catch (e) { console.error('Failed to restore chart state', e) }
 
+async function initMarketDataSourceToggle () {
+  const select = document.getElementById('market-data-source-select')
+  if (!select) return
+  try {
+    const { source } = await fetchMarketDataSource()
+    if (source === 'live' || source === 'testnet') {
+      select.value = source
+    }
+  } catch (err) {
+    console.error(err)
+  }
+  select.addEventListener('change', async () => {
+    const value = select.value === 'testnet' ? 'testnet' : 'live'
+    try {
+      await postJson('/api/market-data-source', { source: value })
+      showToast(`Market data source set to ${value.toUpperCase()}`, 'info')
+      // Force immediate refresh so chart / status reflect new source
+      refreshChart()
+      refreshStatus()
+    } catch (err) {
+      showToast('Failed to change market data source: ' + err.message, 'error')
+    }
+  })
+}
+
 async function refreshStatus () {
   try {
     const data = await fetchStatus()
@@ -108,13 +134,8 @@ async function refreshStatus () {
         try {
           if (state.selectedStrategyId) localStorage.setItem('selectedStrategyId', state.selectedStrategyId)
           else localStorage.removeItem('selectedStrategyId')
-          localStorage.removeItem('customWindowStart')
-          localStorage.removeItem('customWindowEnd')
         } catch (err) { console.error(err) }
-        state.customWindow = null
-        updateChartFocusLabel()
-        if (state.lastCandles.length) renderChart(state.lastCandles)
-        else fetchCandles().then(renderChart).catch(console.error)
+        // Chart is now global financial chart; strategy selection no longer changes it
       }
     })
 
@@ -214,10 +235,69 @@ async function refreshStatus () {
   }
 }
 
+function updateFinancialInfo (candles) {
+  if (!Array.isArray(candles) || !candles.length) return
+  const last = candles[candles.length - 1]
+  if (!last) return
+
+  const timeEl = document.getElementById('financial-info-time')
+  const oEl = document.getElementById('financial-info-open')
+  const hEl = document.getElementById('financial-info-high')
+  const lEl = document.getElementById('financial-info-low')
+  const cEl = document.getElementById('financial-info-close')
+  const changeEl = document.getElementById('financial-info-change')
+  const rangeEl = document.getElementById('financial-info-range')
+  const ma7El = document.getElementById('financial-ma-7')
+  const ma25El = document.getElementById('financial-ma-25')
+  const ma99El = document.getElementById('financial-ma-99')
+  const volBaseEl = document.getElementById('financial-vol-base')
+  const volQuoteEl = document.getElementById('financial-vol-quote')
+
+  const pnlColor = (v) => {
+    const n = v ?? 0
+    if (Number.isNaN(n)) return ''
+    if (n > 0) return '#22c55e'
+    if (n < 0) return '#ef4444'
+    return '#eab308'
+  }
+
+  if (timeEl) timeEl.textContent = formatDate24h(last.timestamp, { includeAgo: false })
+  if (oEl) oEl.textContent = formatPrice(last.open)
+  if (hEl) hEl.textContent = formatPrice(last.high)
+  if (lEl) lEl.textContent = formatPrice(last.low)
+  if (cEl) cEl.textContent = formatPrice(last.close)
+
+  const changeAbs = (last.close ?? 0) - (last.open ?? 0)
+  const changePct = last.open ? (changeAbs / last.open) * 100 : 0
+  if (changeEl) {
+    const label = (changeAbs >= 0 ? '+' : '') + formatPrice(changeAbs) + ' (' + (changePct >= 0 ? '+' : '') + (Number.isFinite(changePct) ? changePct.toFixed(2) : '0.00') + '%)'
+    changeEl.textContent = label
+    changeEl.style.color = pnlColor(changeAbs)
+  }
+
+  const rangeAbs = (last.high ?? 0) - (last.low ?? 0)
+  const rangePct = last.low ? (rangeAbs / last.low) * 100 : 0
+  if (rangeEl) {
+    const label = formatPrice(rangeAbs) + ' (' + (Number.isFinite(rangePct) ? rangePct.toFixed(2) : '0.00') + '%)'
+    rangeEl.textContent = label
+  }
+
+  if (ma7El) ma7El.textContent = formatPrice(last.ema7)
+  if (ma25El) ma25El.textContent = formatPrice(last.ema25)
+  if (ma99El) ma99El.textContent = formatPrice(last.ema99)
+
+  if (volBaseEl) volBaseEl.textContent = formatAmount(last.volume)
+  if (volQuoteEl) {
+    const quote = (last.close ?? 0) * (last.volume ?? 0)
+    volQuoteEl.textContent = formatQuote(quote)
+  }
+}
+
 async function refreshChart () {
   try {
     const candles = await fetchCandles()
-    renderChart(candles)
+    updateFinancialChart(candles)
+    updateFinancialInfo(candles)
   } catch (err) { console.error(err) }
 }
 
@@ -248,22 +328,7 @@ async function refreshFees () {
           if (strategiesTab) strategiesTab.click()
         }
         updateChartFocusLabel()
-        if (!state.lastCandles.length) return
-        const ts = t0.timestamp
-        if (!ts) return
-        const src = state.lastCandles
-        let idxC = src.findIndex(c => c.timestamp >= ts)
-        if (idxC === -1) idxC = src.length - 1
-        const half = 20
-        const start = Math.max(0, idxC - half)
-        const end = Math.min(src.length, idxC + half + 1)
-        state.customWindow = { start, end }
-        try {
-          localStorage.setItem('customWindowStart', String(start))
-          localStorage.setItem('customWindowEnd', String(end))
-          if (state.selectedStrategyId) localStorage.setItem('selectedStrategyId', state.selectedStrategyId)
-        } catch (err) { console.error(err) }
-        renderChart(state.lastCandles)
+        // Legacy Chart.js overview chart windowing removed; financial chart is global
       }
     })
   } catch (err) {
@@ -385,6 +450,7 @@ const stopAllBtn = document.getElementById('stop-all-strategies-btn')
 if (stopAllBtn) stopAllBtn.addEventListener('click', stopAllStrategies)
 
 initBacktestControls()
+initMarketDataSourceToggle()
 
 document.getElementById('regime-awareness-cb').addEventListener('change', async () => {
   const statusEl = document.getElementById('action-status')
@@ -400,40 +466,7 @@ document.getElementById('regime-awareness-cb').addEventListener('change', async 
   }
 })
 
-const chartWindowSelect = document.getElementById('chart-window-select')
-if (chartWindowSelect) {
-  chartWindowSelect.value = state.chartWindowSize === 'all' ? 'all' : String(state.chartWindowSize)
-  chartWindowSelect.addEventListener('change', async (e) => {
-    const val = e.target.value
-    state.chartWindowSize = val === 'all' ? 'all' : Number(val)
-    state.customWindow = null
-    try {
-      localStorage.setItem('chartWindowSize', val)
-      localStorage.removeItem('customWindowStart')
-      localStorage.removeItem('customWindowEnd')
-    } catch (err) { console.error(err) }
-    try {
-      if (!state.lastCandles.length) state.lastCandles = await fetchCandles()
-      renderChart(state.lastCandles)
-    } catch (err) { console.error(err) }
-  })
-}
-
-const chartResetBtn = document.getElementById('chart-reset-btn')
-if (chartResetBtn) {
-  chartResetBtn.addEventListener('click', async () => {
-    state.customWindow = null
-    try {
-      localStorage.removeItem('customWindowStart')
-      localStorage.removeItem('customWindowEnd')
-    } catch (err) { console.error(err) }
-    try {
-      if (!state.lastCandles.length) state.lastCandles = await fetchCandles()
-      renderChart(state.lastCandles)
-    } catch (err) { console.error(err) }
-  })
-}
-
+initFinancialChart()
 refreshStatus()
 refreshChart()
 refreshFees()
