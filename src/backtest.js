@@ -41,6 +41,128 @@ function makeEmptyState (overrides = {}) {
   }
 }
 
+function backtestMetricsFromHistory (state) {
+  const history = Array.isArray(state.closedTradesHistory) ? state.closedTradesHistory : []
+  if (!history.length) {
+    return {
+      winRate: null,
+      avgWin: null,
+      avgLoss: null,
+      sharpe: null,
+      profitFactor: null,
+      expectancy: null,
+      maxWin: null,
+      maxLoss: null,
+      sortino: null,
+      tradesPerDay: null,
+      timeInProfitPct: null,
+      calmarRatio: null,
+      recoveryFactor: null,
+      maxDrawdownInRange: 0,
+      currentDrawdownPct: null,
+      consecutiveWins: 0,
+      consecutiveLosses: 0,
+      maxConsecutiveWins: 0,
+      maxConsecutiveLosses: 0,
+      lastTradeTs: null
+    }
+  }
+  const pnls = history.map(e => Number(e.pnl ?? 0))
+  const winsOnly = pnls.filter(p => p > 0)
+  const lossesOnly = pnls.filter(p => p < 0)
+  const sumWins = winsOnly.reduce((a, b) => a + b, 0)
+  const sumLosses = lossesOnly.reduce((a, b) => a + b, 0)
+  const profitFactor = sumLosses === 0 ? (sumWins > 0 ? Infinity : 0) : sumWins / Math.abs(sumLosses)
+  const expectancy = pnls.length ? pnls.reduce((a, b) => a + b, 0) / pnls.length : null
+  const maxWin = winsOnly.length ? Math.max(...winsOnly) : null
+  const maxLoss = lossesOnly.length ? Math.min(...lossesOnly) : null
+  const mean = pnls.reduce((a, b) => a + b, 0) / pnls.length
+  const variance = pnls.reduce((sum, p) => sum + (p - mean) ** 2, 0) / pnls.length
+  const std = Math.sqrt(variance)
+  const sharpe = std === 0 ? null : mean / std
+  const negativeSquared = pnls.filter(p => p < 0).map(p => p * p)
+  let sortino = null
+  if (negativeSquared.length === 0) sortino = mean > 0 ? Infinity : (mean < 0 ? -Infinity : null)
+  else {
+    const downsideVariance = negativeSquared.reduce((a, b) => a + b, 0) / negativeSquared.length
+    const downsideStd = Math.sqrt(downsideVariance)
+    sortino = downsideStd === 0 ? null : mean / downsideStd
+  }
+  let peak = 0
+  let maxDdInRange = 0
+  let cum = 0
+  for (const e of history) {
+    cum += Number(e.pnl ?? 0)
+    if (cum > peak) peak = cum
+    const dd = peak - cum
+    if (dd > maxDdInRange) maxDdInRange = dd
+  }
+  const realizedPnl = pnls.reduce((a, b) => a + b, 0)
+  const calmarRatio = maxDdInRange > 0 ? realizedPnl / maxDdInRange : null
+  const recoveryFactor = maxDdInRange > 0 ? realizedPnl / maxDdInRange : null
+  let cw = 0
+  let cl = 0
+  let maxW = 0
+  let maxL = 0
+  for (let i = pnls.length - 1; i >= 0; i--) {
+    if (pnls[i] > 0) {
+      cw++
+      cl = 0
+      if (cw > maxW) maxW = cw
+    } else if (pnls[i] < 0) {
+      cl++
+      cw = 0
+      if (cl > maxL) maxL = cl
+    } else break
+  }
+  const lastEntry = history.reduce((a, b) => {
+    const ta = new Date(a.timestamp).getTime()
+    const tb = new Date(b.timestamp).getTime()
+    return tb > ta ? b : a
+  }, history[0])
+  const lastTradeTs = new Date(lastEntry.timestamp).getTime()
+  const firstTs = new Date(history[0].timestamp).getTime()
+  const daysInRange = Math.max(1, (lastTradeTs - firstTs) / (86400 * 1000))
+  const tradesPerDay = history.length && daysInRange > 0 ? history.length / daysInRange : null
+  let atNewHigh = 0
+  peak = 0
+  cum = 0
+  for (const e of history) {
+    cum += Number(e.pnl ?? 0)
+    if (cum >= peak) {
+      atNewHigh++
+      if (cum > peak) peak = cum
+    }
+  }
+  const timeInProfitPct = (atNewHigh / history.length) * 100
+  const currentDrawdownPct = peak > 0 ? ((peak - cum) / peak) * 100 : null
+  const winsCount = state.wins ?? 0
+  const lossesCount = state.losses ?? 0
+  const winRate = winsCount + lossesCount > 0 ? winsCount / (winsCount + lossesCount) : null
+  return {
+    winRate,
+    avgWin: winsOnly.length ? sumWins / winsOnly.length : null,
+    avgLoss: lossesOnly.length ? sumLosses / lossesOnly.length : null,
+    sharpe,
+    profitFactor,
+    expectancy,
+    maxWin,
+    maxLoss,
+    sortino,
+    tradesPerDay,
+    timeInProfitPct,
+    calmarRatio,
+    recoveryFactor,
+    maxDrawdownInRange: maxDdInRange,
+    currentDrawdownPct,
+    consecutiveWins: cw,
+    consecutiveLosses: cl,
+    maxConsecutiveWins: maxW,
+    maxConsecutiveLosses: maxL,
+    lastTradeTs
+  }
+}
+
 async function fetchHistoricalCandles (symbol, timeframe, sinceMs, limit = 5000) {
   const exchange = getExchange()
   logger.info(`Backtest: fetching candles for ${symbol} ${timeframe} since ${new Date(sinceMs).toISOString()}`)
@@ -303,7 +425,8 @@ async function runBacktest () {
       trades: s.closedTrades ?? 0,
       wins: s.wins ?? 0,
       losses: s.losses ?? 0,
-      maxDrawdown: s.maxDrawdown ?? 0
+      maxDrawdown: s.maxDrawdown ?? 0,
+      ...backtestMetricsFromHistory(s)
     })
     logger.info(
       `${id}: PnL=${s.realizedPnl.toFixed(2)} USDT, trades=${s.closedTrades}, wins=${s.wins}, losses=${s.losses}, maxDD=${s.maxDrawdown.toFixed(2)}`

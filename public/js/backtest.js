@@ -80,9 +80,33 @@ function renderBacktestTable () {
     const wins = r.wins ?? 0
     const losses = r.losses ?? 0
     const wl = wins + losses > 0 ? `${wins}/${losses}` : '0/0'
-    const winRate = trades > 0 ? (wins / trades) * 100 : null
+    const winRate = typeof r.winRate === 'number' ? r.winRate * 100 : (trades > 0 ? (wins / trades) * 100 : null)
     const maxDd = Number(r.maxDrawdown || 0)
-    return { raw: r, id, typeTag, realized, trades, wins, losses, wl, winRate, maxDd }
+    return {
+      raw: r,
+      id,
+      typeTag,
+      realized,
+      trades,
+      wins,
+      losses,
+      wl,
+      winRate,
+      maxDd,
+      avgWin: r.avgWin ?? null,
+      avgLoss: r.avgLoss ?? null,
+      sharpe: r.sharpe ?? null,
+      profitFactor: r.profitFactor ?? null,
+      expectancy: r.expectancy ?? null,
+      maxWin: r.maxWin ?? null,
+      maxLoss: r.maxLoss ?? null,
+      sortino: r.sortino ?? null,
+      tradesPerDay: r.tradesPerDay ?? null,
+      timeInProfitPct: r.timeInProfitPct ?? null,
+      calmarRatio: r.calmarRatio ?? null,
+      recoveryFactor: r.recoveryFactor ?? null,
+      currentDrawdownPct: r.currentDrawdownPct ?? null
+    }
   })
 
   const sorted = [...enriched].sort((a, b) => {
@@ -111,6 +135,48 @@ function renderBacktestTable () {
     } else if (key === 'maxDrawdown') {
       va = a.maxDd
       vb = b.maxDd
+    } else if (key === 'avgWin') {
+      va = a.avgWin
+      vb = b.avgWin
+    } else if (key === 'avgLoss') {
+      va = a.avgLoss
+      vb = b.avgLoss
+    } else if (key === 'sharpe') {
+      va = a.sharpe
+      vb = b.sharpe
+    } else if (key === 'calmar') {
+      va = a.calmarRatio
+      vb = b.calmarRatio
+    } else if (key === 'recovery') {
+      va = a.recoveryFactor
+      vb = b.recoveryFactor
+    } else if (key === 'currentDrawdownPct') {
+      va = a.currentDrawdownPct
+      vb = b.currentDrawdownPct
+    } else if (key === 'timeInProfitPct') {
+      va = a.timeInProfitPct
+      vb = b.timeInProfitPct
+    } else if (key === 'profitFactor') {
+      va = a.profitFactor
+      vb = b.profitFactor
+    } else if (key === 'expectancy') {
+      va = a.expectancy
+      vb = b.expectancy
+    } else if (key === 'maxWin') {
+      va = a.maxWin
+      vb = b.maxWin
+    } else if (key === 'maxLoss') {
+      va = a.maxLoss
+      vb = b.maxLoss
+    } else if (key === 'sortino') {
+      va = a.sortino
+      vb = b.sortino
+    } else if (key === 'tradesPerDay') {
+      va = a.tradesPerDay
+      vb = b.tradesPerDay
+    } else if (key === 'lastTrade') {
+      va = a.lastTradeTs ?? -Infinity
+      vb = b.lastTradeTs ?? -Infinity
     } else {
       va = 0
       vb = 0
@@ -124,9 +190,31 @@ function renderBacktestTable () {
   })
 
   const fmt = (v) => (v == null || Number.isNaN(v)) ? '–' : Number(v).toFixed(2)
+  const fmtPct = (v) => (v == null || Number.isNaN(v)) ? '–' : Number(v).toFixed(1) + '%'
 
   tbody.innerHTML = sorted.map(s => {
-    const { id, typeTag, realized, trades, wl, winRate, maxDd } = s
+    const {
+      id,
+      typeTag,
+      realized,
+      trades,
+      wl,
+      winRate,
+      maxDd,
+      avgWin,
+      avgLoss,
+      sharpe,
+      profitFactor,
+      expectancy,
+      maxWin,
+      maxLoss,
+      sortino,
+      tradesPerDay,
+      timeInProfitPct,
+      calmarRatio,
+      recoveryFactor,
+      currentDrawdownPct
+    } = s
     const winRateColor = winRate == null ? '' : (winRate >= 50 ? '#22c55e' : '#ef4444')
     const ddColor = maxDd > 0 ? '#ef4444' : ''
     return '<tr>' +
@@ -137,13 +225,13 @@ function renderBacktestTable () {
       '<td class="numeric">0.00</td>' +
       '<td class="numeric">' + wl + '</td>' +
       '<td class="numeric"' + (winRateColor ? ' style="color:' + winRateColor + '"' : '') + '>' + (winRate != null ? winRate.toFixed(1) : '–') + '</td>' +
-      '<td class="numeric">–</td>' +
-      '<td class="numeric">–</td>' +
-      '<td class="numeric">–</td>' +
+      '<td class="numeric" style="color:#22c55e">' + fmt(avgWin) + '</td>' +
+      '<td class="numeric" style="color:#ef4444">' + fmt(avgLoss) + '</td>' +
+      '<td class="numeric">' + fmt(sharpe) + '</td>' +
       '<td class="numeric"' + (ddColor ? ' style="color:' + ddColor + '"' : '') + '>' + fmt(maxDd) + '</td>' +
-      '<td class="numeric">–</td>' +
-      '<td class="numeric">–</td>' +
-      '<td class="numeric">–</td>' +
+      '<td class="numeric">' + fmt(calmarRatio) + '</td>' +
+      '<td class="numeric">' + fmt(recoveryFactor) + '</td>' +
+      '<td class="numeric">' + fmtPct(currentDrawdownPct) + '</td>' +
       '<td class="numeric">' + trades + '</td>' +
       '<td class="numeric">–</td>' +
       '<td class="numeric">–</td>' +
@@ -152,12 +240,13 @@ function renderBacktestTable () {
       '<td class="numeric">–</td>' +
       '<td class="numeric">–</td>' +
       '<td class="numeric">–</td>' +
-      '<td class="numeric">–</td>' +
-      '<td class="numeric">–</td>' +
-      '<td class="numeric">–</td>' +
-      '<td class="numeric">–</td>' +
-      '<td class="numeric">–</td>' +
-      '<td class="numeric">–</td>' +
+      '<td class="numeric">' + fmtPct(timeInProfitPct) + '</td>' +
+      '<td class="numeric">' + (profitFactor == null ? '–' : (profitFactor === Infinity ? '∞' : fmt(profitFactor))) + '</td>' +
+      '<td class="numeric" style="color:' + backtestPnlColor(expectancy) + '">' + fmt(expectancy) + '</td>' +
+      '<td class="numeric">' + fmt(maxWin) + '</td>' +
+      '<td class="numeric">' + fmt(maxLoss) + '</td>' +
+      '<td class="numeric">' + (sortino == null ? '–' : (sortino === Infinity ? '∞' : (sortino === -Infinity ? '-∞' : fmt(sortino)))) + '</td>' +
+      '<td class="numeric">' + (tradesPerDay != null ? tradesPerDay.toFixed(1) : '–') + '</td>' +
       '<td class="numeric">–</td>' +
       '</tr>'
   }).join('')

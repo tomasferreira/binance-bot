@@ -344,33 +344,33 @@
                   <th class="sortable numeric" data-sort="type" title="Long or Short">Type</th>
                   <th class="sortable numeric" data-sort="totalPnl" title="Realized + unrealized PnL over the backtest">Total PnL</th>
                   <th class="sortable numeric" data-sort="realizedPnl" title="Closed-trade PnL over the backtest">Realized</th>
-                  <th class="numeric" title="Open position PnL (backtests close everything at the end, so this is 0)">Unrealized</th>
+                  <th class="sortable numeric" data-sort="unrealized" title="Open position PnL (backtests close everything at the end, so this is 0)">Unrealized</th>
                   <th class="sortable numeric" data-sort="wl" title="Winning trades / losing trades">W/L</th>
                   <th class="sortable numeric" data-sort="winRate" title="% of closed trades that were profitable">Win rate %</th>
-                  <th class="numeric" title="Average PnL per winning trade">Avg win</th>
-                  <th class="numeric" title="Average PnL per losing trade">Avg loss</th>
-                  <th class="numeric" title="Simplified Sharpe over backtest trades">Sharpe</th>
+                  <th class="sortable numeric" data-sort="avgWin" title="Average PnL per winning trade">Avg win</th>
+                  <th class="sortable numeric" data-sort="avgLoss" title="Average PnL per losing trade">Avg loss</th>
+                  <th class="sortable numeric" data-sort="sharpe" title="Simplified Sharpe over backtest trades">Sharpe</th>
                   <th class="sortable numeric" data-sort="maxDrawdown" title="Largest peak-to-trough drop in equity">Max DD</th>
-                  <th class="numeric" title="Return ÷ max drawdown (range)">Calmar</th>
-                  <th class="numeric" title="Net profit ÷ max drawdown">Recovery</th>
-                  <th class="numeric" title="Current drawdown % from peak at end of backtest">Curr DD %</th>
-                  <th class="numeric" title="Number of closed trades">Trades</th>
-                  <th class="numeric" title="Trade count from exchange history (N/A for backtest)">Trades (hist)</th>
-                  <th class="numeric" title="Total estimated fees (N/A for backtest)">Fees (USDT)</th>
-                  <th class="numeric" title="% of strategy budget currently in position">Exposure %</th>
-                  <th class="numeric" title="Average time positions were held">Avg duration</th>
-                  <th class="numeric" title="Current win/loss streak">Streak</th>
-                  <th class="numeric" title="Max consecutive wins / losses">Max streak</th>
-                  <th class="numeric" title="Avg hold time in minutes">Avg hold (min)</th>
-                  <th class="numeric" title="Avg fee per trade (USDT)">Cost/trade</th>
-                  <th class="numeric" title="% of trades at new equity high">Time in profit %</th>
-                  <th class="numeric" title="Gross profit ÷ gross loss; >1 = profitable">Profit factor</th>
-                  <th class="numeric" title="Average USDT per trade">Expectancy</th>
-                  <th class="numeric" title="Largest single winning trade">Max win</th>
-                  <th class="numeric" title="Largest single losing trade">Max loss</th>
-                  <th class="numeric" title="Return ÷ downside deviation (only penalizes losses)">Sortino</th>
-                  <th class="numeric" title="Closed trades per day in the backtest period">Trades/day</th>
-                  <th class="numeric" title="When the last trade in backtest was closed">Last trade</th>
+                  <th class="sortable numeric" data-sort="calmar" title="Return ÷ max drawdown (range)">Calmar</th>
+                  <th class="sortable numeric" data-sort="recovery" title="Net profit ÷ max drawdown">Recovery</th>
+                  <th class="sortable numeric" data-sort="currentDrawdownPct" title="Current drawdown % from peak at end of backtest">Curr DD %</th>
+                  <th class="sortable numeric" data-sort="trades" title="Number of closed trades">Trades</th>
+                  <th class="sortable numeric" data-sort="tradesHistory" title="Trade count from exchange history (N/A for backtest)">Trades (hist)</th>
+                  <th class="sortable numeric" data-sort="fees" title="Total estimated fees (N/A for backtest)">Fees (USDT)</th>
+                  <th class="sortable numeric" data-sort="exposure" title="% of strategy budget currently in position">Exposure %</th>
+                  <th class="sortable numeric" data-sort="avgDuration" title="Average time positions were held">Avg duration</th>
+                  <th class="sortable numeric" data-sort="streak" title="Current win/loss streak">Streak</th>
+                  <th class="sortable numeric" data-sort="maxStreak" title="Max consecutive wins / losses">Max streak</th>
+                  <th class="sortable numeric" data-sort="avgHold" title="Avg hold time in minutes">Avg hold (min)</th>
+                  <th class="sortable numeric" data-sort="costPerTrade" title="Avg fee per trade (USDT)">Cost/trade</th>
+                  <th class="sortable numeric" data-sort="timeInProfitPct" title="% of trades at new equity high">Time in profit %</th>
+                  <th class="sortable numeric" data-sort="profitFactor" title="Gross profit ÷ gross loss; >1 = profitable">Profit factor</th>
+                  <th class="sortable numeric" data-sort="expectancy" title="Average USDT per trade">Expectancy</th>
+                  <th class="sortable numeric" data-sort="maxWin" title="Largest single winning trade">Max win</th>
+                  <th class="sortable numeric" data-sort="maxLoss" title="Largest single losing trade">Max loss</th>
+                  <th class="sortable numeric" data-sort="sortino" title="Return ÷ downside deviation (only penalizes losses)">Sortino</th>
+                  <th class="sortable numeric" data-sort="tradesPerDay" title="Closed trades per day in the backtest period">Trades/day</th>
+                  <th class="sortable numeric" data-sort="lastTrade" title="When the last trade in backtest was closed">Last trade</th>
                 </tr>
               </thead>
               <tbody id="backtest-results-tbody">
