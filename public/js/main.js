@@ -4,6 +4,7 @@ import { state } from './state.js'
 import { updateChartFocusLabel, strategyDetailHtml, updateStrategiesPanel } from './strategies.js'
 import { updateAnalysisPanel } from './analysis.js'
 import { fetchCandles, renderChart } from './charts.js'
+import { initFinancialChart, updateFinancialChart } from './financialChart.js'
 import { updatePositionActivity, addActivityEvent, updateTradesPanel, refreshActivityListDisplay } from './trades.js'
 import { initBacktestControls } from './backtest.js'
 
@@ -218,6 +219,7 @@ async function refreshChart () {
   try {
     const candles = await fetchCandles()
     renderChart(candles)
+    updateFinancialChart(candles)
   } catch (err) { console.error(err) }
 }
 
@@ -434,6 +436,7 @@ if (chartResetBtn) {
   })
 }
 
+initFinancialChart()
 refreshStatus()
 refreshChart()
 refreshFees()

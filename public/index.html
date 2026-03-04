@@ -114,7 +114,7 @@
             <span class="label">EMA 50</span><span class="value" id="chart-ema50">-</span>
             <span class="label">EMA 200</span><span class="value" id="chart-ema200">-</span>
           </div>
-          <div class="row" style="margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem 1rem;">
+          <div class="row" style="margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem 1rem; display:none;">
             <select id="chart-window-select">
               <option value="20">Last 20</option>
               <option value="50">Last 50</option>
@@ -126,9 +126,12 @@
             <button type="button" id="chart-reset-btn" class="secondary">Reset chart</button>
           </div>
           <div class="chart-wrapper chart-wrapper-lg">
+            <div id="financial-chart-container" style="width:100%;height:320px;"></div>
+          </div>
+          <div class="chart-wrapper" style="height: 160px; margin-top: 0.75rem; display:none;">
             <canvas id="price-chart"></canvas>
           </div>
-          <div class="chart-wrapper" style="height: 160px;">
+          <div class="chart-wrapper" style="height: 160px; display:none;">
             <canvas id="macd-chart"></canvas>
           </div>
         </div>
@@ -532,6 +535,7 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <script type="module" src="js/main.js"></script>
   </body>
   <div id="toast-container" class="toast-container"></div>

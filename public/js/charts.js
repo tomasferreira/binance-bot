@@ -38,6 +38,7 @@ export function renderChart (candles) {
   const bbMid = view.map(c => c.bbMid)
   const bbUpper = view.map(c => c.bbUpper)
   const bbLower = view.map(c => c.bbLower)
+  const volumes = view.map(c => c.volume ?? 0)
 
   const getStrategyName = (id) => (state.latestStrategies.find(s => s.id === id) || {}).name || id
 
@@ -139,6 +140,18 @@ export function renderChart (candles) {
     { label: 'Exits', data: exitPoints, borderColor: '#ffffff', backgroundColor: '#f87171', pointRadius: 8, pointBorderWidth: 2, showLine: false }
   )
 
+  // Add Binance-style volume bars under price
+  priceDatasets.unshift({
+    type: 'bar',
+    label: 'Volume',
+    data: volumes,
+    yAxisID: 'yVolume',
+    backgroundColor: '#1d4ed8',
+    borderWidth: 0,
+    barPercentage: 1,
+    categoryPercentage: 1
+  })
+
   const priceData = { labels, datasets: priceDatasets }
   const chartOptions = {
     responsive: true,
@@ -167,7 +180,12 @@ export function renderChart (candles) {
     },
     scales: {
       x: { ticks: { color: '#9ca3af', maxTicksLimit: 8 }, grid: { display: false } },
-      y: { ticks: { color: '#9ca3af' }, grid: { color: '#1f2937' } }
+      y: { ticks: { color: '#9ca3af' }, grid: { color: '#1f2937' } },
+      yVolume: {
+        position: 'right',
+        ticks: { display: false },
+        grid: { display: false }
+      }
     }
   }
 
