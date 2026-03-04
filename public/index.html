@@ -138,10 +138,15 @@
             </select>
             <button type="button" id="chart-reset-btn" class="secondary">Reset chart</button>
           </div>
+          <!-- Price chart -->
           <div class="chart-wrapper chart-wrapper-lg">
-            <div id="financial-chart-container" style="width:100%;height:420px;"></div>
+            <div id="financial-price-chart-container" style="width:100%;height:360px;"></div>
           </div>
-          <!-- Volume legend under chart -->
+          <!-- Volume chart -->
+          <div class="chart-wrapper chart-wrapper-sm">
+            <div id="financial-volume-chart-container" style="width:100%;height:140px;"></div>
+          </div>
+          <!-- Volume legend under volume chart -->
           <div class="row" style="margin-top: 0.35rem; flex-wrap: wrap; gap: 0.75rem 1.5rem; font-size: 0.85rem; color: #9ca3af;">
             <span>Vol(BTC) <span id="financial-vol-base" class="value">-</span></span>
             <span>Vol(USDT) <span id="financial-vol-quote" class="value">-</span></span>
@@ -423,6 +428,13 @@
               <input type="checkbox" id="regime-awareness-cb" checked />
               <span>Only allow entries when regime fits strategy</span>
             </label>
+          </div>
+          <div class="row">
+            <span class="label">Market data source</span>
+            <select id="market-data-source-select" style="background:#020617;border:1px solid #1f2937;border-radius:0.25rem;padding:0.2rem 0.4rem;color:#e5e7eb;font-size:0.85rem;">
+              <option value="live">Live</option>
+              <option value="testnet">Testnet</option>
+            </select>
           </div>
           <div class="row">
             <span class="label">Risk / trade</span>

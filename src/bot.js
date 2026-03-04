@@ -1,6 +1,7 @@
 import { config } from './config.js'
 import { logger } from './logger.js'
-import { getExchange } from './exchange.js'
+import { getTradingExchange, getDataExchange } from './exchange.js'
+import { getMarketDataSource } from './marketDataSource.js'
 import { loadState, saveState, migrateLegacyState } from './stateMulti.js'
 import { loadRunner } from './runner.js'
 import { STRATEGY_IDS, evaluateStrategy } from './strategies/registry.js'
@@ -35,7 +36,8 @@ function timeframeMs (tf) {
 }
 
 async function fetchMarketData (limit = 250) {
-  const exchange = getExchange()
+  const source = getMarketDataSource()
+  const exchange = source === 'testnet' ? getTradingExchange() : getDataExchange()
   if (limit <= BINANCE_KLINES_MAX) {
     logger.debug('exchange.fetchOHLCV request', { symbol, timeframe, limit })
     const ohlcv = await exchange.fetchOHLCV(symbol, timeframe, undefined, limit)
@@ -49,7 +51,8 @@ async function fetchMarketData (limit = 250) {
 
 /** Fetches OHLCV for regime calculation only (separate timeframe, more bars). */
 async function fetchRegimeData () {
-  const exchange = getExchange()
+  const source = getMarketDataSource()
+  const exchange = source === 'testnet' ? getTradingExchange() : getDataExchange()
   const regimeTf = config.trading.regimeTimeframe || '1h'
   const regimeLimit = Math.min(config.trading.regimeCandles ?? 200, BINANCE_KLINES_MAX)
   logger.debug('exchange.fetchOHLCV request (regime)', { symbol, timeframe: regimeTf, limit: regimeLimit })
@@ -59,7 +62,8 @@ async function fetchRegimeData () {
 }
 
 async function fetchMarketDataChunked (requestedLimit) {
-  const exchange = getExchange()
+  const source = getMarketDataSource()
+  const exchange = source === 'testnet' ? getTradingExchange() : getDataExchange()
   const periodMs = timeframeMs(timeframe)
   let ohlcv = await exchange.fetchOHLCV(symbol, timeframe, undefined, BINANCE_KLINES_MAX)
   if (ohlcv.length === 0) return ohlcv
@@ -219,7 +223,7 @@ async function run () {
   logger.info(`Running strategies: ${runner.running.join(', ') || 'none'}`)
 
   try {
-    const exchange = getExchange()
+    const exchange = getTradingExchange()
     const status = await exchange.fetchStatus()
     logger.info(`Exchange status: ${status.status}`)
   } catch (err) {

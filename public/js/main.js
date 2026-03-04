@@ -1,5 +1,5 @@
 import { formatPrice, formatAmount, formatQuote, formatPnl, formatDate24h } from './utils.js'
-import { fetchStatus, postJson } from './api.js'
+import { fetchStatus, postJson, fetchMarketDataSource } from './api.js'
 import { state } from './state.js'
 import { updateChartFocusLabel, strategyDetailHtml, updateStrategiesPanel } from './strategies.js'
 import { updateAnalysisPanel } from './analysis.js'
@@ -59,6 +59,31 @@ try {
     if (!isNaN(s) && !isNaN(e) && e > s) state.customWindow = { start: s, end: e }
   }
 } catch (e) { console.error('Failed to restore chart state', e) }
+
+async function initMarketDataSourceToggle () {
+  const select = document.getElementById('market-data-source-select')
+  if (!select) return
+  try {
+    const { source } = await fetchMarketDataSource()
+    if (source === 'live' || source === 'testnet') {
+      select.value = source
+    }
+  } catch (err) {
+    console.error(err)
+  }
+  select.addEventListener('change', async () => {
+    const value = select.value === 'testnet' ? 'testnet' : 'live'
+    try {
+      await postJson('/api/market-data-source', { source: value })
+      showToast(`Market data source set to ${value.toUpperCase()}`, 'info')
+      // Force immediate refresh so chart / status reflect new source
+      refreshChart()
+      refreshStatus()
+    } catch (err) {
+      showToast('Failed to change market data source: ' + err.message, 'error')
+    }
+  })
+}
 
 async function refreshStatus () {
   try {
@@ -425,6 +450,7 @@ const stopAllBtn = document.getElementById('stop-all-strategies-btn')
 if (stopAllBtn) stopAllBtn.addEventListener('click', stopAllStrategies)
 
 initBacktestControls()
+initMarketDataSourceToggle()
 
 document.getElementById('regime-awareness-cb').addEventListener('change', async () => {
   const statusEl = document.getElementById('action-status')

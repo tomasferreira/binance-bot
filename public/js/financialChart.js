@@ -1,4 +1,5 @@
-let chart = null
+let priceChart = null
+let volumeChart = null
 let candleSeries = null
 let volumeSeries = null
 let ma7Series = null
@@ -12,9 +13,10 @@ function ensureLib () {
 
 export function initFinancialChart () {
   const lib = ensureLib()
-  const container = document.getElementById('financial-chart-container')
-  if (!lib || !container) return
-  if (chart) return
+  const priceContainer = document.getElementById('financial-price-chart-container')
+  const volumeContainer = document.getElementById('financial-volume-chart-container')
+  if (!lib || !priceContainer || !volumeContainer) return
+  if (priceChart && volumeChart) return
 
   const {
     createChart,
@@ -24,10 +26,13 @@ export function initFinancialChart () {
     LineSeries
   } = lib
 
-  const width = container.clientWidth || 600
-  chart = createChart(container, {
-    width,
-    height: 420,
+  const priceWidth = priceContainer.clientWidth || 600
+  const volumeWidth = volumeContainer.clientWidth || priceWidth
+
+  // Price chart (candles + MAs)
+  priceChart = createChart(priceContainer, {
+    width: priceWidth,
+    height: 360,
     layout: {
       background: { type: 'solid', color: 'transparent' },
       textColor: '#e5e7eb'
@@ -49,7 +54,7 @@ export function initFinancialChart () {
     }
   })
 
-  candleSeries = chart.addSeries(CandlestickSeries, {
+  candleSeries = priceChart.addSeries(CandlestickSeries, {
     upColor: '#22c55e',
     downColor: '#ef4444',
     borderVisible: false,
@@ -57,37 +62,68 @@ export function initFinancialChart () {
     wickDownColor: '#ef4444'
   })
 
-  volumeSeries = chart.addSeries(HistogramSeries, {
-    priceScaleId: '',
-    priceFormat: { type: 'volume' },
-    scaleMargins: { top: 0.8, bottom: 0 },
-    color: '#1d4ed8'
-  })
-
-  ma7Series = chart.addSeries(LineSeries, {
+  ma7Series = priceChart.addSeries(LineSeries, {
     color: '#eab308', // MA(7) - yellow
     lineWidth: 2
   })
 
-  ma25Series = chart.addSeries(LineSeries, {
+  ma25Series = priceChart.addSeries(LineSeries, {
     color: '#6366f1', // MA(25) - indigo
     lineWidth: 2
   })
 
-  ma99Series = chart.addSeries(LineSeries, {
+  ma99Series = priceChart.addSeries(LineSeries, {
     color: '#f97316', // MA(99) - orange
     lineWidth: 2
   })
 
+  // Volume chart (separate panel)
+  volumeChart = createChart(volumeContainer, {
+    width: volumeWidth,
+    height: 140,
+    layout: {
+      background: { type: 'solid', color: 'transparent' },
+      textColor: '#9ca3af'
+    },
+    grid: {
+      vertLines: { color: '#0f172a' },
+      horzLines: { color: '#020617' }
+    },
+    rightPriceScale: {
+      borderColor: '#1f2937'
+    },
+    timeScale: {
+      borderColor: '#1f2937',
+      timeVisible: false,
+      secondsVisible: false
+    },
+    crosshair: {
+      mode: CrosshairMode.Normal
+    }
+  })
+
+  volumeSeries = volumeChart.addSeries(HistogramSeries, {
+    priceScaleId: 'volume',
+    priceFormat: { type: 'volume' },
+    scaleMargins: { top: 0.05, bottom: 0.05 },
+    color: '#1d4ed8'
+  })
+
+  // Keep charts responsive
   window.addEventListener('resize', () => {
-    if (!chart) return
-    const w = container.clientWidth || width
-    chart.applyOptions({ width: w })
+    if (priceChart && priceContainer) {
+      const w = priceContainer.clientWidth || priceWidth
+      priceChart.applyOptions({ width: w })
+    }
+    if (volumeChart && volumeContainer) {
+      const w2 = volumeContainer.clientWidth || volumeWidth
+      volumeChart.applyOptions({ width: w2 })
+    }
   })
 }
 
 export function updateFinancialChart (candles) {
-  if (!chart || !Array.isArray(candles) || !candles.length) return
+  if (!priceChart || !volumeChart || !Array.isArray(candles) || !candles.length) return
 
   const candleData = candles.map(c => ({
     time: Math.floor(c.timestamp / 1000),

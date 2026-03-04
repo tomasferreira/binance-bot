@@ -310,7 +310,8 @@ button.status-pill:hover {
 @media (max-width: 900px) { .strategies-layout { grid-template-columns: 1fr; } }
 .strategy-detail { background: #111827; border-radius: 0.5rem; padding: 1rem; border: 1px solid #1f2937; position: sticky; top: 0.5rem; }
 .strategy-detail.empty { color: #6b7280; font-size: 0.9rem; }
-.chart-wrapper-lg { height: 460px; position: relative; }
+.chart-wrapper-lg { height: 360px; position: relative; }
+.chart-wrapper-sm { height: 140px; position: relative; }
 .analysis-table-wrap { overflow-x: auto; margin-bottom: 1rem; }
 .analysis-table .sortable { cursor: pointer; user-select: none; }
 .analysis-table .sortable:hover { color: #22c55e; }

@@ -1,5 +1,5 @@
 import { config } from './config.js'
-import { getExchange } from './exchange.js'
+import { getTradingExchange } from './exchange.js'
 import { calculatePositionSize } from './risk.js'
 import { getEffectiveTradingConfig } from './runtimeConfig.js'
 import { logger } from './logger.js'
@@ -10,7 +10,7 @@ const { symbol, feeRatePct, closedTradesHistoryLimit } = config.trading
 const feeRate = typeof feeRatePct === 'number' && feeRatePct >= 0 ? feeRatePct : 0
 
 export async function syncBalanceQuote () {
-  const exchange = getExchange()
+  const exchange = getTradingExchange()
   logger.debug('exchange.fetchBalance request', { symbol })
   const balance = await exchange.fetchBalance()
   logger.debug('exchange.fetchBalance response', {
@@ -30,7 +30,7 @@ export async function syncBalanceQuote () {
  * @param {'long'|'short'} side
  */
 async function openPosition (state, marketPrice, side, strategyId, entryDetail, budgetQuote) {
-  const exchange = getExchange()
+  const exchange = getTradingExchange()
   const quoteBalance = (budgetQuote != null && budgetQuote > 0) ? budgetQuote : await syncBalanceQuote()
   if (!quoteBalance) {
     logger.warn(`No quote balance available; cannot open ${side} position`)
@@ -135,7 +135,7 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
     }
   }
 
-  const exchange = getExchange()
+  const exchange = getTradingExchange()
   const orderSide = side === 'short' ? 'buy' : 'sell'
 
   logger.info(

@@ -4,6 +4,12 @@ export async function fetchStatus () {
   return res.json()
 }
 
+export async function fetchMarketDataSource () {
+  const res = await fetch('/api/market-data-source')
+  if (!res.ok) throw new Error('Failed to fetch market data source')
+  return res.json()
+}
+
 export async function postJson (url, body) {
   const res = await fetch(url, {
     method: 'POST',

@@ -71,6 +71,11 @@ const http = {
   apiPort: Number(envOverride('API_PORT', 'number') ?? httpFromFile.apiPort)
 }
 
+const marketData = {
+  // Default source for candles / regime / backtests: 'live' or 'testnet'
+  defaultSource: (envOverride('MARKET_DATA_SOURCE') ?? 'live').toLowerCase() === 'testnet' ? 'testnet' : 'live'
+}
+
 export const config = {
   binance: {
     apiKey: env.BINANCE_API_KEY || '',
@@ -80,6 +85,7 @@ export const config = {
   logging,
   trading,
   http,
+  marketData,
   paths: {
     stateFile: new URL('../data/state.json', import.meta.url).pathname,
     dataDir: new URL('../data', import.meta.url).pathname,
