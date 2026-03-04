@@ -1,8 +1,9 @@
 let chart = null
 let candleSeries = null
 let volumeSeries = null
-let ema50Series = null
-let ema200Series = null
+let ma7Series = null
+let ma25Series = null
+let ma99Series = null
 
 function ensureLib () {
   if (!window.LightweightCharts) return null
@@ -26,7 +27,7 @@ export function initFinancialChart () {
   const width = container.clientWidth || 600
   chart = createChart(container, {
     width,
-    height: 320,
+    height: 420,
     layout: {
       background: { type: 'solid', color: 'transparent' },
       textColor: '#e5e7eb'
@@ -63,13 +64,18 @@ export function initFinancialChart () {
     color: '#1d4ed8'
   })
 
-  ema50Series = chart.addSeries(LineSeries, {
-    color: '#22c55e',
+  ma7Series = chart.addSeries(LineSeries, {
+    color: '#eab308', // MA(7) - yellow
     lineWidth: 2
   })
 
-  ema200Series = chart.addSeries(LineSeries, {
-    color: '#f97316',
+  ma25Series = chart.addSeries(LineSeries, {
+    color: '#6366f1', // MA(25) - indigo
+    lineWidth: 2
+  })
+
+  ma99Series = chart.addSeries(LineSeries, {
+    color: '#f97316', // MA(99) - orange
     lineWidth: 2
   })
 
@@ -102,20 +108,28 @@ export function updateFinancialChart (candles) {
   })
   volumeSeries.setData(volumeData)
 
-  const ema50Data = candles
-    .filter(c => c.ema50 != null)
+  const ma7Data = candles
+    .filter(c => c.ema7 != null)
     .map(c => ({
       time: Math.floor(c.timestamp / 1000),
-      value: c.ema50
+      value: c.ema7
     }))
-  ema50Series.setData(ema50Data)
+  ma7Series.setData(ma7Data)
 
-  const ema200Data = candles
-    .filter(c => c.ema200 != null)
+  const ma25Data = candles
+    .filter(c => c.ema25 != null)
     .map(c => ({
       time: Math.floor(c.timestamp / 1000),
-      value: c.ema200
+      value: c.ema25
     }))
-  ema200Series.setData(ema200Data)
+  ma25Series.setData(ma25Data)
+
+  const ma99Data = candles
+    .filter(c => c.ema99 != null)
+    .map(c => ({
+      time: Math.floor(c.timestamp / 1000),
+      value: c.ema99
+    }))
+  ma99Series.setData(ma99Data)
 }
 

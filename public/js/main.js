@@ -1,4 +1,4 @@
-import { formatPrice, formatAmount, formatQuote, formatPnl } from './utils.js'
+import { formatPrice, formatAmount, formatQuote, formatPnl, formatDate24h } from './utils.js'
 import { fetchStatus, postJson } from './api.js'
 import { state } from './state.js'
 import { updateChartFocusLabel, strategyDetailHtml, updateStrategiesPanel } from './strategies.js'
@@ -210,10 +210,69 @@ async function refreshStatus () {
   }
 }
 
+function updateFinancialInfo (candles) {
+  if (!Array.isArray(candles) || !candles.length) return
+  const last = candles[candles.length - 1]
+  if (!last) return
+
+  const timeEl = document.getElementById('financial-info-time')
+  const oEl = document.getElementById('financial-info-open')
+  const hEl = document.getElementById('financial-info-high')
+  const lEl = document.getElementById('financial-info-low')
+  const cEl = document.getElementById('financial-info-close')
+  const changeEl = document.getElementById('financial-info-change')
+  const rangeEl = document.getElementById('financial-info-range')
+  const ma7El = document.getElementById('financial-ma-7')
+  const ma25El = document.getElementById('financial-ma-25')
+  const ma99El = document.getElementById('financial-ma-99')
+  const volBaseEl = document.getElementById('financial-vol-base')
+  const volQuoteEl = document.getElementById('financial-vol-quote')
+
+  const pnlColor = (v) => {
+    const n = v ?? 0
+    if (Number.isNaN(n)) return ''
+    if (n > 0) return '#22c55e'
+    if (n < 0) return '#ef4444'
+    return '#eab308'
+  }
+
+  if (timeEl) timeEl.textContent = formatDate24h(last.timestamp, { includeAgo: false })
+  if (oEl) oEl.textContent = formatPrice(last.open)
+  if (hEl) hEl.textContent = formatPrice(last.high)
+  if (lEl) lEl.textContent = formatPrice(last.low)
+  if (cEl) cEl.textContent = formatPrice(last.close)
+
+  const changeAbs = (last.close ?? 0) - (last.open ?? 0)
+  const changePct = last.open ? (changeAbs / last.open) * 100 : 0
+  if (changeEl) {
+    const label = (changeAbs >= 0 ? '+' : '') + formatPrice(changeAbs) + ' (' + (changePct >= 0 ? '+' : '') + (Number.isFinite(changePct) ? changePct.toFixed(2) : '0.00') + '%)'
+    changeEl.textContent = label
+    changeEl.style.color = pnlColor(changeAbs)
+  }
+
+  const rangeAbs = (last.high ?? 0) - (last.low ?? 0)
+  const rangePct = last.low ? (rangeAbs / last.low) * 100 : 0
+  if (rangeEl) {
+    const label = formatPrice(rangeAbs) + ' (' + (Number.isFinite(rangePct) ? rangePct.toFixed(2) : '0.00') + '%)'
+    rangeEl.textContent = label
+  }
+
+  if (ma7El) ma7El.textContent = formatPrice(last.ema7)
+  if (ma25El) ma25El.textContent = formatPrice(last.ema25)
+  if (ma99El) ma99El.textContent = formatPrice(last.ema99)
+
+  if (volBaseEl) volBaseEl.textContent = formatAmount(last.volume)
+  if (volQuoteEl) {
+    const quote = (last.close ?? 0) * (last.volume ?? 0)
+    volQuoteEl.textContent = formatQuote(quote)
+  }
+}
+
 async function refreshChart () {
   try {
     const candles = await fetchCandles()
     updateFinancialChart(candles)
+    updateFinancialInfo(candles)
   } catch (err) { console.error(err) }
 }
 

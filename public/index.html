@@ -103,7 +103,24 @@
         </div>
         <div class="section">
           <div class="section-title">Price & indicators</div>
-          <div class="row" style="margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0 1rem;">
+          <!-- Top info row: time, OHLC, change, range -->
+          <div class="row" style="margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0.5rem 1rem; font-size: 0.85rem;">
+            <span class="label">Time</span><span class="value" id="financial-info-time">-</span>
+            <span class="label">O</span><span class="value" id="financial-info-open">-</span>
+            <span class="label">H</span><span class="value" id="financial-info-high">-</span>
+            <span class="label">L</span><span class="value" id="financial-info-low">-</span>
+            <span class="label">C</span><span class="value" id="financial-info-close">-</span>
+            <span class="label">Change</span><span class="value" id="financial-info-change">-</span>
+            <span class="label">Range</span><span class="value" id="financial-info-range">-</span>
+          </div>
+          <!-- MA legend line: MA(7), MA(25), MA(99) -->
+          <div class="row" style="margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0.75rem 1.25rem; font-size: 0.85rem; color: #9ca3af;">
+            <span><span style="display:inline-block;width:10px;height:2px;background:#eab308;margin-right:4px;vertical-align:middle;"></span>MA(7) <span id="financial-ma-7" class="value">-</span></span>
+            <span><span style="display:inline-block;width:10px;height:2px;background:#6366f1;margin-right:4px;vertical-align:middle;"></span>MA(25) <span id="financial-ma-25" class="value">-</span></span>
+            <span><span style="display:inline-block;width:10px;height:2px;background:#f97316;margin-right:4px;vertical-align:middle;"></span>MA(99) <span id="financial-ma-99" class="value">-</span></span>
+          </div>
+          <!-- Legacy close & EMAs row (kept for quick reference) -->
+          <div class="row" style="margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0 1rem;">
             <span class="label">Close</span><span class="value" id="chart-close">-</span>
             <span class="label">EMA 9</span><span class="value" id="chart-ema9">-</span>
             <span class="label">EMA 20</span><span class="value" id="chart-ema20">-</span>
@@ -122,7 +139,12 @@
             <button type="button" id="chart-reset-btn" class="secondary">Reset chart</button>
           </div>
           <div class="chart-wrapper chart-wrapper-lg">
-            <div id="financial-chart-container" style="width:100%;height:320px;"></div>
+            <div id="financial-chart-container" style="width:100%;height:420px;"></div>
+          </div>
+          <!-- Volume legend under chart -->
+          <div class="row" style="margin-top: 0.35rem; flex-wrap: wrap; gap: 0.75rem 1.5rem; font-size: 0.85rem; color: #9ca3af;">
+            <span>Vol(BTC) <span id="financial-vol-base" class="value">-</span></span>
+            <span>Vol(USDT) <span id="financial-vol-quote" class="value">-</span></span>
           </div>
         </div>
         <div class="section">

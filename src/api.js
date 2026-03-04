@@ -703,10 +703,13 @@ export function createApp () {
         return lastValidClose ?? raw
       })
 
+      const ema7 = calculateEMA(closes, 7)
       const ema9 = calculateEMA(closes, 9)
       const ema20 = calculateEMA(closes, 20)
       const ema21 = calculateEMA(closes, 21)
+      const ema25 = calculateEMA(closes, 25)
       const ema50 = calculateEMA(closes, 50)
+      const ema99 = calculateEMA(closes, 99)
       const ema200 = calculateEMA(closes, 200)
       const { macdLine, signalLine, histogram } = calculateMACD(closes, 12, 26, 9)
       const rsi14 = calculateRSI(closes, 14)
@@ -719,10 +722,13 @@ export function createApp () {
         low: candle[3],
         close: closes[idx],
         volume: candle[5],
+        ema7: ema7[idx] ?? null,
         ema9: ema9[idx] ?? null,
         ema20: ema20[idx] ?? null,
         ema21: ema21[idx] ?? null,
+        ema25: ema25[idx] ?? null,
         ema50: ema50[idx] ?? null,
+        ema99: ema99[idx] ?? null,
         ema200: ema200[idx] ?? null,
         macd: macdLine[idx] ?? null,
         macdSignal: signalLine[idx] ?? null,
