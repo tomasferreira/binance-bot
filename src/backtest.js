@@ -164,16 +164,29 @@ function backtestMetricsFromHistory (state) {
   }
 }
 
+/** Binance (and most exchanges) return at most 1000 candles per request; we paginate to get more. */
+const EXCHANGE_KLINES_MAX = 1000
+
 async function fetchHistoricalCandles (symbol, timeframe, sinceMs, limit = 5000) {
   const source = getMarketDataSource()
   const exchange = source === 'testnet' ? getTradingExchange() : getDataExchange()
-  logger.info(`Backtest: fetching candles for ${symbol} ${timeframe} since ${new Date(sinceMs).toISOString()}`)
-  // CCXT will page automatically when since is provided; we cap limit for safety
-  const candles = await exchange.fetchOHLCV(symbol, timeframe, sinceMs, limit)
+  const periodMs = timeframeToMs(timeframe)
+  logger.info(`Backtest: fetching candles for ${symbol} ${timeframe} since ${new Date(sinceMs).toISOString()} (limit ${limit})`)
+  const candles = []
+  let since = sinceMs
+  while (candles.length < limit) {
+    const chunk = await exchange.fetchOHLCV(symbol, timeframe, since, EXCHANGE_KLINES_MAX)
+    if (!chunk.length) break
+    for (const c of chunk) {
+      if (candles.length >= limit) break
+      candles.push(c)
+    }
+    if (chunk.length < EXCHANGE_KLINES_MAX) break
+    since = chunk[chunk.length - 1][0] + periodMs
+  }
   logger.info(`Backtest: fetched ${candles.length} candles`)
-  // Sanity check: ensure the exchange actually returned candles with the
-  // expected timeframe (interval between timestamps).
-  const expectedMs = timeframeToMs(timeframe)
+  // Sanity check: ensure the exchange actually returned candles with the expected timeframe.
+  const expectedMs = periodMs
   if (candles.length >= 2 && expectedMs > 0) {
     const deltas = []
     for (let i = 1; i < candles.length; i++) {
@@ -321,8 +334,13 @@ async function runBacktest () {
       ? intrabarFlag.split('=')[1] !== 'false' && intrabarFlag.split('=')[1] !== '0'
       : true
   const sinceMs = Date.now() - daysBack * 24 * 60 * 60 * 1000
+  const periodMs = timeframeToMs(timeframe)
+  const requestedCandles = Math.min(
+    Math.ceil((daysBack * 24 * 60 * 60 * 1000) / periodMs),
+    50000
+  )
 
-  const ohlcv = await fetchHistoricalCandles(symbol, timeframe, sinceMs)
+  const ohlcv = await fetchHistoricalCandles(symbol, timeframe, sinceMs, requestedCandles)
   if (!ohlcv.length) {
     logger.warn('Backtest: no candles fetched; aborting')
     return
