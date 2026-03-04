@@ -1,6 +1,7 @@
 let priceChart = null
 let volumeChart = null
 let candleSeries = null
+let candleMarkers = null
 let volumeSeries = null
 let ma7Series = null
 let ma25Series = null
@@ -21,6 +22,7 @@ export function initFinancialChart () {
   const {
     createChart,
     CrosshairMode,
+    createSeriesMarkers,
     CandlestickSeries,
     HistogramSeries,
     LineSeries
@@ -61,6 +63,10 @@ export function initFinancialChart () {
     wickUpColor: '#22c55e',
     wickDownColor: '#ef4444'
   })
+
+  if (typeof createSeriesMarkers === 'function') {
+    candleMarkers = createSeriesMarkers(candleSeries, [])
+  }
 
   ma7Series = priceChart.addSeries(LineSeries, {
     color: '#eab308', // MA(7) - yellow
@@ -123,6 +129,7 @@ export function initFinancialChart () {
 }
 
 export function updateFinancialChart (candles, trades = []) {
+  console.log('updateFinancialChart', candles, trades);
   if (!priceChart || !volumeChart || !Array.isArray(candles) || !candles.length) return
 
   const candleData = candles.map(c => ({
@@ -168,51 +175,49 @@ export function updateFinancialChart (candles, trades = []) {
     }))
   ma99Series.setData(ma99Data)
 
-  // Overlay trades as markers on the price chart
-  if (Array.isArray(trades) && trades.length > 0 && candles.length > 0) {
-    const markers = []
-    for (const t of trades) {
-      const ts = typeof t.timestamp === 'number' ? t.timestamp : Number(t.timestamp)
-      if (!Number.isFinite(ts)) continue
-
-      // Find the nearest candle by timestamp
-      let best = null
-      let bestDiff = Infinity
-      for (const c of candles) {
-        const diff = Math.abs(ts - c.timestamp)
-        if (diff < bestDiff) {
-          bestDiff = diff
-          best = c
+  // Trade markers (v5 API)
+  if (candleMarkers) {
+    console.log('candleMarkers', candleMarkers);
+    if (Array.isArray(trades) && trades.length > 0 && candles.length > 0) {
+      const markers = []
+      for (const t of trades) {
+        const ts = typeof t.timestamp === 'number' ? t.timestamp : Number(t.timestamp)
+        if (!Number.isFinite(ts)) continue
+        let best = null
+        let bestDiff = Infinity
+        for (const c of candles) {
+          const diff = Math.abs(ts - c.timestamp)
+          if (diff < bestDiff) {
+            bestDiff = diff
+            best = c
+          }
         }
+        if (!best) continue
+        const time = Math.floor(best.timestamp / 1000)
+        const isBuy = t.side !== 'sell'
+        const amount = Number(t.amount) || 0
+        const price = Number(t.price) || null
+        const strategy = t.strategyName || t.strategyId || ''
+        const titleParts = [isBuy ? 'Buy' : 'Sell']
+        if (amount) titleParts.push(String(amount))
+        if (price) titleParts.push('@ ' + price)
+        if (strategy) titleParts.push('(' + strategy + ')')
+        markers.push({
+          time,
+          position: isBuy ? 'belowBar' : 'aboveBar',
+          color: isBuy ? '#22c55e' : '#ef4444',
+          shape: isBuy ? 'arrowUp' : 'arrowDown',
+          text: isBuy ? 'B' : 'S',
+          title: titleParts.join(' ')
+        })
       }
-      if (!best) continue
-
-      const time = Math.floor(best.timestamp / 1000)
-      const side = t.side === 'sell' ? 'sell' : 'buy'
-      const isBuy = side === 'buy'
-      const amount = Number(t.amount) || 0
-      const price = Number(t.price) || null
-      const strategy = t.strategyName || t.strategyId || ''
-      const label = isBuy ? 'B' : 'S'
-      const titleParts = []
-      titleParts.push(isBuy ? 'Buy' : 'Sell')
-      if (amount) titleParts.push(String(amount))
-      if (price) titleParts.push('@ ' + price)
-      if (strategy) titleParts.push('(' + strategy + ')')
-      const title = titleParts.join(' ')
-      markers.push({
-        time,
-        position: isBuy ? 'belowBar' : 'aboveBar',
-        color: isBuy ? '#22c55e' : '#ef4444',
-        shape: isBuy ? 'arrowUp' : 'arrowDown',
-        text: label,
-        title
-      })
+      candleMarkers.setMarkers(markers)
+    } else {
+      console.log('no markers')
+      candleMarkers.setMarkers([])
     }
-    candleSeries.setMarkers(markers)
-  } else if (candleSeries) {
-    // Clear markers when no trades provided
-    candleSeries.setMarkers([])
+  } else {
+    console.log('no candleMarkers')
   }
 }
 

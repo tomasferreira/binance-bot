@@ -296,8 +296,8 @@ function updateFinancialInfo (candles) {
 async function refreshChart () {
   try {
     const candles = await fetchCandles()
-    const tradesForMarkers = Array.isArray(state.latestTrades) ? state.latestTrades : []
-    updateFinancialChart(candles, tradesForMarkers)
+    const trades = Array.isArray(state.latestTrades) ? state.latestTrades : []
+    updateFinancialChart(candles, trades)
     updateFinancialInfo(candles)
   } catch (err) { console.error(err) }
 }
