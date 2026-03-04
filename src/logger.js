@@ -49,3 +49,29 @@ export const logger = winston.createLogger({
   ]
 })
 
+/** Logger for backtest runs: same level/format as main logger, but writes to logs/backtest.log */
+export const backtestLogger = winston.createLogger({
+  level: resolveLogLevel(),
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    logFormat
+  ),
+  transports: [
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.timestamp(),
+        winston.format.errors({ stack: true }),
+        logFormat
+      )
+    }),
+    new winston.transports.File({
+      filename: path.join(logDir, 'backtest.log'),
+      maxsize: fileMaxSizeBytes,
+      maxFiles: fileMaxFiles,
+      tailable: true
+    })
+  ]
+})
+

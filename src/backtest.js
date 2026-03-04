@@ -3,7 +3,7 @@ import { getExchange } from './exchange.js'
 import { STRATEGY_IDS, evaluateStrategy } from './strategies/registry.js'
 import { getEffectiveTradingConfig } from './runtimeConfig.js'
 import { calculatePositionSize } from './risk.js'
-import { logger } from './logger.js'
+import { backtestLogger as logger } from './logger.js'
 import { computeRegime } from './regime.js'
 
 function timeframeToMs (tf) {
