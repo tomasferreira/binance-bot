@@ -180,6 +180,7 @@ function closeSimPosition (state, price, candleTs) {
 
 async function runBacktest () {
   const { symbol, timeframe, regimeTimeframe, regimeCandles } = config.trading
+  const startedAtMs = Date.now()
   const argv = process.argv.slice(2)
   const daysBack = Number(argv.find(a => a.startsWith('--days='))?.split('=')[1] || 7)
   const riskOverride = Number(argv.find(a => a.startsWith('--risk='))?.split('=')[1] || NaN)
@@ -313,7 +314,8 @@ async function runBacktest () {
     timeframe,
     candles: ohlcv.length,
     startTs: ohlcv[0]?.[0] ?? null,
-    endTs: ohlcv[ohlcv.length - 1]?.[0] ?? null
+    endTs: ohlcv[ohlcv.length - 1]?.[0] ?? null,
+    durationMs: Date.now() - startedAtMs
   }
   // Single line for API to parse (no logger prefix)
   process.stdout.write('BACKTEST_RESULT:' + JSON.stringify({ strategies: summaryStrategies, totalPnl, meta }) + '\n')

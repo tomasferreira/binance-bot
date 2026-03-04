@@ -46,13 +46,20 @@ function renderBacktestStatus (status) {
     const meta = summary.meta || {}
     const tf = meta.timeframe || '–'
     const candles = typeof meta.candles === 'number' ? meta.candles : null
-    if (tf && candles != null) {
-      metaEl.textContent = `${tf}, ${candles} candles`
-    } else if (tf) {
-      metaEl.textContent = tf
-    } else {
-      metaEl.textContent = '–'
+    const durationMs = typeof meta.durationMs === 'number' ? meta.durationMs : null
+    const parts = []
+    if (tf) parts.push(tf)
+    if (candles != null) parts.push(`${candles} candles`)
+    if (durationMs != null) {
+      const seconds = durationMs / 1000
+      const formatted = seconds < 10
+        ? seconds.toFixed(2) + 's'
+        : seconds < 120
+          ? seconds.toFixed(1) + 's'
+          : (seconds / 60).toFixed(1) + 'm'
+      parts.push(formatted)
     }
+    metaEl.textContent = parts.length ? parts.join(', ') : '–'
   }
 }
 
