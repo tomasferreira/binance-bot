@@ -289,14 +289,6 @@ async function runBacktest () {
     }
   }
 
-  // Close any remaining open positions at last price
-  const lastCandle = ohlcv[ohlcv.length - 1]
-  const finalPrice = lastCandle[4]
-  const finalTs = lastCandle[0]
-  for (const id of STRATEGY_IDS) {
-    states[id] = closeSimPosition(states[id], finalPrice, finalTs)
-  }
-
   // Print summary (logger for logs; raw line for dashboard parser)
   logger.info('Backtest summary:')
   const summaryStrategies = []
