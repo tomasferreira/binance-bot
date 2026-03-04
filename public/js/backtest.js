@@ -22,18 +22,56 @@ function renderBacktestStatus (status) {
   const summary = s.summary || {}
   const strategies = Array.isArray(summary.strategies) ? summary.strategies : []
   if (!strategies.length) {
-    tbody.innerHTML = '<tr><td colspan="6">No results yet.</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="31">No results yet.</td></tr>'
   } else {
-    tbody.innerHTML = strategies.map(r =>
-      '<tr>' +
-      '<td>' + (r.id || '-') + '</td>' +
-      '<td class="numeric">' + (Number(r.realizedPnl || 0).toFixed(2)) + '</td>' +
-      '<td class="numeric">' + (r.trades ?? 0) + '</td>' +
-      '<td class="numeric">' + (r.wins ?? 0) + '</td>' +
-      '<td class="numeric">' + (r.losses ?? 0) + '</td>' +
-      '<td class="numeric">' + (Number(r.maxDrawdown || 0).toFixed(2)) + '</td>' +
-      '</tr>'
-    ).join('')
+    tbody.innerHTML = strategies.map(r => {
+      const id = r.id || '-'
+      const typeTag = id.startsWith('short_') ? 'Short' : 'Long'
+      const realized = Number(r.realizedPnl || 0)
+      const trades = r.trades ?? 0
+      const wins = r.wins ?? 0
+      const losses = r.losses ?? 0
+      const wl = wins + losses > 0 ? `${wins}/${losses}` : '0/0'
+      const winRate = trades > 0 ? (wins / trades) * 100 : null
+      const maxDd = Number(r.maxDrawdown || 0)
+
+      const fmt = (v) => (v == null || Number.isNaN(v)) ? '–' : Number(v).toFixed(2)
+      const pct = (v) => (v == null || Number.isNaN(v)) ? '–' : Number(v).toFixed(1) + '%'
+
+      return '<tr>' +
+        '<td>' + id + '</td>' +
+        '<td class="numeric">' + typeTag + '</td>' +
+        '<td class="numeric">' + fmt(realized) + '</td>' + // total PnL (no unrealized)
+        '<td class="numeric">' + fmt(realized) + '</td>' +
+        '<td class="numeric">0.00</td>' + // unrealized
+        '<td class="numeric">' + wl + '</td>' +
+        '<td class="numeric">' + (winRate != null ? winRate.toFixed(1) : '–') + '</td>' +
+        '<td class="numeric">–</td>' + // avg win
+        '<td class="numeric">–</td>' + // avg loss
+        '<td class="numeric">–</td>' + // sharpe
+        '<td class="numeric">' + fmt(maxDd) + '</td>' +
+        '<td class="numeric">–</td>' + // calmar
+        '<td class="numeric">–</td>' + // recovery
+        '<td class="numeric">–</td>' + // curr DD %
+        '<td class="numeric">' + trades + '</td>' +
+        '<td class="numeric">–</td>' + // trades (hist)
+        '<td class="numeric">–</td>' + // fees
+        '<td class="numeric">–</td>' + // exposure
+        '<td class="numeric">–</td>' + // avg duration
+        '<td class="numeric">–</td>' + // streak
+        '<td class="numeric">–</td>' + // max streak
+        '<td class="numeric">–</td>' + // avg hold
+        '<td class="numeric">–</td>' + // cost/trade
+        '<td class="numeric">–</td>' + // time in profit %
+        '<td class="numeric">–</td>' + // profit factor
+        '<td class="numeric">–</td>' + // expectancy
+        '<td class="numeric">–</td>' + // max win
+        '<td class="numeric">–</td>' + // max loss
+        '<td class="numeric">–</td>' + // sortino
+        '<td class="numeric">–</td>' + // trades/day
+        '<td class="numeric">–</td>' + // last trade
+        '</tr>'
+    }).join('')
   }
   const total = summary.totalPnl
   totalEl.textContent = (typeof total === 'number' && !isNaN(total)) ? total.toFixed(2) + ' USDT' : '-'

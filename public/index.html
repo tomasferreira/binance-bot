@@ -340,16 +340,41 @@
             <table class="strategy-table analysis-table">
               <thead>
                 <tr>
-                  <th>Strategy</th>
-                  <th class="numeric">PnL (USDT)</th>
-                  <th class="numeric">Trades</th>
-                  <th class="numeric">W</th>
-                  <th class="numeric">L</th>
-                  <th class="numeric">Max DD</th>
+                  <th class="numeric" title="Strategy name">Strategy</th>
+                  <th class="numeric" title="Long or Short">Type</th>
+                  <th class="numeric" title="Realized + unrealized PnL over the backtest">Total PnL</th>
+                  <th class="numeric" title="Closed-trade PnL over the backtest">Realized</th>
+                  <th class="numeric" title="Open position PnL (backtests close everything at the end, so this is 0)">Unrealized</th>
+                  <th class="numeric" title="Winning trades / losing trades">W/L</th>
+                  <th class="numeric" title="% of closed trades that were profitable">Win rate %</th>
+                  <th class="numeric" title="Average PnL per winning trade">Avg win</th>
+                  <th class="numeric" title="Average PnL per losing trade">Avg loss</th>
+                  <th class="numeric" title="Simplified Sharpe over backtest trades">Sharpe</th>
+                  <th class="numeric" title="Largest peak-to-trough drop in equity">Max DD</th>
+                  <th class="numeric" title="Return ÷ max drawdown (range)">Calmar</th>
+                  <th class="numeric" title="Net profit ÷ max drawdown">Recovery</th>
+                  <th class="numeric" title="Current drawdown % from peak at end of backtest">Curr DD %</th>
+                  <th class="numeric" title="Number of closed trades">Trades</th>
+                  <th class="numeric" title="Trade count from exchange history (N/A for backtest)">Trades (hist)</th>
+                  <th class="numeric" title="Total estimated fees (N/A for backtest)">Fees (USDT)</th>
+                  <th class="numeric" title="% of strategy budget currently in position">Exposure %</th>
+                  <th class="numeric" title="Average time positions were held">Avg duration</th>
+                  <th class="numeric" title="Current win/loss streak">Streak</th>
+                  <th class="numeric" title="Max consecutive wins / losses">Max streak</th>
+                  <th class="numeric" title="Avg hold time in minutes">Avg hold (min)</th>
+                  <th class="numeric" title="Avg fee per trade (USDT)">Cost/trade</th>
+                  <th class="numeric" title="% of trades at new equity high">Time in profit %</th>
+                  <th class="numeric" title="Gross profit ÷ gross loss; >1 = profitable">Profit factor</th>
+                  <th class="numeric" title="Average USDT per trade">Expectancy</th>
+                  <th class="numeric" title="Largest single winning trade">Max win</th>
+                  <th class="numeric" title="Largest single losing trade">Max loss</th>
+                  <th class="numeric" title="Return ÷ downside deviation (only penalizes losses)">Sortino</th>
+                  <th class="numeric" title="Closed trades per day in the backtest period">Trades/day</th>
+                  <th class="numeric" title="When the last trade in backtest was closed">Last trade</th>
                 </tr>
               </thead>
               <tbody id="backtest-results-tbody">
-                <tr><td colspan="6">No backtest run yet.</td></tr>
+                <tr><td colspan="31">No backtest run yet.</td></tr>
               </tbody>
             </table>
           </div>
