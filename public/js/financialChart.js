@@ -156,6 +156,35 @@ export function initFinancialChart () {
     color: '#1d4ed8'
   })
 
+  // Marker tooltip on hover
+  const markerTooltip = document.createElement('div')
+  markerTooltip.style.cssText = 'position:absolute;display:none;padding:6px 10px;font-size:12px;z-index:1000;pointer-events:none;border-radius:4px;background:#1f2937;color:#e5e7eb;border:1px solid #374151;white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis;'
+  if (priceContainer.style.position !== 'relative') priceContainer.style.position = 'relative'
+  priceContainer.appendChild(markerTooltip)
+  if (typeof priceChart.subscribeCrosshairMove === 'function') {
+    priceChart.subscribeCrosshairMove((param) => {
+      const id = param && param.hoveredObjectId
+      const marker = id && lastTradeMarkers.find(m => m.id === id)
+      if (marker && marker.title) {
+        markerTooltip.textContent = marker.title
+        markerTooltip.style.display = 'block'
+        const pad = 12
+        const tooltipW = 220
+        const tooltipH = 32
+        let left = (param.point && param.point.x) != null ? param.point.x + pad : 0
+        let top = (param.point && param.point.y) != null ? param.point.y + pad : 0
+        if (left + tooltipW > priceContainer.clientWidth) left = param.point.x - tooltipW - pad
+        if (top + tooltipH > priceContainer.clientHeight) top = param.point.y - tooltipH - pad
+        if (left < 0) left = pad
+        if (top < 0) top = pad
+        markerTooltip.style.left = left + 'px'
+        markerTooltip.style.top = top + 'px'
+      } else {
+        markerTooltip.style.display = 'none'
+      }
+    })
+  }
+
   // Keep charts responsive
   window.addEventListener('resize', () => {
     if (priceChart && priceContainer) {
@@ -248,6 +277,7 @@ export function updateFinancialChart (candles, trades = []) {
         if (price) titleParts.push('@ ' + price)
         if (strategy) titleParts.push('(' + strategy + ')')
         markers.push({
+          id: 'trade-' + markers.length,
           time,
           position: isBuy ? 'belowBar' : 'aboveBar',
           color: isBuy ? '#22c55e' : '#ef4444',
