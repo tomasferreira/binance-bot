@@ -3,6 +3,14 @@ let backtestLastStrategies = []
 let backtestSortBy = 'id'
 let backtestSortDesc = false
 
+function backtestPnlColor (v) {
+  const n = v ?? 0
+  if (Number.isNaN(n)) return ''
+  if (n > 0) return '#22c55e'
+  if (n < 0) return '#ef4444'
+  return '#eab308' // neutral (zero) = yellow
+}
+
 async function fetchBacktestStatus () {
   try {
     const res = await fetch('/api/backtest/status')
@@ -28,7 +36,7 @@ function renderBacktestStatus (status) {
   const total = summary.totalPnl
   if (typeof total === 'number' && !isNaN(total)) {
     totalEl.textContent = total.toFixed(2) + ' USDT'
-    totalEl.style.color = pnlColor(total)
+    totalEl.style.color = backtestPnlColor(total)
   } else {
     totalEl.textContent = '-'
     totalEl.style.color = ''
@@ -55,14 +63,6 @@ function renderBacktestTable () {
   if (!strategies.length) {
     tbody.innerHTML = '<tr><td colspan="31">No results yet.</td></tr>'
     return
-  }
-
-  const pnlColor = (v) => {
-    const n = v ?? 0
-    if (Number.isNaN(n)) return ''
-    if (n > 0) return '#22c55e'
-    if (n < 0) return '#ef4444'
-    return '#eab308' // neutral (zero) = yellow
   }
 
   const enriched = strategies.map(r => {
@@ -125,8 +125,8 @@ function renderBacktestTable () {
     return '<tr>' +
       '<td>' + id + '</td>' +
       '<td class="numeric">' + typeTag + '</td>' +
-      '<td class="numeric" style="color:' + pnlColor(realized) + '">' + fmt(realized) + '</td>' +
-      '<td class="numeric" style="color:' + pnlColor(realized) + '">' + fmt(realized) + '</td>' +
+      '<td class="numeric" style="color:' + backtestPnlColor(realized) + '">' + fmt(realized) + '</td>' +
+      '<td class="numeric" style="color:' + backtestPnlColor(realized) + '">' + fmt(realized) + '</td>' +
       '<td class="numeric">0.00</td>' +
       '<td class="numeric">' + wl + '</td>' +
       '<td class="numeric"' + (winRateColor ? ' style="color:' + winRateColor + '"' : '') + '>' + (winRate != null ? winRate.toFixed(1) : '–') + '</td>' +
