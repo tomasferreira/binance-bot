@@ -35,6 +35,7 @@ function getStrategyBudget () {
 
 let lastTickAt = null
 let lastClosedCandleTs = null
+let currentBacktest = null
 const lastDecisionByStrategy = {}
 
 const BINANCE_KLINES_MAX = 1000
@@ -399,10 +400,14 @@ app.get('/api/status', async (req, res) => {
 })
 
 // Run a one-off backtest in a separate Node process.
-// Body: { days?: number, regime?: boolean, intrabar?: boolean }
+// Body: { days?: number, regime?: boolean, intrabar?: boolean, risk?: number, sl?: number, tp?: number }
 app.post('/api/backtest', (req, res) => {
   try {
-    const { days, regime, intrabar } = req.body || {}
+    const { days, regime, intrabar, risk, sl, tp } = req.body || {}
+    if (currentBacktest && currentBacktest.status === 'running') {
+      return res.status(409).json({ error: 'Backtest already running' })
+    }
+
     const args = ['src/backtest.js']
     if (typeof days === 'number' && Number.isFinite(days) && days > 0) {
       args.push(`--days=${days}`)
@@ -412,6 +417,15 @@ app.post('/api/backtest', (req, res) => {
     }
     if (typeof intrabar === 'boolean') {
       args.push(`--intrabar=${intrabar ? 'true' : 'false'}`)
+    }
+    if (typeof risk === 'number' && Number.isFinite(risk) && risk > 0) {
+      args.push(`--risk=${risk}`)
+    }
+    if (typeof sl === 'number' && Number.isFinite(sl) && sl > 0) {
+      args.push(`--sl=${sl}`)
+    }
+    if (typeof tp === 'number' && Number.isFinite(tp) && tp > 0) {
+      args.push(`--tp=${tp}`)
     }
 
     logger.info('HTTP POST /api/backtest spawn', { args })
@@ -427,12 +441,65 @@ app.post('/api/backtest', (req, res) => {
       stderr += data.toString()
     })
 
+    currentBacktest = {
+      pid: child.pid,
+      args,
+      startedAt: new Date().toISOString(),
+      status: 'running',
+      exitCode: null,
+      summary: null,
+      error: null
+    }
+
     child.on('error', (err) => {
       logger.error('Backtest process failed to start', err)
+      currentBacktest = {
+        ...(currentBacktest || {}),
+        status: 'failed',
+        error: err.message
+      }
     })
 
     child.on('close', (code) => {
       logger.info('Backtest process exited', { code })
+      // Parse summary from stdout
+      const strategies = []
+      let totalPnl = null
+      try {
+        const lines = stdout.split('\n')
+        const summaryRe = /^(\S+): PnL=([-0-9.]+) USDT, trades=(\d+), wins=(\d+), losses=(\d+), maxDD=([-0-9.]+)/
+        const totalRe = /^Backtest TOTAL PnL: ([-0-9.]+) USDT/
+        for (const line of lines) {
+          const m = line.match(summaryRe)
+          if (m) {
+            strategies.push({
+              id: m[1],
+              realizedPnl: Number(m[2]),
+              trades: Number(m[3]),
+              wins: Number(m[4]),
+              losses: Number(m[5]),
+              maxDrawdown: Number(m[6])
+            })
+            continue
+          }
+          const mt = line.match(totalRe)
+          if (mt) {
+            totalPnl = Number(mt[1])
+          }
+        }
+      } catch (err) {
+        logger.warn('Failed to parse backtest output', { err: err.message })
+      }
+
+      currentBacktest = {
+        ...(currentBacktest || {}),
+        status: code === 0 ? 'finished' : 'failed',
+        exitCode: code,
+        summary: { strategies, totalPnl },
+        stdout: stdout.slice(0, 4000),
+        stderr: stderr.slice(0, 4000),
+        finishedAt: new Date().toISOString()
+      }
     })
 
     res.json({
@@ -443,6 +510,34 @@ app.post('/api/backtest', (req, res) => {
   } catch (err) {
     logger.error('Error in /api/backtest', err)
     res.status(500).json({ error: 'Backtest failed to start' })
+  }
+})
+
+// Get current / last backtest status and summary.
+app.get('/api/backtest/status', (req, res) => {
+  if (!currentBacktest) {
+    return res.json({ status: 'idle' })
+  }
+  const { child, ...rest } = currentBacktest
+  res.json(rest)
+})
+
+// Request to stop a running backtest.
+app.post('/api/backtest/stop', (req, res) => {
+  try {
+    if (!currentBacktest || currentBacktest.status !== 'running') {
+      return res.status(400).json({ error: 'No running backtest' })
+    }
+    const pid = currentBacktest.pid
+    process.kill(pid, 'SIGTERM')
+    currentBacktest = {
+      ...currentBacktest,
+      status: 'stopping'
+    }
+    res.json({ status: 'stopping', pid })
+  } catch (err) {
+    logger.error('Error stopping backtest', err)
+    res.status(500).json({ error: 'Failed to stop backtest' })
   }
 })
 

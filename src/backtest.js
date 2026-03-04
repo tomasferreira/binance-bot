@@ -17,7 +17,7 @@ function timeframeToMs (tf) {
 }
 
 // Lightweight in-memory state used for backtests only
-function makeEmptyState () {
+function makeEmptyState (overrides = {}) {
   return {
     openPosition: null,
     realizedPnl: 0,
@@ -33,9 +33,9 @@ function makeEmptyState () {
     maxDrawdown: 0,
     closedTradesHistory: [],
     runtimeConfig: {
-      riskPerTrade: null,
-      stopLossPct: null,
-      takeProfitPct: null
+      riskPerTrade: Number.isFinite(overrides.riskPerTrade) && overrides.riskPerTrade > 0 ? overrides.riskPerTrade : null,
+      stopLossPct: Number.isFinite(overrides.stopLossPct) && overrides.stopLossPct > 0 ? overrides.stopLossPct : null,
+      takeProfitPct: Number.isFinite(overrides.takeProfitPct) && overrides.takeProfitPct > 0 ? overrides.takeProfitPct : null
     },
     autoTradingEnabled: true
   }
@@ -182,6 +182,9 @@ async function runBacktest () {
   const { symbol, timeframe, regimeTimeframe, regimeCandles } = config.trading
   const argv = process.argv.slice(2)
   const daysBack = Number(argv.find(a => a.startsWith('--days='))?.split('=')[1] || 7)
+  const riskOverride = Number(argv.find(a => a.startsWith('--risk='))?.split('=')[1] || NaN)
+  const slOverride = Number(argv.find(a => a.startsWith('--sl='))?.split('=')[1] || NaN)
+  const tpOverride = Number(argv.find(a => a.startsWith('--tp='))?.split('=')[1] || NaN)
   const regimeFlag = argv.find(a => a.startsWith('--regime='))
   const regimeFilterEnabled =
     regimeFlag != null
@@ -202,7 +205,11 @@ async function runBacktest () {
 
   const states = {}
   for (const id of STRATEGY_IDS) {
-    states[id] = makeEmptyState()
+    states[id] = makeEmptyState({
+      riskPerTrade: riskOverride,
+      stopLossPct: slOverride,
+      takeProfitPct: tpOverride
+    })
   }
 
   // Pre-fetch regime candles and compute initial regime (optional; best-effort).

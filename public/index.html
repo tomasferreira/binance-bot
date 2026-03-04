@@ -34,6 +34,7 @@
       <button type="button" class="tab" data-tab="strategies">Strategies</button>
       <button type="button" class="tab" data-tab="trades">Trades & Activity</button>
       <button type="button" class="tab" data-tab="analysis">Analysis</button>
+      <button type="button" class="tab" data-tab="backtest">Backtest</button>
       <button type="button" class="tab" data-tab="settings">Settings</button>
       <button type="button" class="tab" data-tab="glossary">Glossary</button>
     </nav>
@@ -294,6 +295,67 @@
           </div>
           <div class="chart-wrapper" style="height: 220px;">
             <canvas id="analysis-equity-chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div id="panel-backtest" class="tab-panel">
+        <div class="section">
+          <div class="section-title">Backtest</div>
+          <p style="margin: 0 0 0.75rem 0; font-size: 0.85rem; color: #9ca3af;">
+            Run an offline backtest using historical candles. This does not place real orders and does not affect live positions.
+          </p>
+          <div class="row" style="flex-wrap: wrap; gap: 0.75rem 1.5rem;">
+            <label style="display:flex;flex-direction:column;font-size:0.85rem;color:#9ca3af;">
+              Days
+              <input id="backtest-days" type="number" min="1" max="365" value="7" style="margin-top:0.15rem;background:#020617;border:1px solid #1f2937;border-radius:0.25rem;padding:0.2rem 0.4rem;color:#e5e7eb;font-size:0.9rem;width:5rem;">
+            </label>
+            <label style="display:flex;flex-direction:column;font-size:0.85rem;color:#9ca3af;">
+              Risk per trade
+              <input id="backtest-risk" type="number" step="0.001" min="0" max="1" placeholder="use config" style="margin-top:0.15rem;background:#020617;border:1px solid #1f2937;border-radius:0.25rem;padding:0.2rem 0.4rem;color:#e5e7eb;font-size:0.9rem;width:7rem;">
+            </label>
+            <label style="display:flex;flex-direction:column;font-size:0.85rem;color:#9ca3af;">
+              Stop loss %
+              <input id="backtest-sl" type="number" step="0.001" min="0" placeholder="use config" style="margin-top:0.15rem;background:#020617;border:1px solid #1f2937;border-radius:0.25rem;padding:0.2rem 0.4rem;color:#e5e7eb;font-size:0.9rem;width:7rem;">
+            </label>
+            <label style="display:flex;flex-direction:column;font-size:0.85rem;color:#9ca3af;">
+              Take profit %
+              <input id="backtest-tp" type="number" step="0.001" min="0" placeholder="use config" style="margin-top:0.15rem;background:#020617;border:1px solid #1f2937;border-radius:0.25rem;padding:0.2rem 0.4rem;color:#e5e7eb;font-size:0.9rem;width:7rem;">
+            </label>
+            <label style="display:flex;align-items:center;font-size:0.85rem;color:#9ca3af;gap:0.35rem;">
+              <input id="backtest-regime" type="checkbox" checked>
+              Use regime filter
+            </label>
+            <label style="display:flex;align-items:center;font-size:0.85rem;color:#9ca3af;gap:0.35rem;">
+              <input id="backtest-intrabar" type="checkbox" checked>
+              Intra-bar SL/TP
+            </label>
+          </div>
+          <div class="row" style="margin-top:0.5rem;gap:0.5rem;flex-wrap:wrap;">
+            <button type="button" id="backtest-start-btn" class="primary">Run backtest</button>
+            <button type="button" id="backtest-stop-btn" class="secondary">Stop backtest</button>
+            <span id="backtest-status-text" style="font-size:0.85rem;color:#9ca3af;">Idle.</span>
+          </div>
+          <div class="analysis-table-wrap" style="margin-top:0.75rem;">
+            <table class="strategy-table analysis-table">
+              <thead>
+                <tr>
+                  <th>Strategy</th>
+                  <th class="numeric">PnL (USDT)</th>
+                  <th class="numeric">Trades</th>
+                  <th class="numeric">W</th>
+                  <th class="numeric">L</th>
+                  <th class="numeric">Max DD</th>
+                </tr>
+              </thead>
+              <tbody id="backtest-results-tbody">
+                <tr><td colspan="6">No backtest run yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="row" style="margin-top:0.5rem;">
+            <span class="label">Total PnL</span>
+            <span class="value" id="backtest-total-pnl">-</span>
           </div>
         </div>
       </div>
