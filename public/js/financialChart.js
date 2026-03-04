@@ -28,7 +28,7 @@ export function initFinancialChart () {
     width,
     height: 320,
     layout: {
-      background: { color: '#020617' },
+      background: { type: 'solid', color: 'transparent' },
       textColor: '#e5e7eb'
     },
     grid: {
