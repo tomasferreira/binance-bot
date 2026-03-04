@@ -8,10 +8,33 @@ let ma25Series = null
 let ma99Series = null
 /** Last markers set (re-apply on zoom). */
 let lastTradeMarkers = []
+/** Candle + MA data for visible price range (excludes markers). */
+let lastChartPriceData = []
 
 function ensureLib () {
   if (!window.LightweightCharts) return null
   return window.LightweightCharts
+}
+
+const PRICE_RANGE_MARGIN = 0.02
+
+function applyPriceRangeFromData (visibleFrom, visibleTo) {
+  if (!priceChart || !lastChartPriceData.length) return
+  const priceScale = priceChart.priceScale && priceChart.priceScale('right')
+  if (!priceScale || typeof priceScale.setVisibleRange !== 'function') return
+  const inRange = lastChartPriceData.filter(d => d.time >= visibleFrom && d.time <= visibleTo)
+  if (!inRange.length) return
+  let minP = Infinity
+  let maxP = -Infinity
+  for (const d of inRange) {
+    if (d.ema7 != null) { if (d.ema7 < minP) minP = d.ema7; if (d.ema7 > maxP) maxP = d.ema7 }
+    if (d.ema25 != null) { if (d.ema25 < minP) minP = d.ema25; if (d.ema25 > maxP) maxP = d.ema25 }
+    if (d.ema99 != null) { if (d.ema99 < minP) minP = d.ema99; if (d.ema99 > maxP) maxP = d.ema99 }
+  }
+  if (!Number.isFinite(minP) || !Number.isFinite(maxP)) return
+  const span = Math.max(maxP - minP, 0) || 1
+  const margin = span * PRICE_RANGE_MARGIN
+  priceScale.setVisibleRange({ from: minP - margin, to: maxP + margin })
 }
 
 export function initFinancialChart () {
@@ -46,7 +69,9 @@ export function initFinancialChart () {
       horzLines: { color: '#0f172a' }
     },
     rightPriceScale: {
-      borderColor: '#1f2937'
+      borderColor: '#1f2937',
+      autoScale: false,
+      scaleMargins: { top: 0.1, bottom: 0.1 }
     },
     timeScale: {
       borderColor: '#1f2937',
@@ -72,14 +97,14 @@ export function initFinancialChart () {
     if (timeScale && typeof timeScale.subscribeVisibleTimeRangeChange === 'function') {
       timeScale.subscribeVisibleTimeRangeChange(() => {
         const range = timeScale.getVisibleRange && timeScale.getVisibleRange()
-        if (!range || !candleMarkers || !lastTradeMarkers.length) return
+        if (!range) return
         const from = range.from
         const to = range.to
-        const inRange = lastTradeMarkers.filter(m => {
-          const t = m.time
-          return t >= from && t <= to
-        })
-        candleMarkers.setMarkers(inRange)
+        if (candleMarkers && lastTradeMarkers.length) {
+          const inRange = lastTradeMarkers.filter(m => m.time >= from && m.time <= to)
+          candleMarkers.setMarkers(inRange)
+        }
+        applyPriceRangeFromData(from, to)
       })
     }
   }
@@ -153,6 +178,12 @@ export function updateFinancialChart (candles, trades = []) {
     high: c.high,
     low: c.low,
     close: c.close
+  }))
+  lastChartPriceData = candles.map(c => ({
+    time: Math.floor(c.timestamp / 1000),
+    ema7: c.ema7 ?? null,
+    ema25: c.ema25 ?? null,
+    ema99: c.ema99 ?? null
   }))
   candleSeries.setData(candleData)
 
@@ -232,5 +263,11 @@ export function updateFinancialChart (candles, trades = []) {
       candleMarkers.setMarkers([])
     }
   }
+
+  const timeScale = priceChart.timeScale && priceChart.timeScale()
+  const range = timeScale && timeScale.getVisibleRange && timeScale.getVisibleRange()
+  const from = range ? range.from : (lastChartPriceData[0] && lastChartPriceData[0].time)
+  const to = range ? range.to : (lastChartPriceData.length && lastChartPriceData[lastChartPriceData.length - 1].time)
+  if (from != null && to != null) applyPriceRangeFromData(from, to)
 }
 
