@@ -296,7 +296,8 @@ function updateFinancialInfo (candles) {
 async function refreshChart () {
   try {
     const candles = await fetchCandles()
-    updateFinancialChart(candles)
+    const tradesForMarkers = Array.isArray(state.latestTrades) ? state.latestTrades : []
+    updateFinancialChart(candles, tradesForMarkers)
     updateFinancialInfo(candles)
   } catch (err) { console.error(err) }
 }
@@ -468,8 +469,8 @@ document.getElementById('regime-awareness-cb').addEventListener('change', async 
 
 initFinancialChart()
 refreshStatus()
-refreshChart()
 refreshFees()
+refreshChart()
 setInterval(refreshStatus, 5000)
 setInterval(refreshChart, 20000)
 setInterval(refreshFees, 20000)
