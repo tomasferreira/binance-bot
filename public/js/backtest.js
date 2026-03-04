@@ -24,7 +24,13 @@ function renderBacktestStatus (status) {
   if (!strategies.length) {
     tbody.innerHTML = '<tr><td colspan="31">No results yet.</td></tr>'
   } else {
-    const pnlColor = (v) => (v ?? 0) >= 0 ? '#22c55e' : '#ef4444'
+    const pnlColor = (v) => {
+      const n = v ?? 0
+      if (Number.isNaN(n)) return ''
+      if (n > 0) return '#22c55e'
+      if (n < 0) return '#ef4444'
+      return '#eab308' // neutral (zero) = yellow
+    }
     tbody.innerHTML = strategies.map(r => {
       const id = r.id || '-'
       const typeTag = id.startsWith('short_') ? 'Short' : 'Long'
@@ -79,7 +85,7 @@ function renderBacktestStatus (status) {
   const total = summary.totalPnl
   if (typeof total === 'number' && !isNaN(total)) {
     totalEl.textContent = total.toFixed(2) + ' USDT'
-    totalEl.style.color = total >= 0 ? '#22c55e' : '#ef4444'
+    totalEl.style.color = pnlColor(total)
   } else {
     totalEl.textContent = '-'
     totalEl.style.color = ''
