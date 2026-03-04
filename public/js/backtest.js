@@ -24,6 +24,7 @@ function renderBacktestStatus (status) {
   if (!strategies.length) {
     tbody.innerHTML = '<tr><td colspan="31">No results yet.</td></tr>'
   } else {
+    const pnlColor = (v) => (v ?? 0) >= 0 ? '#22c55e' : '#ef4444'
     tbody.innerHTML = strategies.map(r => {
       const id = r.id || '-'
       const typeTag = id.startsWith('short_') ? 'Short' : 'Long'
@@ -37,19 +38,21 @@ function renderBacktestStatus (status) {
 
       const fmt = (v) => (v == null || Number.isNaN(v)) ? '–' : Number(v).toFixed(2)
       const pct = (v) => (v == null || Number.isNaN(v)) ? '–' : Number(v).toFixed(1) + '%'
+      const winRateColor = winRate == null ? '' : (winRate >= 50 ? '#22c55e' : '#ef4444')
+      const ddColor = maxDd > 0 ? '#ef4444' : ''
 
       return '<tr>' +
         '<td>' + id + '</td>' +
         '<td class="numeric">' + typeTag + '</td>' +
-        '<td class="numeric">' + fmt(realized) + '</td>' + // total PnL (no unrealized)
-        '<td class="numeric">' + fmt(realized) + '</td>' +
+        '<td class="numeric" style="color:' + pnlColor(realized) + '">' + fmt(realized) + '</td>' + // total PnL (no unrealized)
+        '<td class="numeric" style="color:' + pnlColor(realized) + '">' + fmt(realized) + '</td>' +
         '<td class="numeric">0.00</td>' + // unrealized
         '<td class="numeric">' + wl + '</td>' +
-        '<td class="numeric">' + (winRate != null ? winRate.toFixed(1) : '–') + '</td>' +
+        '<td class="numeric"' + (winRateColor ? ' style="color:' + winRateColor + '"' : '') + '>' + (winRate != null ? winRate.toFixed(1) : '–') + '</td>' +
         '<td class="numeric">–</td>' + // avg win
         '<td class="numeric">–</td>' + // avg loss
         '<td class="numeric">–</td>' + // sharpe
-        '<td class="numeric">' + fmt(maxDd) + '</td>' +
+        '<td class="numeric"' + (ddColor ? ' style="color:' + ddColor + '"' : '') + '>' + fmt(maxDd) + '</td>' +
         '<td class="numeric">–</td>' + // calmar
         '<td class="numeric">–</td>' + // recovery
         '<td class="numeric">–</td>' + // curr DD %
@@ -74,7 +77,13 @@ function renderBacktestStatus (status) {
     }).join('')
   }
   const total = summary.totalPnl
-  totalEl.textContent = (typeof total === 'number' && !isNaN(total)) ? total.toFixed(2) + ' USDT' : '-'
+  if (typeof total === 'number' && !isNaN(total)) {
+    totalEl.textContent = total.toFixed(2) + ' USDT'
+    totalEl.style.color = total >= 0 ? '#22c55e' : '#ef4444'
+  } else {
+    totalEl.textContent = '-'
+    totalEl.style.color = ''
+  }
 }
 
 async function pollBacktestStatus () {
