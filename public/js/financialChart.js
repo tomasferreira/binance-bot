@@ -6,6 +6,8 @@ let volumeSeries = null
 let ma7Series = null
 let ma25Series = null
 let ma99Series = null
+/** Last markers set (re-apply on zoom). */
+let lastTradeMarkers = []
 
 function ensureLib () {
   if (!window.LightweightCharts) return null
@@ -66,6 +68,20 @@ export function initFinancialChart () {
 
   if (typeof createSeriesMarkers === 'function') {
     candleMarkers = createSeriesMarkers(candleSeries, [])
+    const timeScale = priceChart.timeScale && priceChart.timeScale()
+    if (timeScale && typeof timeScale.subscribeVisibleTimeRangeChange === 'function') {
+      timeScale.subscribeVisibleTimeRangeChange(() => {
+        const range = timeScale.getVisibleRange && timeScale.getVisibleRange()
+        if (!range || !candleMarkers || !lastTradeMarkers.length) return
+        const from = range.from
+        const to = range.to
+        const inRange = lastTradeMarkers.filter(m => {
+          const t = m.time
+          return t >= from && t <= to
+        })
+        candleMarkers.setMarkers(inRange)
+      })
+    }
   }
 
   ma7Series = priceChart.addSeries(LineSeries, {
@@ -129,7 +145,6 @@ export function initFinancialChart () {
 }
 
 export function updateFinancialChart (candles, trades = []) {
-  console.log('updateFinancialChart', candles, trades);
   if (!priceChart || !volumeChart || !Array.isArray(candles) || !candles.length) return
 
   const candleData = candles.map(c => ({
@@ -177,7 +192,6 @@ export function updateFinancialChart (candles, trades = []) {
 
   // Trade markers (v5 API)
   if (candleMarkers) {
-    console.log('candleMarkers', candleMarkers);
     if (Array.isArray(trades) && trades.length > 0 && candles.length > 0) {
       const markers = []
       for (const t of trades) {
@@ -211,13 +225,12 @@ export function updateFinancialChart (candles, trades = []) {
           title: titleParts.join(' ')
         })
       }
+      lastTradeMarkers = markers
       candleMarkers.setMarkers(markers)
     } else {
-      console.log('no markers')
+      lastTradeMarkers = []
       candleMarkers.setMarkers([])
     }
-  } else {
-    console.log('no candleMarkers')
   }
 }
 
