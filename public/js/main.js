@@ -109,13 +109,8 @@ async function refreshStatus () {
         try {
           if (state.selectedStrategyId) localStorage.setItem('selectedStrategyId', state.selectedStrategyId)
           else localStorage.removeItem('selectedStrategyId')
-          localStorage.removeItem('customWindowStart')
-          localStorage.removeItem('customWindowEnd')
         } catch (err) { console.error(err) }
-        state.customWindow = null
-        updateChartFocusLabel()
-        if (state.lastCandles.length) renderChart(state.lastCandles)
-        else fetchCandles().then(renderChart).catch(console.error)
+        // Chart is now global financial chart; strategy selection no longer changes it
       }
     })
 
