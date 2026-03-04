@@ -242,29 +242,14 @@ export function createApp () {
 
       child.on('close', (code) => {
         logger.info('Backtest process exited', { code })
-        const strategies = []
+        let strategies = []
         let totalPnl = null
         try {
-          const lines = stdout.split('\n')
-          const summaryRe = /^(\S+): PnL=([-0-9.]+) USDT, trades=(\d+), wins=(\d+), losses=(\d+), maxDD=([-0-9.]+)/
-          const totalRe = /^Backtest TOTAL PnL: ([-0-9.]+) USDT/
-          for (const line of lines) {
-            const m = line.match(summaryRe)
-            if (m) {
-              strategies.push({
-                id: m[1],
-                realizedPnl: Number(m[2]),
-                trades: Number(m[3]),
-                wins: Number(m[4]),
-                losses: Number(m[5]),
-                maxDrawdown: Number(m[6])
-              })
-              continue
-            }
-            const mt = line.match(totalRe)
-            if (mt) {
-              totalPnl = Number(mt[1])
-            }
+          const resultMatch = stdout.match(/BACKTEST_RESULT:(.+)/)
+          if (resultMatch) {
+            const parsed = JSON.parse(resultMatch[1].trim())
+            strategies = Array.isArray(parsed.strategies) ? parsed.strategies : []
+            totalPnl = typeof parsed.totalPnl === 'number' ? parsed.totalPnl : null
           }
         } catch (err) {
           logger.warn('Failed to parse backtest output', { err: err.message })

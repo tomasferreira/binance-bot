@@ -380,9 +380,11 @@ function renderBacktestStatus (status) {
 
 async function pollBacktestStatus () {
   const s = await fetchBacktestStatus()
-  renderBacktestStatus(s)
+  if (s) renderBacktestStatus(s)
   if (s && (s.status === 'running' || s.status === 'stopping')) {
-    backtestPollTimer = setTimeout(pollBacktestStatus, 5000)
+    backtestPollTimer = setTimeout(pollBacktestStatus, 2000)
+  } else if (!s) {
+    backtestPollTimer = setTimeout(pollBacktestStatus, 2000)
   } else {
     backtestPollTimer = null
   }

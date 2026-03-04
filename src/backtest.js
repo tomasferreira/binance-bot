@@ -297,17 +297,28 @@ async function runBacktest () {
     states[id] = closeSimPosition(states[id], finalPrice, finalTs)
   }
 
-  // Print summary
+  // Print summary (logger for logs; raw line for dashboard parser)
   logger.info('Backtest summary:')
+  const summaryStrategies = []
   let totalPnl = 0
   for (const id of STRATEGY_IDS) {
     const s = states[id]
     totalPnl += s.realizedPnl || 0
+    summaryStrategies.push({
+      id,
+      realizedPnl: s.realizedPnl ?? 0,
+      trades: s.closedTrades ?? 0,
+      wins: s.wins ?? 0,
+      losses: s.losses ?? 0,
+      maxDrawdown: s.maxDrawdown ?? 0
+    })
     logger.info(
       `${id}: PnL=${s.realizedPnl.toFixed(2)} USDT, trades=${s.closedTrades}, wins=${s.wins}, losses=${s.losses}, maxDD=${s.maxDrawdown.toFixed(2)}`
     )
   }
   logger.info(`Backtest TOTAL PnL: ${totalPnl.toFixed(2)} USDT`)
+  // Single line for API to parse (no logger prefix)
+  process.stdout.write('BACKTEST_RESULT:' + JSON.stringify({ strategies: summaryStrategies, totalPnl }) + '\n')
 }
 
 runBacktest().catch(err => {

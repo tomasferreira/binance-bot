@@ -24,6 +24,10 @@ const logFormat = winston.format.printf(({ level, message, timestamp, stack }) =
   return `${timestamp} [${level}] ${stack || message}`
 })
 
+const backtestLogFormat = winston.format.printf(({ level, message, timestamp, stack }) => {
+  return `${timestamp} [${level}] [Backtest] ${stack || message}`
+})
+
 export const logger = winston.createLogger({
   level: resolveLogLevel(),
   format: winston.format.combine(
@@ -49,13 +53,13 @@ export const logger = winston.createLogger({
   ]
 })
 
-/** Logger for backtest runs: same level/format as main logger, but writes to logs/backtest.log */
+/** Logger for backtest runs: same level/format as main logger, but writes to logs/backtest.log with [Backtest] prefix */
 export const backtestLogger = winston.createLogger({
   level: resolveLogLevel(),
   format: winston.format.combine(
     winston.format.timestamp(),
     winston.format.errors({ stack: true }),
-    logFormat
+    backtestLogFormat
   ),
   transports: [
     new winston.transports.Console({
@@ -63,7 +67,7 @@ export const backtestLogger = winston.createLogger({
         winston.format.colorize(),
         winston.format.timestamp(),
         winston.format.errors({ stack: true }),
-        logFormat
+        backtestLogFormat
       )
     }),
     new winston.transports.File({
