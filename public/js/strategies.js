@@ -20,7 +20,13 @@ export function strategyDetailHtml (s) {
   const name = (s.name || s.id).replace(/</g, '&lt;').replace(/>/g, '&gt;')
   const desc = (s.description || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   const posText = s.position?.open ? s.position.side + ' ' + formatAmount(s.position.amount) : 'Flat'
-  const pnlColor = (v) => (v ?? 0) >= 0 ? '#22c55e' : '#ef4444'
+  const pnlColor = (v) => {
+    const n = v ?? 0
+    if (Number.isNaN(n)) return ''
+    if (n > 0) return '#22c55e'
+    if (n < 0) return '#ef4444'
+    return '#eab308' // neutral (zero) = yellow
+  }
   const r = s.realizedPnl ?? 0
   const u = s.unrealizedPnl ?? 0
   const wins = s.wins ?? 0

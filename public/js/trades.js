@@ -157,7 +157,15 @@ export function updateTradesPanel (data, callbacks) {
       const reasonStr = t0.reason || '–'
       const orderPnl = t0.orderPnl != null ? t0.orderPnl : null
       const pnlStr = orderPnl != null ? formatPnl(orderPnl).replace(' USDT', '') : '–'
-      const pnlColor = orderPnl != null ? (orderPnl >= 0 ? '#22c55e' : '#ef4444') : 'inherit'
+      let pnlColor = 'inherit'
+      if (orderPnl != null) {
+        const n = Number(orderPnl)
+        if (!Number.isNaN(n)) {
+          if (n > 0) pnlColor = '#22c55e'
+          else if (n < 0) pnlColor = '#ef4444'
+          else pnlColor = '#eab308' // neutral (zero)
+        }
+      }
       const detailStr = n === 1 ? formatDetail(t0.detail) : (n + ' fills')
       const totalAmount = trades.reduce((s, t) => s + (Number(t.amount) || 0), 0)
       const totalCost = trades.reduce((s, t) => s + (Number(t.cost) || 0), 0)

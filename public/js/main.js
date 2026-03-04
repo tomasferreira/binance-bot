@@ -188,7 +188,13 @@ async function refreshStatus () {
     const aggregateRealized = data.pnl?.realized ?? strategiesForPnl.reduce((a, s) => a + (Number(s.realizedPnl) || 0), 0)
     const aggregateUnrealized = data.pnl?.unrealized ?? strategiesForPnl.reduce((a, s) => a + (Number(s.unrealizedPnl) || 0), 0)
     const aggregateTotal = data.pnl?.total ?? (aggregateRealized + aggregateUnrealized)
-    const pnlColor = (v) => (v ?? 0) >= 0 ? '#22c55e' : '#ef4444'
+    const pnlColor = (v) => {
+      const n = v ?? 0
+      if (Number.isNaN(n)) return ''
+      if (n > 0) return '#22c55e'
+      if (n < 0) return '#ef4444'
+      return '#eab308' // neutral (zero) = yellow
+    }
     document.getElementById('pnl-realized').textContent = formatPnl(aggregateRealized)
     document.getElementById('pnl-realized').style.color = pnlColor(aggregateRealized)
     document.getElementById('pnl-unrealized').textContent = formatPnl(aggregateUnrealized)

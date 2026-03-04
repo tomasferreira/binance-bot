@@ -243,7 +243,13 @@ export async function updateAnalysisPanel (strategies) {
     return ((na != null && !isNaN(na)) ? -1 : 0) - ((nb != null && !isNaN(nb)) ? -1 : 0)
   })
 
-  const pnlColor = (v) => (v ?? 0) >= 0 ? '#22c55e' : '#ef4444'
+  const pnlColor = (v) => {
+    const n = v ?? 0
+    if (Number.isNaN(n)) return ''
+    if (n > 0) return '#22c55e'
+    if (n < 0) return '#ef4444'
+    return '#eab308' // neutral (zero) = yellow
+  }
   const totalTradesInRange = sorted.reduce((sum, s) => sum + (s._metrics?.trades ?? 0), 0)
   const totalTradesEl = document.getElementById('analysis-total-trades')
   if (totalTradesEl) totalTradesEl.textContent = totalTradesInRange.toLocaleString()
