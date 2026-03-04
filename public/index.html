@@ -340,17 +340,17 @@
             <table class="strategy-table analysis-table">
               <thead>
                 <tr>
-                  <th class="numeric" title="Strategy name">Strategy</th>
-                  <th class="numeric" title="Long or Short">Type</th>
-                  <th class="numeric" title="Realized + unrealized PnL over the backtest">Total PnL</th>
-                  <th class="numeric" title="Closed-trade PnL over the backtest">Realized</th>
+                  <th class="sortable numeric" data-sort="id" title="Strategy name">Strategy</th>
+                  <th class="sortable numeric" data-sort="type" title="Long or Short">Type</th>
+                  <th class="sortable numeric" data-sort="totalPnl" title="Realized + unrealized PnL over the backtest">Total PnL</th>
+                  <th class="sortable numeric" data-sort="realizedPnl" title="Closed-trade PnL over the backtest">Realized</th>
                   <th class="numeric" title="Open position PnL (backtests close everything at the end, so this is 0)">Unrealized</th>
-                  <th class="numeric" title="Winning trades / losing trades">W/L</th>
-                  <th class="numeric" title="% of closed trades that were profitable">Win rate %</th>
+                  <th class="sortable numeric" data-sort="wl" title="Winning trades / losing trades">W/L</th>
+                  <th class="sortable numeric" data-sort="winRate" title="% of closed trades that were profitable">Win rate %</th>
                   <th class="numeric" title="Average PnL per winning trade">Avg win</th>
                   <th class="numeric" title="Average PnL per losing trade">Avg loss</th>
                   <th class="numeric" title="Simplified Sharpe over backtest trades">Sharpe</th>
-                  <th class="numeric" title="Largest peak-to-trough drop in equity">Max DD</th>
+                  <th class="sortable numeric" data-sort="maxDrawdown" title="Largest peak-to-trough drop in equity">Max DD</th>
                   <th class="numeric" title="Return ÷ max drawdown (range)">Calmar</th>
                   <th class="numeric" title="Net profit ÷ max drawdown">Recovery</th>
                   <th class="numeric" title="Current drawdown % from peak at end of backtest">Curr DD %</th>
@@ -381,6 +381,10 @@
           <div class="row" style="margin-top:0.5rem;">
             <span class="label">Total PnL</span>
             <span class="value" id="backtest-total-pnl">-</span>
+          </div>
+          <div class="row" style="margin-top:0.25rem;">
+            <span class="label">Data</span>
+            <span class="value" id="backtest-meta">–</span>
           </div>
         </div>
       </div>

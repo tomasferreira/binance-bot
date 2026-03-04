@@ -1,4 +1,7 @@
 let backtestPollTimer = null
+let backtestLastStrategies = []
+let backtestSortBy = 'id'
+let backtestSortDesc = false
 
 async function fetchBacktestStatus () {
   try {
@@ -12,76 +15,16 @@ async function fetchBacktestStatus () {
 
 function renderBacktestStatus (status) {
   const statusEl = document.getElementById('backtest-status-text')
-  const tbody = document.getElementById('backtest-results-tbody')
   const totalEl = document.getElementById('backtest-total-pnl')
-  if (!statusEl || !tbody || !totalEl) return
+  if (!statusEl || !totalEl) return
 
   const s = status || { status: 'idle' }
   statusEl.textContent = `Status: ${s.status}${s.exitCode != null ? ' (code ' + s.exitCode + ')' : ''}`
 
   const summary = s.summary || {}
   const strategies = Array.isArray(summary.strategies) ? summary.strategies : []
-  if (!strategies.length) {
-    tbody.innerHTML = '<tr><td colspan="31">No results yet.</td></tr>'
-  } else {
-    const pnlColor = (v) => {
-      const n = v ?? 0
-      if (Number.isNaN(n)) return ''
-      if (n > 0) return '#22c55e'
-      if (n < 0) return '#ef4444'
-      return '#eab308' // neutral (zero) = yellow
-    }
-    tbody.innerHTML = strategies.map(r => {
-      const id = r.id || '-'
-      const typeTag = id.startsWith('short_') ? 'Short' : 'Long'
-      const realized = Number(r.realizedPnl || 0)
-      const trades = r.trades ?? 0
-      const wins = r.wins ?? 0
-      const losses = r.losses ?? 0
-      const wl = wins + losses > 0 ? `${wins}/${losses}` : '0/0'
-      const winRate = trades > 0 ? (wins / trades) * 100 : null
-      const maxDd = Number(r.maxDrawdown || 0)
-
-      const fmt = (v) => (v == null || Number.isNaN(v)) ? '–' : Number(v).toFixed(2)
-      const pct = (v) => (v == null || Number.isNaN(v)) ? '–' : Number(v).toFixed(1) + '%'
-      const winRateColor = winRate == null ? '' : (winRate >= 50 ? '#22c55e' : '#ef4444')
-      const ddColor = maxDd > 0 ? '#ef4444' : ''
-
-      return '<tr>' +
-        '<td>' + id + '</td>' +
-        '<td class="numeric">' + typeTag + '</td>' +
-        '<td class="numeric" style="color:' + pnlColor(realized) + '">' + fmt(realized) + '</td>' + // total PnL (no unrealized)
-        '<td class="numeric" style="color:' + pnlColor(realized) + '">' + fmt(realized) + '</td>' +
-        '<td class="numeric">0.00</td>' + // unrealized
-        '<td class="numeric">' + wl + '</td>' +
-        '<td class="numeric"' + (winRateColor ? ' style="color:' + winRateColor + '"' : '') + '>' + (winRate != null ? winRate.toFixed(1) : '–') + '</td>' +
-        '<td class="numeric">–</td>' + // avg win
-        '<td class="numeric">–</td>' + // avg loss
-        '<td class="numeric">–</td>' + // sharpe
-        '<td class="numeric"' + (ddColor ? ' style="color:' + ddColor + '"' : '') + '>' + fmt(maxDd) + '</td>' +
-        '<td class="numeric">–</td>' + // calmar
-        '<td class="numeric">–</td>' + // recovery
-        '<td class="numeric">–</td>' + // curr DD %
-        '<td class="numeric">' + trades + '</td>' +
-        '<td class="numeric">–</td>' + // trades (hist)
-        '<td class="numeric">–</td>' + // fees
-        '<td class="numeric">–</td>' + // exposure
-        '<td class="numeric">–</td>' + // avg duration
-        '<td class="numeric">–</td>' + // streak
-        '<td class="numeric">–</td>' + // max streak
-        '<td class="numeric">–</td>' + // avg hold
-        '<td class="numeric">–</td>' + // cost/trade
-        '<td class="numeric">–</td>' + // time in profit %
-        '<td class="numeric">–</td>' + // profit factor
-        '<td class="numeric">–</td>' + // expectancy
-        '<td class="numeric">–</td>' + // max win
-        '<td class="numeric">–</td>' + // max loss
-        '<td class="numeric">–</td>' + // sortino
-        '<td class="numeric">–</td>' + // trades/day
-        '<td class="numeric">–</td>' + // last trade
-        '</tr>'
-    }).join('')
-  }
+  backtestLastStrategies = strategies
+  renderBacktestTable()
   const total = summary.totalPnl
   if (typeof total === 'number' && !isNaN(total)) {
     totalEl.textContent = total.toFixed(2) + ' USDT'
@@ -90,6 +33,127 @@ function renderBacktestStatus (status) {
     totalEl.textContent = '-'
     totalEl.style.color = ''
   }
+  const metaEl = document.getElementById('backtest-meta')
+  if (metaEl) {
+    const meta = summary.meta || {}
+    const tf = meta.timeframe || '–'
+    const candles = typeof meta.candles === 'number' ? meta.candles : null
+    if (tf && candles != null) {
+      metaEl.textContent = `${tf}, ${candles} candles`
+    } else if (tf) {
+      metaEl.textContent = tf
+    } else {
+      metaEl.textContent = '–'
+    }
+  }
+}
+
+function renderBacktestTable () {
+  const tbody = document.getElementById('backtest-results-tbody')
+  if (!tbody) return
+  const strategies = Array.isArray(backtestLastStrategies) ? backtestLastStrategies : []
+  if (!strategies.length) {
+    tbody.innerHTML = '<tr><td colspan="31">No results yet.</td></tr>'
+    return
+  }
+
+  const pnlColor = (v) => {
+    const n = v ?? 0
+    if (Number.isNaN(n)) return ''
+    if (n > 0) return '#22c55e'
+    if (n < 0) return '#ef4444'
+    return '#eab308' // neutral (zero) = yellow
+  }
+
+  const enriched = strategies.map(r => {
+    const id = r.id || '-'
+    const typeTag = id.startsWith('short_') ? 'Short' : 'Long'
+    const realized = Number(r.realizedPnl || 0)
+    const trades = r.trades ?? 0
+    const wins = r.wins ?? 0
+    const losses = r.losses ?? 0
+    const wl = wins + losses > 0 ? `${wins}/${losses}` : '0/0'
+    const winRate = trades > 0 ? (wins / trades) * 100 : null
+    const maxDd = Number(r.maxDrawdown || 0)
+    return { raw: r, id, typeTag, realized, trades, wins, losses, wl, winRate, maxDd }
+  })
+
+  const sorted = [...enriched].sort((a, b) => {
+    const key = backtestSortBy
+    let va
+    let vb
+    if (key === 'id') {
+      va = a.id
+      vb = b.id
+      return backtestSortDesc ? vb.localeCompare(va) : va.localeCompare(vb)
+    }
+    if (key === 'type') {
+      va = a.typeTag
+      vb = b.typeTag
+      return backtestSortDesc ? vb.localeCompare(va) : va.localeCompare(vb)
+    }
+    if (key === 'totalPnl' || key === 'realizedPnl') {
+      va = a.realized
+      vb = b.realized
+    } else if (key === 'winRate') {
+      va = a.winRate ?? -Infinity
+      vb = b.winRate ?? -Infinity
+    } else if (key === 'trades') {
+      va = a.trades
+      vb = b.trades
+    } else if (key === 'maxDrawdown') {
+      va = a.maxDd
+      vb = b.maxDd
+    } else {
+      va = 0
+      vb = 0
+    }
+    const na = Number(va)
+    const nb = Number(vb)
+    if (Number.isNaN(na) && Number.isNaN(nb)) return 0
+    if (Number.isNaN(na)) return 1
+    if (Number.isNaN(nb)) return -1
+    return backtestSortDesc ? nb - na : na - nb
+  })
+
+  const fmt = (v) => (v == null || Number.isNaN(v)) ? '–' : Number(v).toFixed(2)
+
+  tbody.innerHTML = sorted.map(s => {
+    const { id, typeTag, realized, trades, wl, winRate, maxDd } = s
+    const winRateColor = winRate == null ? '' : (winRate >= 50 ? '#22c55e' : '#ef4444')
+    const ddColor = maxDd > 0 ? '#ef4444' : ''
+    return '<tr>' +
+      '<td>' + id + '</td>' +
+      '<td class="numeric">' + typeTag + '</td>' +
+      '<td class="numeric" style="color:' + pnlColor(realized) + '">' + fmt(realized) + '</td>' +
+      '<td class="numeric" style="color:' + pnlColor(realized) + '">' + fmt(realized) + '</td>' +
+      '<td class="numeric">0.00</td>' +
+      '<td class="numeric">' + wl + '</td>' +
+      '<td class="numeric"' + (winRateColor ? ' style="color:' + winRateColor + '"' : '') + '>' + (winRate != null ? winRate.toFixed(1) : '–') + '</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric"' + (ddColor ? ' style="color:' + ddColor + '"' : '') + '>' + fmt(maxDd) + '</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric">' + trades + '</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric">–</td>' +
+      '<td class="numeric">–</td>' +
+      '</tr>'
+  }).join('')
 }
 
 async function pollBacktestStatus () {
@@ -165,6 +229,23 @@ export function initBacktestControls () {
   if (backtestStartBtn) backtestStartBtn.addEventListener('click', startBacktest)
   const backtestStopBtn = document.getElementById('backtest-stop-btn')
   if (backtestStopBtn) backtestStopBtn.addEventListener('click', stopBacktest)
+  const sortableHeaders = document.querySelectorAll('#panel-backtest .analysis-table .sortable')
+  sortableHeaders.forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.getAttribute('data-sort')
+      if (!key) return
+      if (backtestSortBy === key) backtestSortDesc = !backtestSortDesc
+      else {
+        backtestSortBy = key
+        backtestSortDesc = key === 'id' || key === 'type' ? false : true
+      }
+      document.querySelectorAll('#panel-backtest .analysis-table .sortable').forEach(h => {
+        h.classList.remove('sorted-asc', 'sorted-desc')
+        if (h.getAttribute('data-sort') === backtestSortBy) h.classList.add(backtestSortDesc ? 'sorted-desc' : 'sorted-asc')
+      })
+      renderBacktestTable()
+    })
+  })
   // Refresh status if a run already exists
   pollBacktestStatus().catch(() => {})
 }

@@ -317,8 +317,14 @@ async function runBacktest () {
     )
   }
   logger.info(`Backtest TOTAL PnL: ${totalPnl.toFixed(2)} USDT`)
+  const meta = {
+    timeframe,
+    candles: ohlcv.length,
+    startTs: ohlcv[0]?.[0] ?? null,
+    endTs: ohlcv[ohlcv.length - 1]?.[0] ?? null
+  }
   // Single line for API to parse (no logger prefix)
-  process.stdout.write('BACKTEST_RESULT:' + JSON.stringify({ strategies: summaryStrategies, totalPnl }) + '\n')
+  process.stdout.write('BACKTEST_RESULT:' + JSON.stringify({ strategies: summaryStrategies, totalPnl, meta }) + '\n')
 }
 
 runBacktest().catch(err => {

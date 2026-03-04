@@ -244,12 +244,14 @@ export function createApp () {
         logger.info('Backtest process exited', { code })
         let strategies = []
         let totalPnl = null
+        let meta = null
         try {
           const resultMatch = stdout.match(/BACKTEST_RESULT:(.+)/)
           if (resultMatch) {
             const parsed = JSON.parse(resultMatch[1].trim())
             strategies = Array.isArray(parsed.strategies) ? parsed.strategies : []
             totalPnl = typeof parsed.totalPnl === 'number' ? parsed.totalPnl : null
+            meta = parsed.meta || null
           }
         } catch (err) {
           logger.warn('Failed to parse backtest output', { err: err.message })
@@ -259,7 +261,7 @@ export function createApp () {
           ...(getCurrentBacktest() || {}),
           status: code === 0 ? 'finished' : 'failed',
           exitCode: code,
-          summary: { strategies, totalPnl },
+          summary: { strategies, totalPnl, meta },
           stdout: stdout.slice(0, 4000),
           stderr: stderr.slice(0, 4000),
           finishedAt: new Date().toISOString()
