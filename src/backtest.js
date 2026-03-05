@@ -355,25 +355,25 @@ async function runBacktest () {
     })
   }
 
-  // Pre-fetch regime candles and compute initial regime (optional; best-effort).
-  // Use the same parameters as live trading (regimeTimeframe, regimeCandles).
-  let regime = null
+  // Regime: compute on the fly from last N bars before each candle so the same calendar time
+  // always gets the same regime regardless of backtest length (22d vs 23d etc).
+  const regimeComputeWindow = Math.max(30, regimeCandles ?? 200) // same as live
+  let regimeOhlcv = []
+  let regimePeriodMs = 0
   if (regimeFilterEnabled) {
     try {
-      const source = getMarketDataSource()
-      const regimeExchange = source === 'testnet' ? getTradingExchange() : getDataExchange()
       const regimeTf = regimeTimeframe || '1h'
-      const regimeLimit = Math.min(regimeCandles || 300, 1000)
-      const regimeOhlcv = await regimeExchange.fetchOHLCV(symbol, regimeTf, undefined, regimeLimit)
-      regime = computeRegime(regimeOhlcv) || null
+      regimePeriodMs = timeframeToMs(regimeTf)
+      const endMs = ohlcv.length ? ohlcv[ohlcv.length - 1][0] : sinceMs
+      const sinceRegime = sinceMs - regimeComputeWindow * regimePeriodMs
+      const regimeBarsNeeded =
+        Math.ceil((endMs - sinceRegime) / regimePeriodMs) + 10
+      const regimeLimit = Math.min(Math.max(regimeBarsNeeded, 100), 2000)
+      regimeOhlcv = await fetchHistoricalCandles(symbol, regimeTf, sinceRegime, regimeLimit)
+      logger.info(`Backtest: regime data ${regimeOhlcv.length} bars (${regimeComputeWindow} used per candle)`)
     } catch (err) {
-      logger.warn('Backtest: failed to compute initial regime', { err: err.message })
+      logger.warn('Backtest: failed to fetch regime data', { err: err.message })
     }
-  }
-
-  const context = {
-    regime,
-    regimeFilterEnabled
   }
 
   // Replay candles one by one
@@ -381,6 +381,31 @@ async function runBacktest () {
     const slice = ohlcv.slice(0, i + 1)
     const [ts, , high, low, close] = slice[slice.length - 1]
     const lastClose = close
+
+    // Regime in effect at ts: use exactly the 300 bars ending at T = last regime bar before ts,
+    // keyed by time so 22d vs 23d get the same window for the same ts.
+    let regime = null
+    if (regimeFilterEnabled && regimeOhlcv.length >= regimeComputeWindow) {
+      const T = Math.floor((ts - 1) / regimePeriodMs) * regimePeriodMs // last regime bar open time before ts
+      const windowStart = T - (regimeComputeWindow - 1) * regimePeriodMs
+      let lo = 0
+      let hi = regimeOhlcv.length - 1
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1
+        if (regimeOhlcv[mid][0] < windowStart) lo = mid + 1
+        else hi = mid
+      }
+      const k = lo // first bar >= windowStart
+      const lastBarTime = regimeOhlcv[k + regimeComputeWindow - 1]?.[0]
+      if (k + regimeComputeWindow <= regimeOhlcv.length && lastBarTime != null && lastBarTime <= T) {
+        const r = computeRegime(regimeOhlcv.slice(k, k + regimeComputeWindow))
+        if (r) regime = r
+      }
+    }
+    const context = {
+      regime,
+      regimeFilterEnabled
+    }
 
     for (const id of STRATEGY_IDS) {
       let state = states[id]
