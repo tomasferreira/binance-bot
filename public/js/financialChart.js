@@ -87,8 +87,8 @@ export function initFinancialChart () {
     upColor: '#22c55e',
     downColor: '#ef4444',
     borderVisible: false,
-    wickUpColor: '#22c55e',
-    wickDownColor: '#ef4444',
+    wickUpColor: 'rgba(34, 197, 94, 0.35)',
+    wickDownColor: 'rgba(239, 68, 68, 0.35)',
     priceLineVisible: false
   })
 
