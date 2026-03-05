@@ -88,7 +88,8 @@ export function initFinancialChart () {
     downColor: '#ef4444',
     borderVisible: false,
     wickUpColor: '#22c55e',
-    wickDownColor: '#ef4444'
+    wickDownColor: '#ef4444',
+    priceLineVisible: false
   })
 
   if (typeof createSeriesMarkers === 'function') {
@@ -111,17 +112,20 @@ export function initFinancialChart () {
 
   ma7Series = priceChart.addSeries(LineSeries, {
     color: '#eab308', // MA(7) - yellow
-    lineWidth: 2
+    lineWidth: 2,
+    priceLineVisible: false
   })
 
   ma25Series = priceChart.addSeries(LineSeries, {
     color: '#6366f1', // MA(25) - indigo
-    lineWidth: 2
+    lineWidth: 2,
+    priceLineVisible: false
   })
 
   ma99Series = priceChart.addSeries(LineSeries, {
     color: '#f97316', // MA(99) - orange
-    lineWidth: 2
+    lineWidth: 2,
+    priceLineVisible: false
   })
 
   // Volume chart (separate panel)
@@ -153,7 +157,8 @@ export function initFinancialChart () {
     priceScaleId: 'volume',
     priceFormat: { type: 'volume' },
     scaleMargins: { top: 0.05, bottom: 0.05 },
-    color: '#1d4ed8'
+    color: '#1d4ed8',
+    priceLineVisible: false
   })
 
   // Marker tooltip on hover
