@@ -205,8 +205,10 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
   const closedTradesHistory = Array.isArray(state.closedTradesHistory) ? state.closedTradesHistory : []
   const historyEntry = { timestamp: new Date().toISOString(), pnl }
   if (exitDetail?.trigger && exitDetail.triggerPrice != null && exitDetail.slippageAmount != null) {
-    const runBy = (exitDetail.trigger === 'stop_loss' && (side === 'long' ? exitDetail.slippageAmount < 0 : exitDetail.slippageAmount > 0)) ||
-      (exitDetail.trigger === 'take_profit' && side === 'short' && exitDetail.slippageAmount < 0)
+    const runBy = typeof exitDetail.runBy === 'boolean'
+      ? exitDetail.runBy
+      : (exitDetail.trigger === 'stop_loss' && (side === 'long' ? exitDetail.slippageAmount < 0 : exitDetail.slippageAmount > 0)) ||
+        (exitDetail.trigger === 'take_profit' && side === 'short' && exitDetail.slippageAmount < 0)
     historyEntry.exitTrigger = exitDetail.trigger
     historyEntry.triggerPrice = exitDetail.triggerPrice
     historyEntry.slippageAmount = exitDetail.slippageAmount
@@ -257,12 +259,15 @@ export async function maybeClosePosition (state, marketPrice, strategyId = null)
   const closeReason = shouldStop ? 'Stop loss' : 'Take profit'
   const triggerPrice = shouldStop ? stopLoss : takeProfit
   const slippageAmount = marketPrice - triggerPrice
+  const runBy = (shouldStop && (position.side === 'long' ? slippageAmount < 0 : slippageAmount > 0)) ||
+    (!shouldStop && position.side === 'short' && slippageAmount < 0)
   const slTpDetail = {
     marketPrice,
     entryPrice: position.entryPrice,
     trigger: shouldStop ? 'stop_loss' : 'take_profit',
     triggerPrice,
-    slippageAmount
+    slippageAmount,
+    runBy
   }
 
   return closePositionNow(state, marketPrice, strategyId, closeReason, slTpDetail)

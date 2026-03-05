@@ -115,20 +115,29 @@ function formatDetail (detail) {
 }
 
 /** Format SL/TP exit cell: intended → observed, run-by when applicable. */
-function formatExitSlTp (side, detail) {
-  if (!detail || typeof detail !== 'object' || !detail.trigger) return '–'
-  const trigger = detail.trigger
-  const triggerPrice = detail.triggerPrice
-  const marketPrice = detail.marketPrice
-  const slippageAmount = detail.slippageAmount
-  if (triggerPrice == null || marketPrice == null) return trigger === 'stop_loss' ? 'SL' : 'TP'
-  const runBy = (trigger === 'stop_loss' && ((side === 'sell' && slippageAmount < 0) || (side === 'buy' && slippageAmount > 0))) ||
-    (trigger === 'take_profit' && side === 'buy' && slippageAmount < 0)
-  const label = trigger === 'stop_loss' ? 'SL' : 'TP'
-  const intended = formatPrice(triggerPrice)
-  const observed = formatPrice(marketPrice)
-  const runByTag = runBy ? ' <span class="run-by-tag" title="Closed worse than intended">run-by</span>' : ''
-  return label + ' ' + intended + '→' + observed + runByTag
+function formatExitSlTp (side, detail, reason) {
+  if (detail && typeof detail === 'object' && detail.trigger) {
+    const trigger = detail.trigger
+    const triggerPrice = detail.triggerPrice
+    const marketPrice = detail.marketPrice
+    const slippageAmount = detail.slippageAmount
+    const runBy = detail.runBy === true || (triggerPrice != null && marketPrice != null && (
+      (trigger === 'stop_loss' && ((side === 'sell' && slippageAmount < 0) || (side === 'buy' && slippageAmount > 0))) ||
+      (trigger === 'take_profit' && side === 'buy' && slippageAmount < 0)
+    ))
+    const label = trigger === 'stop_loss' ? 'SL' : 'TP'
+    if (triggerPrice != null && marketPrice != null) {
+      const intended = formatPrice(triggerPrice)
+      const observed = formatPrice(marketPrice)
+      const runByTag = runBy ? ' <span class="run-by-tag" title="Closed worse than intended">run-by</span>' : ''
+      return label + ' ' + intended + '→' + observed + runByTag
+    }
+    return label + (runBy ? ' <span class="run-by-tag" title="Closed worse than intended">run-by</span>' : '')
+  }
+  if (reason === 'Stop loss' || reason === 'Take profit') {
+    return reason === 'Stop loss' ? 'SL (no detail)' : 'TP (no detail)'
+  }
+  return '–'
 }
 
 /**
@@ -183,7 +192,7 @@ export function updateTradesPanel (data, callbacks) {
           else pnlColor = '#eab308' // neutral (zero)
         }
       }
-      const exitSlTpStr = formatExitSlTp(t0.side, t0.detail)
+      const exitSlTpStr = formatExitSlTp(t0.side, t0.detail, t0.reason)
       const detailStr = n === 1 ? formatDetail(t0.detail) : (n + ' fills')
       const totalAmount = trades.reduce((s, t) => s + (Number(t.amount) || 0), 0)
       const totalCost = trades.reduce((s, t) => s + (Number(t.cost) || 0), 0)
