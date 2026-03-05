@@ -184,7 +184,7 @@ export function createApp () {
   // Run a one-off backtest in a separate Node process.
   app.post('/api/backtest', (req, res) => {
     try {
-      const { days, timeframe, regime, intrabar, risk, sl, tp } = req.body || {}
+      const { days, timeframe, regime, intrabar, risk, sl, tp, slippage } = req.body || {}
       if (getCurrentBacktest() && getCurrentBacktest().status === 'running') {
         return res.status(409).json({ error: 'Backtest already running' })
       }
@@ -214,6 +214,9 @@ export function createApp () {
       }
       if (typeof tp === 'number' && Number.isFinite(tp) && tp > 0) {
         args.push(`--tp=${tp}`)
+      }
+      if (typeof slippage === 'number' && Number.isFinite(slippage) && slippage >= 0 && slippage <= 0.01) {
+        args.push(`--slippage=${slippage}`)
       }
 
       logger.info('HTTP POST /api/backtest spawn', { args })

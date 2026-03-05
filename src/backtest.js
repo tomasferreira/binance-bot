@@ -346,6 +346,11 @@ async function runBacktest () {
     intrabarFlag != null
       ? intrabarFlag.split('=')[1] !== 'false' && intrabarFlag.split('=')[1] !== '0'
       : true
+  const slippageArg = Number(argv.find(a => a.startsWith('--slippage='))?.split('=')[1])
+  const slippagePct = Number.isFinite(slippageArg) && slippageArg >= 0 && slippageArg <= 0.01
+    ? slippageArg
+    : 0
+  if (slippagePct > 0) logger.info(`Backtest: slippage ${(slippagePct * 100).toFixed(2)}%`)
   const sinceMs = Date.now() - daysBack * 24 * 60 * 60 * 1000
   const periodMs = timeframeToMs(timeframe)
   const requestedCandles = Math.min(
@@ -436,34 +441,43 @@ async function runBacktest () {
           const hitTpShort = side === 'short' && low <= (pos.takeProfit ?? -Infinity)
 
           if (hitSlLong || hitTpLong || hitSlShort || hitTpShort) {
-            // Close at SL/TP price (worst-case within bar)
-            const exitPrice = hitSlLong
+            // Close at SL/TP price (worst-case within bar), then apply slippage (we get less when selling, pay more when buying)
+            let exitPrice = hitSlLong
               ? pos.stopLoss
               : hitTpLong
                 ? pos.takeProfit
                 : hitSlShort
                   ? pos.stopLoss
                   : pos.takeProfit
+            if (slippagePct > 0) {
+              exitPrice = side === 'long' ? exitPrice * (1 - slippagePct) : exitPrice * (1 + slippagePct)
+            }
             state = closeSimPosition(state, exitPrice, ts)
           } else {
             const wantsExitLong = side === 'long' && action === 'exit-long'
             const wantsExitShort = side === 'short' && action === 'exit-short'
             if (wantsExitLong || wantsExitShort) {
-              state = closeSimPosition(state, lastClose, ts)
+              let exitPrice = lastClose
+              if (slippagePct > 0) exitPrice = side === 'long' ? lastClose * (1 - slippagePct) : lastClose * (1 + slippagePct)
+              state = closeSimPosition(state, exitPrice, ts)
             }
           }
         } else {
           const wantsExitLong = side === 'long' && action === 'exit-long'
           const wantsExitShort = side === 'short' && action === 'exit-short'
           if (wantsExitLong || wantsExitShort) {
-            state = closeSimPosition(state, lastClose, ts)
+            let exitPrice = lastClose
+            if (slippagePct > 0) exitPrice = side === 'long' ? lastClose * (1 - slippagePct) : lastClose * (1 + slippagePct)
+            state = closeSimPosition(state, exitPrice, ts)
           }
         }
       } else {
         if (action === 'enter-long') {
-          state = openSimPosition(state, 'long', lastClose, ts, null)
+          const entryPrice = slippagePct > 0 ? lastClose * (1 + slippagePct) : lastClose
+          state = openSimPosition(state, 'long', entryPrice, ts, null)
         } else if (action === 'enter-short') {
-          state = openSimPosition(state, 'short', lastClose, ts, null)
+          const entryPrice = slippagePct > 0 ? lastClose * (1 - slippagePct) : lastClose
+          state = openSimPosition(state, 'short', entryPrice, ts, null)
         }
       }
 
@@ -497,6 +511,7 @@ async function runBacktest () {
     timeframe,
     candles: ohlcv.length,
     totalTrades,
+    slippagePct: slippagePct > 0 ? slippagePct : null,
     startTs: ohlcv[0]?.[0] ?? null,
     endTs: ohlcv[ohlcv.length - 1]?.[0] ?? null,
     durationMs: Date.now() - startedAtMs

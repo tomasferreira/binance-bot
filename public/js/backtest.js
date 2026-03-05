@@ -47,11 +47,13 @@ function renderBacktestStatus (status) {
     const tf = meta.timeframe || '–'
     const candles = typeof meta.candles === 'number' ? meta.candles : null
     const totalTrades = typeof meta.totalTrades === 'number' ? meta.totalTrades : null
+    const slippagePct = typeof meta.slippagePct === 'number' && meta.slippagePct > 0 ? meta.slippagePct : null
     const durationMs = typeof meta.durationMs === 'number' ? meta.durationMs : null
     const parts = []
     if (tf) parts.push(tf)
     if (candles != null) parts.push(`${candles} candles`)
     if (totalTrades != null) parts.push(`${totalTrades} trades`)
+    if (slippagePct != null) parts.push((slippagePct * 100).toFixed(2) + '% slippage')
     if (durationMs != null) {
       const seconds = durationMs / 1000
       const formatted = seconds < 10
@@ -277,12 +279,16 @@ async function startBacktest () {
   const tpVal = parseFloat(document.getElementById('backtest-tp').value)
   const regime = document.getElementById('backtest-regime').checked
   const intrabar = document.getElementById('backtest-intrabar').checked
+  const slippageInput = document.getElementById('backtest-slippage')
+  const slippageVal = slippageInput != null ? parseFloat(slippageInput.value) : NaN
+  const slippage = Number.isFinite(slippageVal) && slippageVal >= 0 && slippageVal <= 1 ? slippageVal / 100 : undefined
 
   const body = {
     days: Number.isFinite(daysVal) && daysVal > 0 ? daysVal : undefined,
     timeframe: timeframeVal,
     regime,
     intrabar,
+    slippage,
     risk: Number.isFinite(riskVal) && riskVal > 0 ? riskVal : undefined,
     sl: Number.isFinite(slVal) && slVal > 0 ? slVal : undefined,
     tp: Number.isFinite(tpVal) && tpVal > 0 ? tpVal : undefined
