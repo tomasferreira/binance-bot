@@ -220,6 +220,11 @@ async function refreshStatus () {
     document.getElementById('pnl-realized').style.color = pnlColor(aggregateRealized)
     document.getElementById('pnl-unrealized').textContent = formatPnl(aggregateUnrealized)
     document.getElementById('pnl-unrealized').style.color = pnlColor(aggregateUnrealized)
+    const avgSlipEl = document.getElementById('pnl-avg-slippage')
+    if (avgSlipEl) {
+      const avgSlip = typeof data.pnl?.avgSlippagePct === 'number' ? data.pnl.avgSlippagePct : null
+      avgSlipEl.textContent = avgSlip != null ? avgSlip.toFixed(3) + '%' : '–'
+    }
     const pnlUnrealizedTopEl = document.getElementById('pnl-unrealized-top')
     if (pnlUnrealizedTopEl) {
       pnlUnrealizedTopEl.textContent = formatPnl(aggregateUnrealized)

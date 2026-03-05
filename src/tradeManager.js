@@ -90,18 +90,22 @@ async function openPosition (state, marketPrice, side, strategyId, entryDetail, 
     : await exchange.createMarketSellOrder(symbol, amount)
   logger.info(`Market ${side === 'long' ? 'BUY' : 'SELL'} order placed: id=${order.id}, status=${order.status}`)
 
+  const entryFillPrice = typeof order?.average === 'number' && order.average > 0
+    ? order.average
+    : (typeof order?.price === 'number' && order.price > 0 ? order.price : marketPrice)
+
   const recordReason = strategyId === 'manual' ? 'Manual' : (side === 'short' ? 'Short entry' : 'Entry')
   if (strategyId) recordOrderStrategy(order.id, strategyId, recordReason, entryDetail ?? null)
 
   const newPosition = {
     side,
     symbol,
-    entryPrice: marketPrice,
+    entryPrice: entryFillPrice,
     amount,
     stopLoss: stopLossPrice,
     takeProfit: takeProfitPrice,
     openedAt: new Date().toISOString(),
-    lastPrice: marketPrice
+    lastPrice: entryFillPrice
   }
 
   const positionsOpened = (state.positionsOpened ?? 0) + 1
@@ -141,16 +145,6 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
   logger.info(
     `Manual CLOSE ${side.toUpperCase()} position at marketPrice=${marketPrice}, entry=${position.entryPrice}, amount=${amount}`
   )
-  if (exitDetail?.trigger === 'stop_loss' || exitDetail?.trigger === 'take_profit') {
-    const { triggerPrice, slippageAmount } = exitDetail
-    if (triggerPrice != null && slippageAmount != null) {
-      const runBy = (exitDetail.trigger === 'stop_loss' && (side === 'long' ? slippageAmount < 0 : slippageAmount > 0)) ||
-        (exitDetail.trigger === 'take_profit' && (side === 'short' ? slippageAmount < 0 : false))
-      logger.info(
-        `SL/TP exit: intended=${triggerPrice}, observed=${marketPrice}, slippage=${slippageAmount.toFixed(2)} ${runBy ? '(run-by)' : ''}`
-      )
-    }
-  }
 
   if (orderSide === 'sell') {
     logger.debug('exchange.createMarketSellOrder request (close)', { symbol, amount })
@@ -163,9 +157,31 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
   logger.debug('exchange market order response (close)', { orderSide, order })
   logger.info(`Market ${orderSide.toUpperCase()} order placed: id=${order.id}, status=${order.status}`)
 
+  const exitFillPrice = typeof order?.average === 'number' && order.average > 0
+    ? order.average
+    : (typeof order?.price === 'number' && order.price > 0 ? order.price : marketPrice)
+
+  if (exitDetail?.trigger === 'stop_loss' || exitDetail?.trigger === 'take_profit') {
+    const triggerPrice = exitDetail.triggerPrice
+    if (triggerPrice != null) {
+      const slippageAmount = exitFillPrice - triggerPrice
+      const runBy = (exitDetail.trigger === 'stop_loss' && (side === 'long' ? slippageAmount < 0 : slippageAmount > 0)) ||
+        (exitDetail.trigger === 'take_profit' && side === 'short' && slippageAmount < 0)
+      logger.info(
+        `SL/TP exit: intended=${triggerPrice}, observed=${exitFillPrice}, slippage=${slippageAmount.toFixed(2)} ${runBy ? '(run-by)' : ''}`
+      )
+      exitDetail = {
+        ...exitDetail,
+        fillPrice: exitFillPrice,
+        slippageAmount,
+        runBy
+      }
+    }
+  }
+
   const pnl = side === 'short'
-    ? (position.entryPrice - marketPrice) * amount
-    : (marketPrice - position.entryPrice) * amount
+    ? (position.entryPrice - exitFillPrice) * amount
+    : (exitFillPrice - position.entryPrice) * amount
   if (strategyId) recordOrderStrategy(order.id, strategyId, reason, exitDetail ?? null, pnl)
   const realizedPnl = (state.realizedPnl ?? 0) + pnl
   logger.info(`Closed position PnL: ${pnl.toFixed(2)} USDT, realized total: ${realizedPnl.toFixed(2)}`)
@@ -258,16 +274,9 @@ export async function maybeClosePosition (state, marketPrice, strategyId = null)
 
   const closeReason = shouldStop ? 'Stop loss' : 'Take profit'
   const triggerPrice = shouldStop ? stopLoss : takeProfit
-  const slippageAmount = marketPrice - triggerPrice
-  const runBy = (shouldStop && (position.side === 'long' ? slippageAmount < 0 : slippageAmount > 0)) ||
-    (!shouldStop && position.side === 'short' && slippageAmount < 0)
   const slTpDetail = {
-    marketPrice,
-    entryPrice: position.entryPrice,
     trigger: shouldStop ? 'stop_loss' : 'take_profit',
-    triggerPrice,
-    slippageAmount,
-    runBy
+    triggerPrice
   }
 
   return closePositionNow(state, marketPrice, strategyId, closeReason, slTpDetail)
