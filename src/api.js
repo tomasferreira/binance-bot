@@ -184,7 +184,7 @@ export function createApp () {
   // Run a one-off backtest in a separate Node process.
   app.post('/api/backtest', (req, res) => {
     try {
-      const { days, regime, intrabar, risk, sl, tp } = req.body || {}
+      const { days, timeframe, regime, intrabar, risk, sl, tp } = req.body || {}
       if (getCurrentBacktest() && getCurrentBacktest().status === 'running') {
         return res.status(409).json({ error: 'Backtest already running' })
       }
@@ -196,6 +196,9 @@ export function createApp () {
       }
       if (typeof days === 'number' && Number.isFinite(days) && days > 0) {
         args.push(`--days=${days}`)
+      }
+      if (typeof timeframe === 'string' && /^\d+(m|h|d)$/.test(timeframe)) {
+        args.push(`--timeframe=${timeframe}`)
       }
       if (typeof regime === 'boolean') {
         args.push(`--regime=${regime ? 'true' : 'false'}`)

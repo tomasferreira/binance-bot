@@ -46,10 +46,12 @@ function renderBacktestStatus (status) {
     const meta = summary.meta || {}
     const tf = meta.timeframe || '–'
     const candles = typeof meta.candles === 'number' ? meta.candles : null
+    const totalTrades = typeof meta.totalTrades === 'number' ? meta.totalTrades : null
     const durationMs = typeof meta.durationMs === 'number' ? meta.durationMs : null
     const parts = []
     if (tf) parts.push(tf)
     if (candles != null) parts.push(`${candles} candles`)
+    if (totalTrades != null) parts.push(`${totalTrades} trades`)
     if (durationMs != null) {
       const seconds = durationMs / 1000
       const formatted = seconds < 10
@@ -268,6 +270,8 @@ async function startBacktest () {
   const statusLine = document.getElementById('backtest-status-text')
   if (statusLine) statusLine.textContent = 'Starting backtest...'
   const daysVal = parseInt(document.getElementById('backtest-days').value, 10)
+  const timeframeEl = document.getElementById('backtest-timeframe')
+  const timeframeVal = timeframeEl ? timeframeEl.value : '15m'
   const riskVal = parseFloat(document.getElementById('backtest-risk').value)
   const slVal = parseFloat(document.getElementById('backtest-sl').value)
   const tpVal = parseFloat(document.getElementById('backtest-tp').value)
@@ -276,6 +280,7 @@ async function startBacktest () {
 
   const body = {
     days: Number.isFinite(daysVal) && daysVal > 0 ? daysVal : undefined,
+    timeframe: timeframeVal,
     regime,
     intrabar,
     risk: Number.isFinite(riskVal) && riskVal > 0 ? riskVal : undefined,

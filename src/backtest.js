@@ -323,7 +323,14 @@ async function runBacktest () {
   }
   logger.info(`Backtest: market data source ${getMarketDataSource()}`)
 
-  const { symbol, timeframe, regimeTimeframe, regimeCandles } = config.trading
+  const { symbol, regimeTimeframe, regimeCandles } = config.trading
+  let timeframe = config.trading.timeframe
+  const timeframeArg = argv.find(a => a.startsWith('--timeframe='))?.split('=')[1]
+  if (timeframeArg && /^\d+(m|h|d)$/.test(timeframeArg)) {
+    timeframe = timeframeArg
+  }
+  logger.info(`Backtest: timeframe ${timeframe}`)
+
   const startedAtMs = Date.now()
   const daysBack = Number(argv.find(a => a.startsWith('--days='))?.split('=')[1] || 7)
   const riskOverride = Number(argv.find(a => a.startsWith('--risk='))?.split('=')[1] || NaN)
@@ -485,9 +492,11 @@ async function runBacktest () {
     )
   }
   logger.info(`Backtest TOTAL PnL: ${totalPnl.toFixed(2)} USDT`)
+  const totalTrades = summaryStrategies.reduce((acc, s) => acc + (s.trades ?? 0), 0)
   const meta = {
     timeframe,
     candles: ohlcv.length,
+    totalTrades,
     startTs: ohlcv[0]?.[0] ?? null,
     endTs: ohlcv[ohlcv.length - 1]?.[0] ?? null,
     durationMs: Date.now() - startedAtMs
