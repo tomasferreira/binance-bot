@@ -142,6 +142,11 @@ function computeExtraMetrics (entries, s) {
   const streaks = streaksFromHistory(entries)
   const timeInProfitPct = timeInProfitPctFromHistory(entries)
 
+  const runByEntries = entries.filter(e => e.runBy === true)
+  const runByCount = runByEntries.length
+  const totalSlippageRunBy = runByEntries.reduce((sum, e) => sum + (Number(e.slippageAmount) || 0), 0)
+  const slTpExits = entries.filter(e => e.exitTrigger === 'stop_loss' || e.exitTrigger === 'take_profit').length
+
   return {
     profitFactor,
     expectancy,
@@ -155,7 +160,10 @@ function computeExtraMetrics (entries, s) {
     recoveryFactor,
     maxDrawdownInRange: maxDdInRange,
     ...streaks,
-    timeInProfitPct
+    timeInProfitPct,
+    runByCount,
+    totalSlippageRunBy: runByCount ? totalSlippageRunBy : null,
+    slTpExits
   }
 }
 
@@ -218,13 +226,15 @@ export async function updateAnalysisPanel (strategies) {
       _consecutiveLosses: extra.consecutiveLosses,
       _maxConsecutiveWins: extra.maxConsecutiveWins,
       _maxConsecutiveLosses: extra.maxConsecutiveLosses,
-      _timeInProfitPct: extra.timeInProfitPct
+      _timeInProfitPct: extra.timeInProfitPct,
+      _runByCount: extra.runByCount,
+      _totalSlippageRunBy: extra.totalSlippageRunBy
     }
   })
 
   const sorted = [...list].sort((a, b) => {
     const sortKey = state.analysisSortBy === 'avgDuration' ? 'avgTradeDurationMs' : state.analysisSortBy
-    const extraKeys = { type: '_typeTag', sharpe: '_sharpe', tradesHistory: '_tradesHistory', fees: '_fees', profitFactor: '_profitFactor', expectancy: '_expectancy', maxWin: '_maxWin', maxLoss: '_maxLoss', sortino: '_sortino', tradesPerDay: '_tradesPerDay', lastTrade: '_lastTradeTs', calmar: '_calmarRatio', recovery: '_recoveryFactor', timeInProfitPct: '_timeInProfitPct' }
+    const extraKeys = { type: '_typeTag', sharpe: '_sharpe', tradesHistory: '_tradesHistory', fees: '_fees', profitFactor: '_profitFactor', expectancy: '_expectancy', maxWin: '_maxWin', maxLoss: '_maxLoss', sortino: '_sortino', tradesPerDay: '_tradesPerDay', lastTrade: '_lastTradeTs', calmar: '_calmarRatio', recovery: '_recoveryFactor', timeInProfitPct: '_timeInProfitPct', runBy: '_runByCount' }
     const extraKey = extraKeys[state.analysisSortBy]
     const va = extraKey ? (extraKey === '_lastTradeTs' ? a._lastTradeTs : a[extraKey]) : (state.analysisSortBy === 'currentDrawdownPct' || state.analysisSortBy === 'avgHoldTimeMin') ? a[state.analysisSortBy] : (a._metrics && a._metrics[sortKey]) != null ? a._metrics[sortKey] : a[state.analysisSortBy]
     const vb = extraKey ? (extraKey === '_lastTradeTs' ? b._lastTradeTs : b[extraKey]) : (state.analysisSortBy === 'currentDrawdownPct' || state.analysisSortBy === 'avgHoldTimeMin') ? b[state.analysisSortBy] : (b._metrics && b._metrics[sortKey]) != null ? b._metrics[sortKey] : b[state.analysisSortBy]
@@ -255,7 +265,7 @@ export async function updateAnalysisPanel (strategies) {
   if (totalTradesEl) totalTradesEl.textContent = totalTradesInRange.toLocaleString()
 
   if (sorted.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="31">No strategies</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="32">No strategies</td></tr>'
   } else {
     tbody.innerHTML = sorted.map(s => {
       const m = s._metrics
@@ -301,7 +311,8 @@ export async function updateAnalysisPanel (strategies) {
         '<td class="numeric" style="color:#ef4444">' + (s._maxLoss != null ? formatPnl(s._maxLoss).replace(' USDT', '') : '–') + '</td>' +
         '<td class="numeric">' + sortinoStr + '</td>' +
         '<td class="numeric">' + tpdStr + '</td>' +
-        '<td class="numeric">' + (s._lastTradeStr || '–') + '</td></tr>'
+        '<td class="numeric">' + (s._lastTradeStr || '–') + '</td>' +
+        '<td class="numeric" title="' + (s._runByCount != null && s._runByCount > 0 && s._totalSlippageRunBy != null ? 'Total slippage (price): ' + s._totalSlippageRunBy.toFixed(2) : 'SL/TP exits that closed worse than intended') + '">' + (s._runByCount != null && s._runByCount > 0 ? s._runByCount + (s._totalSlippageRunBy != null ? ' (' + s._totalSlippageRunBy.toFixed(0) + ')' : '') : '–') + '</td></tr>'
     }).join('')
   }
 

@@ -138,10 +138,12 @@ button.status-pill:hover {
 }
 .trades-table .side-buy { color: #22c55e; }
 .trades-table .side-sell { color: #ef4444; }
+.trades-table td:nth-child(6),
 .trades-table td:nth-child(7),
-.trades-table td:nth-child(8),
 .trades-table td:nth-child(9),
-.trades-table td:nth-child(10) {
+.trades-table td:nth-child(10),
+.trades-table td:nth-child(11),
+.trades-table td:nth-child(12) {
   text-align: right;
 }
 .trades-table .fill-badge {
@@ -152,6 +154,16 @@ button.status-pill:hover {
   font-weight: 600;
   color: #9ca3af;
   background: #374151;
+  border-radius: 4px;
+}
+.trades-table .run-by-tag {
+  display: inline-block;
+  margin-left: 0.25rem;
+  padding: 0 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #fef3c7;
+  background: #b45309;
   border-radius: 4px;
 }
 .trades-table .order-id-cell { font-size: 0.75rem; font-variant-numeric: tabular-nums; }

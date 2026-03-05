@@ -114,6 +114,23 @@ function formatDetail (detail) {
   return parts.length ? parts.join(', ') : '–'
 }
 
+/** Format SL/TP exit cell: intended → observed, run-by when applicable. */
+function formatExitSlTp (side, detail) {
+  if (!detail || typeof detail !== 'object' || !detail.trigger) return '–'
+  const trigger = detail.trigger
+  const triggerPrice = detail.triggerPrice
+  const marketPrice = detail.marketPrice
+  const slippageAmount = detail.slippageAmount
+  if (triggerPrice == null || marketPrice == null) return trigger === 'stop_loss' ? 'SL' : 'TP'
+  const runBy = (trigger === 'stop_loss' && ((side === 'sell' && slippageAmount < 0) || (side === 'buy' && slippageAmount > 0))) ||
+    (trigger === 'take_profit' && side === 'buy' && slippageAmount < 0)
+  const label = trigger === 'stop_loss' ? 'SL' : 'TP'
+  const intended = formatPrice(triggerPrice)
+  const observed = formatPrice(marketPrice)
+  const runByTag = runBy ? ' <span class="run-by-tag" title="Closed worse than intended">run-by</span>' : ''
+  return label + ' ' + intended + '→' + observed + runByTag
+}
+
 /**
  * Updates fees total and trades table. callbacks.onTradeRowClick(t0) when a trade row is clicked.
  */
@@ -140,7 +157,7 @@ export function updateTradesPanel (data, callbacks) {
 
   const tbody = document.getElementById('trades-tbody')
   if (groups.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="11">No trades</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="12">No trades</td></tr>'
   } else {
     tbody.innerHTML = groups.map((grp, grpIdx) => {
       const trades = grp.trades
@@ -166,6 +183,7 @@ export function updateTradesPanel (data, callbacks) {
           else pnlColor = '#eab308' // neutral (zero)
         }
       }
+      const exitSlTpStr = formatExitSlTp(t0.side, t0.detail)
       const detailStr = n === 1 ? formatDetail(t0.detail) : (n + ' fills')
       const totalAmount = trades.reduce((s, t) => s + (Number(t.amount) || 0), 0)
       const totalCost = trades.reduce((s, t) => s + (Number(t.cost) || 0), 0)
@@ -180,6 +198,7 @@ export function updateTradesPanel (data, callbacks) {
         '<td>' + strategyStr + '</td>' +
         '<td>' + reasonStr + '</td>' +
         '<td class="numeric" style="color:' + pnlColor + '">' + pnlStr + '</td>' +
+        '<td class="detail-cell">' + exitSlTpStr + '</td>' +
         '<td class="detail-cell" title="' + (n === 1 ? formatDetail(t0.detail).replace(/"/g, '&quot;') : '') + '">' + detailStr + '</td>' +
         '<td>' + formatAmount(totalAmount) + '</td>' +
         '<td>' + formatPrice(avgPrice) + '</td>' +

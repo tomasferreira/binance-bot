@@ -334,7 +334,7 @@ async function refreshFees () {
     })
   } catch (err) {
     document.getElementById('fees-total').textContent = 'Error'
-    document.getElementById('trades-tbody').innerHTML = '<tr><td colspan="10">Error loading trades</td></tr>'
+    document.getElementById('trades-tbody').innerHTML = '<tr><td colspan="12">Error loading trades</td></tr>'
   }
 }
 

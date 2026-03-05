@@ -141,6 +141,16 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
   logger.info(
     `Manual CLOSE ${side.toUpperCase()} position at marketPrice=${marketPrice}, entry=${position.entryPrice}, amount=${amount}`
   )
+  if (exitDetail?.trigger === 'stop_loss' || exitDetail?.trigger === 'take_profit') {
+    const { triggerPrice, slippageAmount } = exitDetail
+    if (triggerPrice != null && slippageAmount != null) {
+      const runBy = (exitDetail.trigger === 'stop_loss' && (side === 'long' ? slippageAmount < 0 : slippageAmount > 0)) ||
+        (exitDetail.trigger === 'take_profit' && (side === 'short' ? slippageAmount < 0 : false))
+      logger.info(
+        `SL/TP exit: intended=${triggerPrice}, observed=${marketPrice}, slippage=${slippageAmount.toFixed(2)} ${runBy ? '(run-by)' : ''}`
+      )
+    }
+  }
 
   if (orderSide === 'sell') {
     logger.debug('exchange.createMarketSellOrder request (close)', { symbol, amount })
@@ -193,7 +203,16 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
   }
 
   const closedTradesHistory = Array.isArray(state.closedTradesHistory) ? state.closedTradesHistory : []
-  closedTradesHistory.push({ timestamp: new Date().toISOString(), pnl })
+  const historyEntry = { timestamp: new Date().toISOString(), pnl }
+  if (exitDetail?.trigger && exitDetail.triggerPrice != null && exitDetail.slippageAmount != null) {
+    const runBy = (exitDetail.trigger === 'stop_loss' && (side === 'long' ? exitDetail.slippageAmount < 0 : exitDetail.slippageAmount > 0)) ||
+      (exitDetail.trigger === 'take_profit' && side === 'short' && exitDetail.slippageAmount < 0)
+    historyEntry.exitTrigger = exitDetail.trigger
+    historyEntry.triggerPrice = exitDetail.triggerPrice
+    historyEntry.slippageAmount = exitDetail.slippageAmount
+    historyEntry.runBy = runBy
+  }
+  closedTradesHistory.push(historyEntry)
   const maxHistory = Math.max(100, closedTradesHistoryLimit || 500)
   const trimmed = closedTradesHistory.length > maxHistory ? closedTradesHistory.slice(-maxHistory) : closedTradesHistory
 
@@ -236,10 +255,14 @@ export async function maybeClosePosition (state, marketPrice, strategyId = null)
   }
 
   const closeReason = shouldStop ? 'Stop loss' : 'Take profit'
+  const triggerPrice = shouldStop ? stopLoss : takeProfit
+  const slippageAmount = marketPrice - triggerPrice
   const slTpDetail = {
     marketPrice,
     entryPrice: position.entryPrice,
-    trigger: shouldStop ? 'stop_loss' : 'take_profit'
+    trigger: shouldStop ? 'stop_loss' : 'take_profit',
+    triggerPrice,
+    slippageAmount
   }
 
   return closePositionNow(state, marketPrice, strategyId, closeReason, slTpDetail)

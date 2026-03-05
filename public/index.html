@@ -206,6 +206,7 @@
                   <th>Strategy</th>
                   <th>Reason</th>
                   <th>PnL</th>
+                  <th>Exit (SL/TP)</th>
                   <th>Detail</th>
                   <th>Amount</th>
                   <th>Price</th>
@@ -214,7 +215,7 @@
                 </tr>
               </thead>
               <tbody id="trades-tbody">
-                <tr><td colspan="11">Loading…</td></tr>
+                <tr><td colspan="12">Loading…</td></tr>
               </tbody>
             </table>
           </div>
@@ -287,10 +288,11 @@
                   <th class="sortable numeric" data-sort="sortino" title="Return ÷ downside deviation (only penalizes losses)">Sortino</th>
                   <th class="sortable numeric" data-sort="tradesPerDay" title="Closed trades per day in the selected range">Trades/day</th>
                   <th class="sortable numeric" data-sort="lastTrade" title="When the last trade in range was closed">Last trade</th>
+                  <th class="sortable numeric" data-sort="runBy" title="SL/TP exits that closed worse than intended (run-by count; number in parens = total slippage in price units)">Run-by</th>
                 </tr>
               </thead>
               <tbody id="analysis-tbody">
-                <tr><td colspan="31">Loading…</td></tr>
+                <tr><td colspan="32">Loading…</td></tr>
               </tbody>
             </table>
           </div>
