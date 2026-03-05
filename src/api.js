@@ -190,6 +190,10 @@ export function createApp () {
       }
 
       const args = ['src/backtest.js']
+      const source = getMarketDataSource()
+      if (source === 'live' || source === 'testnet') {
+        args.push(`--source=${source}`)
+      }
       if (typeof days === 'number' && Number.isFinite(days) && days > 0) {
         args.push(`--days=${days}`)
       }

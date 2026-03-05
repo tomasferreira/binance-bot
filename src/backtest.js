@@ -1,6 +1,6 @@
 import { config } from './config.js'
 import { getTradingExchange, getDataExchange } from './exchange.js'
-import { getMarketDataSource } from './marketDataSource.js'
+import { getMarketDataSource, setMarketDataSource } from './marketDataSource.js'
 import { STRATEGY_IDS, evaluateStrategy } from './strategies/registry.js'
 import { getEffectiveTradingConfig } from './runtimeConfig.js'
 import { calculatePositionSize } from './risk.js'
@@ -316,9 +316,15 @@ function closeSimPosition (state, price, candleTs) {
 }
 
 async function runBacktest () {
+  const argv = process.argv.slice(2)
+  const sourceArg = argv.find(a => a.startsWith('--source='))?.split('=')[1]
+  if (sourceArg === 'live' || sourceArg === 'testnet') {
+    setMarketDataSource(sourceArg)
+  }
+  logger.info(`Backtest: market data source ${getMarketDataSource()}`)
+
   const { symbol, timeframe, regimeTimeframe, regimeCandles } = config.trading
   const startedAtMs = Date.now()
-  const argv = process.argv.slice(2)
   const daysBack = Number(argv.find(a => a.startsWith('--days='))?.split('=')[1] || 7)
   const riskOverride = Number(argv.find(a => a.startsWith('--risk='))?.split('=')[1] || NaN)
   const slOverride = Number(argv.find(a => a.startsWith('--sl='))?.split('=')[1] || NaN)
