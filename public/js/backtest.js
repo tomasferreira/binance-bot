@@ -110,6 +110,7 @@ function renderBacktestTable () {
       raw: r,
       id,
       typeTag,
+      timeframe: r.timeframe || '–',
       reco,
       _recoReason: recoReason,
       realized,
@@ -152,6 +153,11 @@ function renderBacktestTable () {
     if (key === 'type') {
       va = a.typeTag
       vb = b.typeTag
+      return backtestSortDesc ? vb.localeCompare(va) : va.localeCompare(vb)
+    }
+    if (key === 'timeframe') {
+      va = a.timeframe || ''
+      vb = b.timeframe || ''
       return backtestSortDesc ? vb.localeCompare(va) : va.localeCompare(vb)
     }
     if (key === 'totalPnl' || key === 'realizedPnl') {
@@ -258,6 +264,7 @@ function renderBacktestTable () {
     return '<tr>' +
       '<td>' + id + '</td>' +
       '<td class="numeric">' + typeTag + '</td>' +
+      '<td class="numeric">' + (s.timeframe || '–') + '</td>' +
       '<td class="numeric" style="color:' + recoColor + '" title="' + (s._recoReason || '') + '">' + (reco || '–') + '</td>' +
       '<td class="numeric" style="color:' + backtestPnlColor(realized) + '">' + fmt(realized) + '</td>' +
       '<td class="numeric" style="color:' + backtestPnlColor(realized) + '">' + fmt(realized) + '</td>' +

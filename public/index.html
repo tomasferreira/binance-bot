@@ -175,6 +175,7 @@
                   <tr>
                     <th>Name</th>
                     <th>Type</th>
+                    <th>TF</th>
                     <th>Status</th>
                     <th>Position</th>
                     <th>Last decision</th>
@@ -182,7 +183,7 @@
                   </tr>
                 </thead>
                 <tbody id="strategies-tbody">
-                  <tr><td colspan="6">Loading…</td></tr>
+                  <tr><td colspan="7">Loading…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -386,6 +387,7 @@
                 <tr>
                   <th class="sortable numeric" data-sort="id" title="Strategy name">Strategy</th>
                   <th class="sortable numeric" data-sort="type" title="Long or Short">Type</th>
+                  <th class="sortable numeric" data-sort="timeframe" title="Candle size used for this strategy's signals">TF</th>
                   <th class="sortable numeric" data-sort="reco" title="Backtest recommendation: enable / disable / insufficient-data">Reco</th>
                   <th class="sortable numeric" data-sort="totalPnl" title="Realized + unrealized PnL over the backtest">Total PnL</th>
                   <th class="sortable numeric" data-sort="realizedPnl" title="Closed-trade PnL over the backtest">Realized</th>
@@ -419,7 +421,7 @@
                 </tr>
               </thead>
               <tbody id="backtest-results-tbody">
-                <tr><td colspan="31">No backtest run yet.</td></tr>
+                <tr><td colspan="32">No backtest run yet.</td></tr>
               </tbody>
             </table>
           </div>

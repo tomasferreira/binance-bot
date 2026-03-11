@@ -586,7 +586,8 @@ async function runBacktest () {
       ...base,
       ...metrics,
       recommendation: recommended,
-      recommendationReason: reason
+      recommendationReason: reason,
+      timeframe: getStrategyTimeframe(id, primaryTf)
     }
     summaryStrategies.push(summary)
 

@@ -65,7 +65,7 @@ export function updateStrategiesPanel (strategies, callbacks) {
   const detailPane = document.getElementById('strategy-detail-pane')
   if (!tbody) return
   if (strategies.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6">No strategies</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="7">No strategies</td></tr>'
     return
   }
   const sorted = [...strategies].sort((a, b) => {
@@ -95,9 +95,11 @@ export function updateStrategiesPanel (strategies, callbacks) {
             : 'Long'
     const selected = s.id === state.selectedStrategyId ? ' selected' : ''
     const regimeActive = s.regimeActive ? ' regime-active' : ''
+    const tf = s.timeframe || '–'
     return '<tr class="clickable' + selected + regimeActive + '" data-strategy-id="' + s.id + '">' +
       '<td>' + name + '</td>' +
       '<td>' + typeTag + '</td>' +
+      '<td>' + tf + '</td>' +
       '<td>' + runningPill + '</td>' +
       '<td>' + posText + '</td>' +
       '<td>' + (s.lastDecision || '–') + '</td>' +

@@ -19,7 +19,7 @@ export function strategyDisplayName (name, id, direction = 'long') {
 
 /**
  * Build the full JSON payload for GET /api/status.
- * @param {object} deps - Dependencies: runner, lastDecisionByStrategy, loadState, getStrategy, STRATEGY_IDS, isRegimeActive, config, getStrategyBudget, getEffectiveTradingConfig, lastTickAt, pollIntervalMs, symbol, balance, lastPrice, ema9, ema20, ema21, ema50, ema200, macd, macdSignal, regime, volatilityRatio, adxNow, plusDiNow, minusDiNow, regimeTf, regimeCandles, openOrders
+ * @param {object} deps - Dependencies: runner, lastDecisionByStrategy, loadState, getStrategy, getStrategyDirection, getStrategyTimeframe, STRATEGY_IDS, isRegimeActive, config, getStrategyBudget, getEffectiveTradingConfig, lastTickAt, pollIntervalMs, symbol, balance, lastPrice, ema9, ema20, ema21, ema50, ema200, macd, macdSignal, regime, volatilityRatio, adxNow, plusDiNow, minusDiNow, regimeTf, regimeCandles, openOrders
  */
 export function buildStatusPayload (deps) {
   const {
@@ -28,6 +28,7 @@ export function buildStatusPayload (deps) {
     loadState,
     getStrategy,
     getStrategyDirection,
+    getStrategyTimeframe,
     STRATEGY_IDS,
     isRegimeActive,
     config,
@@ -101,10 +102,12 @@ export function buildStatusPayload (deps) {
     const last30d = statsFromHistory(last30dEntries)
 
     const direction = getStrategyDirection(id)
+    const primaryTf = config?.trading?.timeframe || '15m'
     return {
       id,
       name: strategyDisplayName(s?.name ?? id, id, direction),
       description: s?.description ?? '',
+      timeframe: getStrategyTimeframe ? getStrategyTimeframe(id, primaryTf) : primaryTf,
       positionsOpened: state.positionsOpened ?? 0,
       wins,
       losses,
