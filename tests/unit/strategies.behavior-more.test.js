@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import * as indicators from '../../src/indicators.js'
 import * as emaFastCrossover from '../../src/strategies/emaFastCrossover.js'
 import * as macdStrategy from '../../src/strategies/macd.js'
-import * as macdHistogramLong from '../../src/strategies/macdHistogramLong.js'
+import * as macdHistogram from '../../src/strategies/macdHistogram.js'
 import * as atrTrend from '../../src/strategies/atrTrend.js'
 import * as atrBreakout from '../../src/strategies/atrBreakout.js'
 import * as bollingerMeanRevert from '../../src/strategies/bollingerMeanRevert.js'
@@ -67,9 +67,9 @@ describe('macd behavior', () => {
   })
 })
 
-// macd_histogram_long
+// macd_histogram
 
-describe('macd_histogram_long behavior', () => {
+describe('macd_histogram behavior (long side)', () => {
   it('enters long when histogram crosses up from negative and price is above EMA 200', () => {
     const len = 300
     const hist = Array(len).fill(0)
@@ -82,7 +82,7 @@ describe('macd_histogram_long behavior', () => {
     })
     vi.spyOn(indicators, 'calculateEMA').mockReturnValueOnce(Array(len).fill(99)) // ema200 below price
     const ohlcv = makeFlatOhlcv(len, 100)
-    const res = macdHistogramLong.evaluate(ohlcv, { openPosition: null })
+    const res = macdHistogram.evaluate(ohlcv, { openPosition: null })
     expect(res.action).toBe('enter-long')
   })
 
@@ -98,7 +98,7 @@ describe('macd_histogram_long behavior', () => {
     })
     vi.spyOn(indicators, 'calculateEMA').mockReturnValueOnce(Array(len).fill(120)) // ema200 above price
     const ohlcv = makeFlatOhlcv(len, 100)
-    const res = macdHistogramLong.evaluate(ohlcv, { openPosition: null })
+    const res = macdHistogram.evaluate(ohlcv, { openPosition: null })
     expect(res.action).toBe('hold')
   })
 })

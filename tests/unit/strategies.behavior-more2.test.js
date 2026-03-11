@@ -12,7 +12,6 @@ import * as shortTrend from '../../src/strategies/shortTrend.js'
 import * as shortBreakdown from '../../src/strategies/shortBreakdown.js'
 import * as shortOverbought from '../../src/strategies/shortOverbought.js'
 import * as shortMacd from '../../src/strategies/shortMacd.js'
-import * as shortMacdHistogram from '../../src/strategies/shortMacdHistogram.js'
 
 function makeFlatOhlcv (len, close = 100, volume = 100) {
   const out = []

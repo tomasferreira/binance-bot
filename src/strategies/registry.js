@@ -12,14 +12,13 @@ import * as shortBreakdown from './shortBreakdown.js'
 import * as shortOverbought from './shortOverbought.js'
 import * as shortMacd from './shortMacd.js'
 import * as shortRejection from './shortRejection.js'
-import * as macdHistogramLong from './macdHistogramLong.js'
+import * as macdHistogram from './macdHistogram.js'
 import * as volumeEmaCrossover from './volumeEmaCrossover.js'
 import * as emaFastCrossover from './emaFastCrossover.js'
 import * as rsiMacdCombo from './rsiMacdCombo.js'
 import * as bollingerSqueeze from './bollingerSqueeze.js'
 import * as donchianBreakout from './donchianBreakout.js'
 import * as stochasticOversold from './stochasticOversold.js'
-import * as shortMacdHistogram from './shortMacdHistogram.js'
 import * as atrBreakout from './atrBreakout.js'
 import * as rangeBounce from './rangeBounce.js'
 import * as impulseFollow from './impulseFollow.js'
@@ -38,14 +37,13 @@ const strategies = {
   [shortOverbought.id]: shortOverbought,
   [shortMacd.id]: shortMacd,
   [shortRejection.id]: shortRejection,
-  [macdHistogramLong.id]: macdHistogramLong,
+  [macdHistogram.id]: macdHistogram,
   [volumeEmaCrossover.id]: volumeEmaCrossover,
   [emaFastCrossover.id]: emaFastCrossover,
   [rsiMacdCombo.id]: rsiMacdCombo,
   [bollingerSqueeze.id]: bollingerSqueeze,
   [donchianBreakout.id]: donchianBreakout,
   [stochasticOversold.id]: stochasticOversold,
-  [shortMacdHistogram.id]: shortMacdHistogram,
   [atrBreakout.id]: atrBreakout,
   [rangeBounce.id]: rangeBounce,
   [impulseFollow.id]: impulseFollow
@@ -60,14 +58,13 @@ const REGIME_FILTERS = {
   [rsiPullback.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
   [multiTfTrend.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
   [atrTrend.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
-  [macdHistogramLong.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
+  [macdHistogram.id]: (r) => r.trend === 'trending',
   [volumeEmaCrossover.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
   [emaFastCrossover.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
   [rsiMacdCombo.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
   [shortTrend.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bearish',
   [shortBreakdown.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bearish',
   [shortMacd.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bearish',
-  [shortMacdHistogram.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bearish',
   [shortOverbought.id]: (r) => r.trendDirection === 'bearish',
   [shortRejection.id]: (r) => r.trendDirection === 'bearish' || r.trendDirection === 'neutral',
   [bollingerMeanRevert.id]: (r) => r.trend === 'ranging' || r.volatility === 'low',
@@ -96,14 +93,13 @@ const STRATEGY_DIRECTIONS = {
   [shortOverbought.id]: 'short',
   [shortMacd.id]: 'short',
   [shortRejection.id]: 'short',
-  [macdHistogramLong.id]: 'long',
+  [macdHistogram.id]: 'both',
   [volumeEmaCrossover.id]: 'long',
   [emaFastCrossover.id]: 'long',
   [rsiMacdCombo.id]: 'long',
   [bollingerSqueeze.id]: 'long',
   [donchianBreakout.id]: 'long',
   [stochasticOversold.id]: 'long',
-  [shortMacdHistogram.id]: 'short',
   [atrBreakout.id]: 'long',
   [rangeBounce.id]: 'long',
   [impulseFollow.id]: 'both'
