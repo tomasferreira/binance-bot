@@ -294,9 +294,12 @@ function closeSimPosition (state, price, candleTs) {
     if (dd < maxDrawdown) maxDrawdown = dd
   }
 
+  // Use simulated candle timestamp for history, so time-based metrics (trades/day, etc.)
+  // reflect backtest time rather than wall-clock time.
+  const tradeTimestamp = new Date(candleTs).toISOString()
   const closedTradesHistory = Array.isArray(state.closedTradesHistory)
-    ? [...state.closedTradesHistory, { timestamp: new Date().toISOString(), pnl }]
-    : [{ timestamp: new Date().toISOString(), pnl }]
+    ? [...state.closedTradesHistory, { timestamp: tradeTimestamp, pnl }]
+    : [{ timestamp: tradeTimestamp, pnl }]
 
   return {
     ...state,

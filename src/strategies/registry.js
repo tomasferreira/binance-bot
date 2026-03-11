@@ -22,6 +22,7 @@ import * as stochasticOversold from './stochasticOversold.js'
 import * as shortMacdHistogram from './shortMacdHistogram.js'
 import * as atrBreakout from './atrBreakout.js'
 import * as rangeBounce from './rangeBounce.js'
+import * as impulseFollow from './impulseFollow.js'
 
 const strategies = {
   [emaCrossover.id]: emaCrossover,
@@ -46,7 +47,8 @@ const strategies = {
   [stochasticOversold.id]: stochasticOversold,
   [shortMacdHistogram.id]: shortMacdHistogram,
   [atrBreakout.id]: atrBreakout,
-  [rangeBounce.id]: rangeBounce
+  [rangeBounce.id]: rangeBounce,
+  [impulseFollow.id]: impulseFollow
 }
 
 /** Regime filter: (regime) => true = allow entry. Omitted strategy = no filter. */
@@ -73,7 +75,8 @@ const REGIME_FILTERS = {
   [stochasticOversold.id]: (r) => r.trend === 'ranging' || (r.trend === 'trending' && r.trendDirection === 'bullish'),
   [bollingerSqueeze.id]: (r) => r.trend === 'trending',
   [donchianBreakout.id]: (r) => r.trend === 'trending',
-  [atrBreakout.id]: (r) => r.trend === 'trending'
+  [atrBreakout.id]: (r) => r.trend === 'trending',
+  [impulseFollow.id]: (r) => r.trend === 'trending'
 }
 
 export const STRATEGY_IDS = Object.keys(strategies)
