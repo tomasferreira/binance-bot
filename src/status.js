@@ -2,15 +2,18 @@ import { statsFromHistory } from './stats.js'
 import { computeUnrealizedPnl } from './runtimeConfig.js'
 
 /**
- * Display name for strategy (strips "Short"/"(Long)"/"(Short)" from name, appends [short]/[long]).
+ * Display name for strategy.
+ * - Strips leading "Short " and trailing "(Long)/(Short)" from the raw name.
+ * - Appends direction metadata as [long]/[short]/[both] when available.
  */
-export function strategyDisplayName (name, id) {
+export function strategyDisplayName (name, id, direction = 'long') {
   if (!name) return id
   if (id === 'manual') return name
   let n = String(name)
     .replace(/^Short\s+/i, '')
     .replace(/\s+\((Long|Short)\)$/i, '')
-  if (id && id.startsWith('short_')) return n + ' [short]'
+  if (direction === 'both') return n + ' [both]'
+  if (direction === 'short') return n + ' [short]'
   return n + ' [long]'
 }
 
@@ -24,6 +27,7 @@ export function buildStatusPayload (deps) {
     lastDecisionByStrategy,
     loadState,
     getStrategy,
+    getStrategyDirection,
     STRATEGY_IDS,
     isRegimeActive,
     config,
@@ -96,9 +100,10 @@ export function buildStatusPayload (deps) {
     const last7d = statsFromHistory(last7dEntries)
     const last30d = statsFromHistory(last30dEntries)
 
+    const direction = getStrategyDirection(id)
     return {
       id,
-      name: strategyDisplayName(s?.name ?? id, id),
+      name: strategyDisplayName(s?.name ?? id, id, direction),
       description: s?.description ?? '',
       positionsOpened: state.positionsOpened ?? 0,
       wins,
@@ -119,6 +124,7 @@ export function buildStatusPayload (deps) {
       realizedPnl: realized,
       unrealizedPnl: unrealized,
       totalPnl: realized + unrealized,
+      direction,
       position: state.openPosition ? { open: true, ...state.openPosition } : { open: false },
       lastDecision: lastDecisionByStrategy[id] ?? 'none',
       pnlResetAt,

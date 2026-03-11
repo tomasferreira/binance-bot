@@ -8,7 +8,7 @@ import { getTradingExchange } from './exchange.js'
 import { getMarketDataSource, setMarketDataSource } from './marketDataSource.js'
 import { loadState, saveState, resetPnlState } from './stateMulti.js'
 import { loadRunner, setRunning, setRegimeFilterEnabled, setAllRunning } from './runner.js'
-import { STRATEGY_IDS, getStrategy, isRegimeActive } from './strategies/registry.js'
+import { STRATEGY_IDS, getStrategy, getStrategyDirection, isRegimeActive } from './strategies/registry.js'
 import { getOrderStrategyMap } from './orderStrategy.js'
 import { openLongPosition, openShortPosition, closePositionNow } from './tradeManager.js'
 import { getEMACrossSignal, calculateEMA, calculateMACD, calculateRSI, calculateBollinger } from './indicators.js'
@@ -146,6 +146,7 @@ export function createApp () {
         lastDecisionByStrategy: getLastDecisionByStrategy(),
         loadState,
         getStrategy,
+        getStrategyDirection,
         STRATEGY_IDS,
         isRegimeActive,
         config,

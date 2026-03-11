@@ -78,15 +78,21 @@ export function updateStrategiesPanel (strategies, callbacks) {
     const posText = s.position?.open ? s.position.side + ' ' + formatAmount(s.position.amount) : 'Flat'
     const runningPill = s.running ? 'Running' : 'Stopped'
     const hasPosition = s.position?.open === true
-    const isShort = s.id && s.id.startsWith('short_')
     const isManual = s.id === 'manual'
+    const direction = s.direction || (s.id && s.id.startsWith('short_') ? 'short' : 'long')
+    const isShort = direction === 'short'
+    const isBoth = direction === 'both'
     const startStopBtn = s.id === 'manual' ? '' : '<button class="secondary strategy-btn" data-id="' + s.id + '" data-running="' + s.running + '">' + (s.running ? 'Stop' : 'Start') + '</button> '
-    const buyBtn = isShort ? '' : '<button class="primary strategy-buy-btn" data-id="' + s.id + '"' + (hasPosition ? ' disabled' : '') + '>Long</button> '
-    const shortBtn = isShort ? '<button class="primary strategy-short-btn" data-id="' + s.id + '"' + (hasPosition ? ' disabled' : '') + '>Short</button> ' : ''
+    const buyBtn = (!isShort || isBoth) ? '<button class="primary strategy-buy-btn" data-id="' + s.id + '"' + (hasPosition ? ' disabled' : '') + '>Long</button> ' : ''
+    const shortBtn = (isShort || isBoth) ? '<button class="primary strategy-short-btn" data-id="' + s.id + '"' + (hasPosition ? ' disabled' : '') + '>Short</button> ' : ''
     const sellBtn = '<button class="danger strategy-sell-btn" data-id="' + s.id + '"' + (!hasPosition ? ' disabled' : '') + '>Close</button> '
     const resetBtn = '<button class="secondary strategy-reset-pnl-btn" data-id="' + s.id + '">Reset stats & trades</button>'
     const name = (s.name || s.id).replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    const typeTag = isManual ? 'Utility' : isShort ? 'Short' : 'Long'
+    const typeTag =
+      isManual ? 'Utility'
+        : direction === 'both' ? 'Both'
+          : direction === 'short' ? 'Short'
+            : 'Long'
     const selected = s.id === state.selectedStrategyId ? ' selected' : ''
     const regimeActive = s.regimeActive ? ' regime-active' : ''
     return '<tr class="clickable' + selected + regimeActive + '" data-strategy-id="' + s.id + '">' +

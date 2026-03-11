@@ -81,8 +81,41 @@ const REGIME_FILTERS = {
 
 export const STRATEGY_IDS = Object.keys(strategies)
 
+// Direction metadata for UI / analytics: 'long' | 'short' | 'both'
+const STRATEGY_DIRECTIONS = {
+  [emaCrossover.id]: 'long',
+  [macd.id]: 'long',
+  [multiEma.id]: 'long',
+  [priceVsEma.id]: 'long',
+  [rsiPullback.id]: 'long',
+  [bollingerMeanRevert.id]: 'long',
+  [multiTfTrend.id]: 'long',
+  [atrTrend.id]: 'long',
+  [shortTrend.id]: 'short',
+  [shortBreakdown.id]: 'short',
+  [shortOverbought.id]: 'short',
+  [shortMacd.id]: 'short',
+  [shortRejection.id]: 'short',
+  [macdHistogramLong.id]: 'long',
+  [volumeEmaCrossover.id]: 'long',
+  [emaFastCrossover.id]: 'long',
+  [rsiMacdCombo.id]: 'long',
+  [bollingerSqueeze.id]: 'long',
+  [donchianBreakout.id]: 'long',
+  [stochasticOversold.id]: 'long',
+  [shortMacdHistogram.id]: 'short',
+  [atrBreakout.id]: 'long',
+  [rangeBounce.id]: 'long',
+  [impulseFollow.id]: 'both'
+}
+
 export function getStrategy (id) {
   return strategies[id] ?? null
+}
+
+export function getStrategyDirection (id) {
+  if (!id) return 'long'
+  return STRATEGY_DIRECTIONS[id] || (id.startsWith('short_') ? 'short' : 'long')
 }
 
 /** True if this strategy is allowed to enter in the current regime (for dashboard highlighting). */
