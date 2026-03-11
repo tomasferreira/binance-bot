@@ -4,16 +4,20 @@ import { logger } from '../logger.js'
 export const id = 'price_vs_ema'
 export const name = 'Price vs EMA (20)'
 export const description =
-  'Long when close is meaningfully above EMA(20), EMA(20) > EMA(50), and EMA(50) > EMA(200) (bullish trend). Exits when close drops below EMA(20) or below EMA(50).'
+  'Long only after price pulls back to/near EMA(20) then closes back above it, with EMA(20) > EMA(50) and EMA(50) > EMA(200). Exits when close drops below EMA(20) or below EMA(50).'
 
 const PERIOD = 20
 const TREND_PERIOD = 50
 const TREND_200_PERIOD = 200
 // Minimum relative distance of price above EMA(20) to open a trade (e.g. 0.001 = 0.1%)
 const MIN_REL_DISTANCE = 0.001
+// Pullback entry: only long after price touched/near EMA(20) then closed back above (look back this many bars)
+const PULLBACK_LOOKBACK = 10
+// Price within this fraction of EMA(20) counts as "touched" (e.g. 0.002 = 0.2%)
+const PULLBACK_TOUCH_MARGIN = 0.002
 
 export function evaluate (ohlcv, state) {
-  const minLen = Math.max(PERIOD, TREND_PERIOD, TREND_200_PERIOD) + 1
+  const minLen = Math.max(PERIOD, TREND_PERIOD, TREND_200_PERIOD) + PULLBACK_LOOKBACK + 1
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
   }
@@ -35,17 +39,32 @@ export function evaluate (ohlcv, state) {
   const trendUp = emaVal > ema50
   const trendBullish = ema50 > ema200
 
+  // Pullback then recover: in last PULLBACK_LOOKBACK bars, at least one bar had close at or below (near) EMA 20
+  let hadPullback = false
+  for (let j = i - 1; j >= Math.max(0, i - PULLBACK_LOOKBACK); j--) {
+    const cj = closes[j]
+    const ema20j = ema20Arr[j]
+    if (ema20j != null && cj != null && ema20j > 0) {
+      const touchThreshold = ema20j * (1 + PULLBACK_TOUCH_MARGIN)
+      if (cj <= touchThreshold) {
+        hadPullback = true
+        break
+      }
+    }
+  }
+  const pullbackThenAbove = hadPullback && strongAbove
+
   logger.info(
     `[${id}] price=${price.toFixed(2)} EMA(${PERIOD})=${emaVal.toFixed(
       2
     )} EMA(${TREND_PERIOD})=${ema50.toFixed(2)} EMA(${TREND_200_PERIOD})=${ema200.toFixed(
       2
-    )} above=${above} strongAbove=${strongAbove} trendUp=${trendUp} trendBullish=${trendBullish}`
+    )} above=${above} strongAbove=${strongAbove} trendUp=${trendUp} trendBullish=${trendBullish} hadPullback=${hadPullback} pullbackThenAbove=${pullbackThenAbove}`
   )
 
-  if (!state?.openPosition && strongAbove && trendUp && trendBullish) {
-    logger.info(`[${id}] LONG signal`)
-    return { action: 'enter-long', detail: { price, ema: emaVal, ema50, ema200 } }
+  if (!state?.openPosition && pullbackThenAbove && trendUp && trendBullish) {
+    logger.info(`[${id}] LONG signal (pullback to EMA20 then close above + trend)`)
+    return { action: 'enter-long', detail: { price, ema: emaVal, ema50, ema200, hadPullback } }
   }
   if (state?.openPosition) {
     if (!above) {

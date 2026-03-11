@@ -32,7 +32,7 @@ Each strategy runs on a fixed timeframe (see `STRATEGY_TIMEFRAMES` in `registry.
 | Strategy | Metrics | Wall clock (15m) | Suggestion |
 |----------|---------|-------------------|------------|
 | **multi_ema** | 9, 21, 50 | ~2.25h, 5.25h, 12.5h | No change. |
-| **price_vs_ema** | 20, 50, 200 | 5h, 12.5h, 50h | **Done:** require EMA50 > EMA200 for entry; exit on price < EMA50. |
+| **price_vs_ema** | 20, 50, 200, PULLBACK 10 | 5h, 12.5h, 50h | **Done:** trend guard (EMA50 > EMA200) + pullback to EMA20 then close above; exit on price < EMA20 or < EMA50. |
 | **donchian_breakout** | DONCHIAN 20, EMA 50 | 5h channel, 12.5h | No change. |
 | **stochastic_oversold** | K 14, D 3 | — | No change. Standard. |
 | **stop_hunt_reversal** | LOOKBACK 36 | ~9h range | **Done:** 50 → 36 (tighter “recent” range for failed breakout). |
@@ -48,7 +48,7 @@ Each strategy runs on a fixed timeframe (see `STRATEGY_TIMEFRAMES` in `registry.
 | **impulse_follow** | LOOKBACK 20 | ~1.7h | No change. |
 | **impulse_pullback** | LOOKBACK 20, MAX_PULLBACK_BARS 3 | — | No change. |
 | **vwap_revert** | 24h bars (timeframe-aware) | 1 day | No change. Uses `context.timeframe`. |
-| **volume_climax_reversal** | VOL_LOOKBACK 24, MOVE_LOOKBACK 8 | 2h vol, 40min move | **Done:** VOL_LOOKBACK 20 → 24 (2h). |
+| **volume_climax_reversal** | VOL 24, MOVE 8, MIN_MOVE_BARS 3, MIN_MOVE_PCT 0.5% | 2h vol, 40min move | **Done:** VOL 24; exhaustion = ≥3 bars + ≥0.5% move before climax. |
 
 ---
 

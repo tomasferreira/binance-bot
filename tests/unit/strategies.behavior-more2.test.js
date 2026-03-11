@@ -68,8 +68,8 @@ describe('multiEma behavior', () => {
 // priceVsEma
 
 describe('priceVsEma behavior', () => {
-  it('enters long when price is strongly above EMA20, EMA20 > EMA50, and EMA50 > EMA200', () => {
-    const len = 210
+  it('enters long when price pulled back to/near EMA20 then closed above, with EMA20 > EMA50 and EMA50 > EMA200', () => {
+    const len = 220
     const ema20Arr = Array(len).fill(99)
     const ema50Arr = Array(len).fill(98)
     const ema200Arr = Array(len).fill(97)
@@ -77,13 +77,14 @@ describe('priceVsEma behavior', () => {
       .mockReturnValueOnce(ema20Arr)
       .mockReturnValueOnce(ema50Arr)
       .mockReturnValueOnce(ema200Arr)
-    const ohlcv = makeFlatOhlcv(len, 105) // price well above ema20
+    const ohlcv = makeFlatOhlcv(len, 105) // last bar close 105 (above ema20)
+    ohlcv[len - 6][4] = 98 // one bar in last 10 had close at/near EMA20 (98 <= 99*1.002) = pullback
     const res = priceVsEma.evaluate(ohlcv, { openPosition: null })
     expect(res.action).toBe('enter-long')
   })
 
   it('exits long when price drops below EMA20', () => {
-    const len = 210
+    const len = 220
     const ema20Arr = Array(len).fill(100)
     const ema50Arr = Array(len).fill(90)
     const ema200Arr = Array(len).fill(85)

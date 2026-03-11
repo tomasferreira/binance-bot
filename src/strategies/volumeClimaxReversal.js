@@ -3,15 +3,16 @@ import { logger } from '../logger.js'
 export const id = 'volume_climax_reversal'
 export const name = 'Volume Climax Reversal'
 export const description =
-  'Fades exhaustion: after a directional move, enters opposite on a volume-climax bar (volume spike + dominant wick, close at wrong end). Exits via SL/TP.'
+  'Fades exhaustion: after a directional move of at least 3 bars and 0.5%, enters opposite on a volume-climax bar (volume spike + dominant wick). Exits via SL/TP.'
 
 // Volume climax
 const VOL_LOOKBACK = 24 // 2h on 5m for volume average
 const VOL_CLIMAX_MULT = 2 // current bar volume >= this × average
 
-// Prior move
+// Prior move (exhaustion = meaningful move before climax)
 const MOVE_LOOKBACK = 8 // 40min on 5m
 const MIN_MOVE_BARS = 3 // at least this many bars in the same direction
+const MIN_MOVE_PCT = 0.005 // prior move must be at least 0.5% (avoid tiny noise)
 
 // Climax bar shape
 const WICK_VS_BODY = 1.5 // dominant wick: wick >= body * this
@@ -44,8 +45,10 @@ export function evaluate (ohlcv, state, context = {}) {
     if (prevCloses[j] < prevCloses[j - 1]) downBars++
     else if (prevCloses[j] > prevCloses[j - 1]) upBars++
   }
-  const hadDownMove = closeThen != null && closeNow != null && closeNow < closeThen && downBars >= MIN_MOVE_BARS
-  const hadUpMove = closeThen != null && closeNow != null && closeNow > closeThen && upBars >= MIN_MOVE_BARS
+  const downMovePct = closeThen != null && closeThen > 0 && closeNow != null ? (closeThen - closeNow) / closeThen : 0
+  const upMovePct = closeThen != null && closeThen > 0 && closeNow != null ? (closeNow - closeThen) / closeThen : 0
+  const hadDownMove = closeThen != null && closeNow != null && closeNow < closeThen && downBars >= MIN_MOVE_BARS && downMovePct >= MIN_MOVE_PCT
+  const hadUpMove = closeThen != null && closeNow != null && closeNow > closeThen && upBars >= MIN_MOVE_BARS && upMovePct >= MIN_MOVE_PCT
 
   const closePosInRange = range > 0 ? (close - low) / range : 0.5
   const dominantLowerWick = body > 0 && lowerWick >= WICK_VS_BODY * body && range > 0 && closePosInRange <= CLOSE_OUTER_THIRD
@@ -62,7 +65,7 @@ export function evaluate (ohlcv, state, context = {}) {
 
   logger.info(
     `[${id}] ts=${new Date(ts).toISOString()} vol=${vol.toFixed(0)} avgVol=${avgVol.toFixed(0)} climaxVol=${isClimaxVol} ` +
-      `hadDown=${hadDownMove} hadUp=${hadUpMove} bullClimax=${bullishClimax} bearClimax=${bearishClimax}`
+      `downMovePct=${(downMovePct * 100).toFixed(2)}% upMovePct=${(upMovePct * 100).toFixed(2)}% hadDown=${hadDownMove} hadUp=${hadUpMove} bullClimax=${bullishClimax} bearClimax=${bearishClimax}`
   )
 
   if (state?.openPosition) {
@@ -108,6 +111,6 @@ export function evaluate (ohlcv, state, context = {}) {
 
   return {
     action: 'hold',
-    detail: { ts, vol, avgVol, bullishClimax, bearishClimax }
+    detail: { ts, vol, avgVol, downMovePct, upMovePct, bullishClimax, bearishClimax }
   }
 }
