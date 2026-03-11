@@ -2,7 +2,7 @@ import { calculateMACD, calculateEMA } from '../indicators.js'
 import { logger } from '../logger.js'
 
 export const id = 'macd_histogram'
-export const name = 'MACD Histogram Zero-Line (Both)'
+export const name = 'MACD Histogram Zero-Line'
 export const description =
   'Goes long when MACD histogram crosses from negative to positive and price is above EMA 200; goes short on the opposite. Exits when histogram crosses back or EMA 200 trend breaks.'
 
