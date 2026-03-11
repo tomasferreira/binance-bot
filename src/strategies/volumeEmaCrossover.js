@@ -4,7 +4,7 @@ import { logger } from '../logger.js'
 export const id = 'volume_ema_crossover'
 export const name = 'Volume-Filtered EMA Crossover (50/200)'
 export const description =
-  'EMA 50/200 crossover long only when current volume > 1.5x average (20). Exits via SL/TP.'
+  'EMA 50/200 crossover long only when current volume > 1.5x average (24). Exits when EMA 50 crosses below 200; otherwise SL/TP.'
 
 const VOLUME_PERIOD = 24 // 1 day on 1h (24 bars)
 const VOLUME_MULT = 1.5
@@ -32,6 +32,10 @@ export function evaluate (ohlcv, state) {
   if (!state?.openPosition && signal === 'long' && volumeOk) {
     logger.info(`[${id}] LONG signal (EMA cross + volume confirmation)`)
     return { action: 'enter-long', detail: { fast, slow, signal, volume: currentVol, avgVol } }
+  }
+  if (state?.openPosition && signal === 'short') {
+    logger.info(`[${id}] EXIT signal (EMA 50 cross below 200)`)
+    return { action: 'exit-long', detail: { fast, slow, signal, volume: currentVol, avgVol } }
   }
 
   return { action: 'hold', detail: { fast, slow, signal, volume: currentVol, avgVol } }

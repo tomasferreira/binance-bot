@@ -3,7 +3,7 @@ import { logger } from '../logger.js'
 
 export const id = 'macd'
 export const name = 'MACD (12/26/9)'
-export const description = 'Goes long when MACD line crosses above the signal line. No auto-exit (relies on SL/TP).'
+export const description = 'Goes long when MACD line crosses above the signal line. Exits when MACD crosses below signal; otherwise SL/TP.'
 
 const FAST = 12
 const SLOW = 26
@@ -18,6 +18,10 @@ export function evaluate (ohlcv, state) {
   if (crossSignal === 'long' && !state?.openPosition) {
     logger.info(`[${id}] LONG signal`)
     return { action: 'enter-long', detail: { macd, signal: sig, crossSignal } }
+  }
+  if (state?.openPosition && crossSignal === 'short') {
+    logger.info(`[${id}] EXIT signal (MACD cross below signal)`)
+    return { action: 'exit-long', detail: { macd, signal: sig, crossSignal } }
   }
   return { action: 'hold', detail: { macd, signal: sig, crossSignal } }
 }
