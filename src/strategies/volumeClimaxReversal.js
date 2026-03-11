@@ -6,11 +6,11 @@ export const description =
   'Fades exhaustion: after a directional move, enters opposite on a volume-climax bar (volume spike + dominant wick, close at wrong end). Exits via SL/TP.'
 
 // Volume climax
-const VOL_LOOKBACK = 20
+const VOL_LOOKBACK = 24 // 2h on 5m for volume average
 const VOL_CLIMAX_MULT = 2 // current bar volume >= this × average
 
 // Prior move
-const MOVE_LOOKBACK = 8
+const MOVE_LOOKBACK = 8 // 40min on 5m
 const MIN_MOVE_BARS = 3 // at least this many bars in the same direction
 
 // Climax bar shape

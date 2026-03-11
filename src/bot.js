@@ -4,7 +4,7 @@ import { getTradingExchange, getDataExchange } from './exchange.js'
 import { getMarketDataSource } from './marketDataSource.js'
 import { loadState, saveState, migrateLegacyState } from './stateMulti.js'
 import { loadRunner } from './runner.js'
-import { STRATEGY_IDS, evaluateStrategy } from './strategies/registry.js'
+import { STRATEGY_IDS, evaluateStrategy, getStrategyTimeframe } from './strategies/registry.js'
 import { applyStopTakeProfitExits, openLongPosition, openShortPosition, closePositionNow } from './tradeManager.js'
 import { logOpenOrders } from './orders.js'
 import { computeRegime } from './regime.js'
@@ -19,7 +19,8 @@ function getStrategyBudget () {
 }
 
 let lastTickAt = null
-let lastClosedCandleTs = null
+/** Per-timeframe last closed candle timestamp (for isNewClosedCandle). */
+let lastClosedCandleTsByTf = {}
 let currentBacktest = null
 const lastDecisionByStrategy = {}
 
@@ -35,16 +36,17 @@ function timeframeMs (tf) {
   return 60 * 1000
 }
 
-async function fetchMarketData (limit = 250) {
+async function fetchMarketData (limit = 250, tf) {
+  const useTf = tf ?? timeframe
   const source = getMarketDataSource()
   const exchange = source === 'testnet' ? getTradingExchange() : getDataExchange()
   if (limit <= BINANCE_KLINES_MAX) {
-    logger.debug('exchange.fetchOHLCV request', { symbol, timeframe, limit })
-    const ohlcv = await exchange.fetchOHLCV(symbol, timeframe, undefined, limit)
+    logger.debug('exchange.fetchOHLCV request', { symbol, timeframe: useTf, limit })
+    const ohlcv = await exchange.fetchOHLCV(symbol, useTf, undefined, limit)
     logger.debug('exchange.fetchOHLCV response', { candles: ohlcv.length })
     return ohlcv
   }
-  const all = await fetchMarketDataChunked(limit)
+  const all = await fetchMarketDataChunked(limit, useTf)
   logger.debug('exchange.fetchOHLCV response (chunked)', { candles: all.length })
   return all
 }
@@ -61,17 +63,18 @@ async function fetchRegimeData () {
   return ohlcv
 }
 
-async function fetchMarketDataChunked (requestedLimit) {
+async function fetchMarketDataChunked (requestedLimit, tf) {
+  const useTf = tf ?? timeframe
   const source = getMarketDataSource()
   const exchange = source === 'testnet' ? getTradingExchange() : getDataExchange()
-  const periodMs = timeframeMs(timeframe)
-  let ohlcv = await exchange.fetchOHLCV(symbol, timeframe, undefined, BINANCE_KLINES_MAX)
+  const periodMs = timeframeMs(useTf)
+  let ohlcv = await exchange.fetchOHLCV(symbol, useTf, undefined, BINANCE_KLINES_MAX)
   if (ohlcv.length === 0) return ohlcv
   const result = [...ohlcv]
   while (result.length < requestedLimit) {
     const firstTs = result[0][0]
     const since = firstTs - BINANCE_KLINES_MAX * periodMs
-    const older = await exchange.fetchOHLCV(symbol, timeframe, since, BINANCE_KLINES_MAX)
+    const older = await exchange.fetchOHLCV(symbol, useTf, since, BINANCE_KLINES_MAX)
     const beforeFirst = older.filter(c => c[0] < firstTs)
     if (beforeFirst.length === 0) break
     result.unshift(...beforeFirst)
@@ -168,37 +171,60 @@ async function tickStrategy (strategyId, ohlcv, lastClose, context = {}) {
 async function botTick () {
   try {
     logger.info('--- Bot tick start ---')
-    const [ohlcv, regime] = await Promise.all([fetchMarketData(), getRegime()])
-    const lastClose = ohlcv[ohlcv.length - 1][4]
-    // Strategy entry/exit signals use only closed candles; current price (lastClose) is used for SL/TP and orders
-    const ohlcvClosed = ohlcv.length > 1 ? ohlcv.slice(0, -1) : ohlcv
-    const latestClosedTs = ohlcvClosed.length ? ohlcvClosed[ohlcvClosed.length - 1][0] : null
-    const isNewClosedCandle = latestClosedTs != null && latestClosedTs !== lastClosedCandleTs
-    if (isNewClosedCandle) lastClosedCandleTs = latestClosedTs
     const runner = loadRunner()
-    // Global view of auto-trading: we treat it as OFF if the first strategy's
-    // state has autoTradingEnabled === false (dashboard toggle updates all).
+    const primaryTf = timeframe
+    const uniqueTfs = new Set([
+      primaryTf,
+      ...runner.running.map((id) => getStrategyTimeframe(id, primaryTf))
+    ])
+    const [ohlcvByTf, regime] = await Promise.all([
+      (async () => {
+        const out = {}
+        await Promise.all(
+          [...uniqueTfs].map(async (tf) => {
+            out[tf] = await fetchMarketData(250, tf)
+          })
+        )
+        return out
+      })(),
+      getRegime()
+    ])
+    const primaryOhlcv = ohlcvByTf[primaryTf] || []
+    const lastClose = primaryOhlcv.length ? primaryOhlcv[primaryOhlcv.length - 1][4] : null
+    const isNewClosedCandleByTf = {}
+    for (const tf of uniqueTfs) {
+      const arr = ohlcvByTf[tf] || []
+      const closed = arr.length > 1 ? arr.slice(0, -1) : arr
+      const latestClosedTs = closed.length ? closed[closed.length - 1][0] : null
+      const isNew = latestClosedTs != null && latestClosedTs !== lastClosedCandleTsByTf[tf]
+      isNewClosedCandleByTf[tf] = isNew
+      if (latestClosedTs != null) lastClosedCandleTsByTf[tf] = latestClosedTs
+    }
     const sampleId = STRATEGY_IDS[0]
     const sampleState = sampleId ? loadState(sampleId) : null
     const globalAutoTradingEnabled = sampleState ? sampleState.autoTradingEnabled !== false : true
     if (!globalAutoTradingEnabled) {
       logger.warn('Auto trading is OFF globally (no strategies will open/close positions automatically this tick)')
     }
-    const context = {
-      regime: regime || undefined,
-      regimeFilterEnabled: runner.regimeFilterEnabled !== false,
-      isNewClosedCandle
-    }
     logger.debug('botTick state', {
       runningStrategies: runner.running,
       lastClose,
-      regimeFilterEnabled: context.regimeFilterEnabled,
+      regimeFilterEnabled: runner.regimeFilterEnabled !== false,
       globalAutoTradingEnabled,
-      isNewClosedCandle
+      timeframes: [...uniqueTfs]
     })
 
     for (const strategyId of runner.running) {
       try {
+        const tf = getStrategyTimeframe(strategyId, primaryTf)
+        const arr = ohlcvByTf[tf] || []
+        const ohlcvClosed = arr.length > 1 ? arr.slice(0, -1) : arr
+        const context = {
+          regime: regime || undefined,
+          regimeFilterEnabled: runner.regimeFilterEnabled !== false,
+          isNewClosedCandle: isNewClosedCandleByTf[tf] === true,
+          timeframe: tf
+        }
         await tickStrategy(strategyId, ohlcvClosed, lastClose, context)
       } catch (err) {
         logger.error(`Error in strategy ${strategyId}`, err)

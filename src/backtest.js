@@ -1,7 +1,7 @@
 import { config } from './config.js'
 import { getTradingExchange, getDataExchange } from './exchange.js'
 import { getMarketDataSource, setMarketDataSource } from './marketDataSource.js'
-import { STRATEGY_IDS, evaluateStrategy, getStrategyDirection } from './strategies/registry.js'
+import { STRATEGY_IDS, evaluateStrategy, getStrategyDirection, getStrategyTimeframe } from './strategies/registry.js'
 import { getEffectiveTradingConfig } from './runtimeConfig.js'
 import { calculatePositionSize } from './risk.js'
 import { backtestLogger as logger } from './logger.js'
@@ -20,6 +20,12 @@ function timeframeToMs (tf) {
   if (m[2] === 'h') return n * 60 * 60 * 1000
   if (m[2] === 'd') return n * 24 * 60 * 60 * 1000
   return 60 * 1000
+}
+
+/** Bars from series that are closed by endTimeMs (bar open + period <= endTimeMs). */
+function getOhlcvSliceClosedBy (ohlcvArray, tf, endTimeMs) {
+  const period = timeframeToMs(tf)
+  return ohlcvArray.filter((b) => b[0] + period <= endTimeMs)
 }
 
 // Lightweight in-memory state used for backtests only
@@ -366,10 +372,28 @@ async function runBacktest () {
     50000
   )
 
-  const ohlcv = await fetchHistoricalCandles(symbol, timeframe, sinceMs, requestedCandles)
+  const primaryTf = timeframe
+  const uniqueTfs = new Set([
+    primaryTf,
+    ...STRATEGY_IDS.map((id) => getStrategyTimeframe(id, primaryTf))
+  ])
+  const ohlcvByTf = {}
+  const ohlcv = await fetchHistoricalCandles(symbol, primaryTf, sinceMs, requestedCandles)
   if (!ohlcv.length) {
     logger.warn('Backtest: no candles fetched; aborting')
     return
+  }
+  ohlcvByTf[primaryTf] = ohlcv
+  const endMs = ohlcv[ohlcv.length - 1][0] + periodMs
+  for (const tf of uniqueTfs) {
+    if (tf === primaryTf) continue
+    const tfPeriodMs = timeframeToMs(tf)
+    const tfRequested = Math.min(
+      Math.ceil((endMs - sinceMs) / tfPeriodMs) + 50,
+      50000
+    )
+    ohlcvByTf[tf] = await fetchHistoricalCandles(symbol, tf, sinceMs, tfRequested)
+    logger.info(`Backtest: ${tf} series ${ohlcvByTf[tf].length} bars`)
   }
 
   const states = {}
@@ -402,11 +426,23 @@ async function runBacktest () {
     }
   }
 
-  // Replay candles one by one
+  // Replay candles one by one (step by primary timeframe)
   for (let i = 0; i < ohlcv.length; i++) {
-    const slice = ohlcv.slice(0, i + 1)
-    const [ts, , high, low, close] = slice[slice.length - 1]
+    const [ts, , high, low, close] = ohlcv[i]
     const lastClose = close
+    const barCloseTime = ts + periodMs
+
+    // Log once per strategy that each uses its own TF and slice (verifies multi-TF backtest)
+    if (i === 0) {
+      for (const id of STRATEGY_IDS) {
+        const stTf = getStrategyTimeframe(id, primaryTf)
+        const slice =
+          stTf === primaryTf
+            ? ohlcv.slice(0, 1)
+            : getOhlcvSliceClosedBy(ohlcvByTf[stTf] || [], stTf, barCloseTime)
+        logger.info(`Backtest strategy TF: ${id} → ${stTf}, slice length ${slice.length}`)
+      }
+    }
 
     // Regime in effect at ts: use exactly the 300 bars ending at T = last regime bar before ts,
     // keyed by time so 22d vs 23d get the same window for the same ts.
@@ -428,13 +464,18 @@ async function runBacktest () {
         if (r) regime = r
       }
     }
-    const context = {
-      regime,
-      regimeFilterEnabled
-    }
-
     for (const id of STRATEGY_IDS) {
       let state = states[id]
+      const stTf = getStrategyTimeframe(id, primaryTf)
+      const slice =
+        stTf === primaryTf
+          ? ohlcv.slice(0, i + 1)
+          : getOhlcvSliceClosedBy(ohlcvByTf[stTf] || [], stTf, barCloseTime)
+      const context = {
+        regime,
+        regimeFilterEnabled,
+        timeframe: stTf
+      }
       const decision = evaluateStrategy(id, slice, state, context)
       const action = decision?.action || 'hold'
 

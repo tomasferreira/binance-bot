@@ -6,7 +6,7 @@ export const name = 'Volume-Filtered EMA Crossover (50/200)'
 export const description =
   'EMA 50/200 crossover long only when current volume > 1.5x average (20). Exits via SL/TP.'
 
-const VOLUME_PERIOD = 20
+const VOLUME_PERIOD = 24 // 1 day on 1h (24 bars)
 const VOLUME_MULT = 1.5
 
 export function evaluate (ohlcv, state) {

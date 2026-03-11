@@ -88,6 +88,42 @@ const REGIME_FILTERS = {
   [volumeClimaxReversal.id]: (r) => r.trend === 'ranging' || r.trend === 'weak'
 }
 
+// Recommended timeframe per strategy (candle size for signal evaluation).
+// All signal metrics (EMA periods, RSI/MACD/BB periods, lookbacks) are in bars of this TF.
+// Time-based lookbacks (e.g. "1 day" in vwap_revert) use context.timeframe to scale.
+// 1h: trend/mean-revert (EMA 50/200, MACD 12/26/9, BB 20, RSI 14, ATR 14, etc.).
+// 15m: multi-EMA 9/21/50, price vs EMA 20/50, Donchian 20, Stochastic 14/3, stop-hunt 50 bars.
+// 5m: ATR breakout 20, EMA cross 9/21, impulse 20 bars, VWAP 24h bars, volume climax 20/8.
+const STRATEGY_TIMEFRAMES = {
+  [emaCrossover.id]: '1h',
+  [macd.id]: '1h',
+  [macdHistogram.id]: '1h',
+  [multiTfTrend.id]: '1h',
+  [rsiPullback.id]: '1h',
+  [rsiMacdCombo.id]: '1h',
+  [bollingerMeanRevert.id]: '1h',
+  [bollingerSqueeze.id]: '1h',
+  [atrTrend.id]: '1h',
+  [volumeEmaCrossover.id]: '1h',
+  [shortTrend.id]: '1h',
+  [shortBreakdown.id]: '1h',
+  [shortOverbought.id]: '1h',
+  [shortMacd.id]: '1h',
+  [shortRejection.id]: '1h',
+  [rangeBounce.id]: '1h',
+  [multiEma.id]: '15m',
+  [priceVsEma.id]: '15m',
+  [donchianBreakout.id]: '15m',
+  [stochasticOversold.id]: '15m',
+  [stopHuntReversal.id]: '15m',
+  [atrBreakout.id]: '5m',
+  [emaFastCrossover.id]: '5m',
+  [impulseFollow.id]: '5m',
+  [impulsePullback.id]: '5m',
+  [vwapRevert.id]: '5m',
+  [volumeClimaxReversal.id]: '5m'
+}
+
 export const STRATEGY_IDS = Object.keys(strategies)
 
 // Direction metadata for UI / analytics: 'long' | 'short' | 'both'
@@ -128,6 +164,11 @@ export function getStrategy (id) {
 export function getStrategyDirection (id) {
   if (!id) return 'long'
   return STRATEGY_DIRECTIONS[id] || (id.startsWith('short_') ? 'short' : 'long')
+}
+
+/** Timeframe (candle size) for a strategy's signal evaluation. Falls back to defaultTf if not in STRATEGY_TIMEFRAMES. */
+export function getStrategyTimeframe (id, defaultTf = '15m') {
+  return STRATEGY_TIMEFRAMES[id] ?? defaultTf
 }
 
 /** True if this strategy is allowed to enter in the current regime (for dashboard highlighting). */

@@ -5,7 +5,7 @@ export const name = 'Stop-Hunt Reversal'
 export const description =
   'Fades failed breakouts where price wicks beyond recent highs/lows and then closes back inside the range. Exits via SL/TP.'
 
-const LOOKBACK = 50 // range window
+const LOOKBACK = 36 // ~9h on 15m for recent range (failed breakout)
 const WICK_MULTIPLIER = 1.5 // wick must be > body * this
 const MIN_WICK_FRACTION = 0.4 // wick must be at least this fraction of total bar range
 

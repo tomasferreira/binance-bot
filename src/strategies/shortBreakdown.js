@@ -8,7 +8,7 @@ export const description =
 
 const FAST = 50
 const SLOW = 200
-const LOOKBACK = 20
+const LOOKBACK = 14 // ~2 weeks on 1h for recent support
 
 export function evaluate (ohlcv, state) {
   const minLen = Math.max(SLOW, LOOKBACK) + 2

@@ -5,9 +5,15 @@ export const name = 'VWAP Mean Reversion'
 export const description =
   'Mean reversion around intraday VWAP: fades extensions above/below VWAP primarily in ranging/weak regimes. Exits via SL/TP.'
 
-const VWAP_LOOKBACK = 288 // ~1 day on 5m candles (288 * 5m = 24h)
+// Bars in 24h for each timeframe (used for session VWAP lookback)
+const BARS_PER_24H = { '1m': 1440, '5m': 288, '15m': 96, '30m': 48, '1h': 24 }
+const DEFAULT_VWAP_LOOKBACK = 288 // 5m default
 const DISTANCE_ENTRY = 0.01 // 1% away from VWAP to consider overextended
 const MIN_BODY_FRACTION = 0.3 // body at least 30% of bar range
+
+function getVwapLookback (timeframe) {
+  return BARS_PER_24H[timeframe] ?? DEFAULT_VWAP_LOOKBACK
+}
 
 function computeSessionVwap (ohlcv, lookback) {
   const n = ohlcv.length
@@ -29,14 +35,15 @@ function computeSessionVwap (ohlcv, lookback) {
 }
 
 export function evaluate (ohlcv, state, context = {}) {
-  if (!Array.isArray(ohlcv) || ohlcv.length < VWAP_LOOKBACK + 2) {
+  const vwapLookback = getVwapLookback(context?.timeframe || '5m')
+  if (!Array.isArray(ohlcv) || ohlcv.length < vwapLookback + 2) {
     return { action: 'hold', detail: {} }
   }
 
   const n = ohlcv.length
   const [ts, open, high, low, close, volume] = ohlcv[n - 1]
 
-  const vwap = computeSessionVwap(ohlcv, VWAP_LOOKBACK)
+  const vwap = computeSessionVwap(ohlcv, vwapLookback)
   if (vwap == null || vwap === 0) {
     return { action: 'hold', detail: { vwap: null } }
   }
