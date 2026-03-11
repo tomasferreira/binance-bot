@@ -287,7 +287,16 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
   }
 }
 
-export async function maybeClosePosition (state, marketPrice, strategyId = null) {
+/**
+ * Applies stop-loss / take-profit logic for a single strategy in live trading.
+ *
+ * - Uses the provided marketPrice (either live lastClose or closed-candle close,
+ *   depending on closeOnlyExits) to decide whether SL or TP should trigger.
+ * - If neither is hit, just updates lastPrice and returns state unchanged.
+ * - If SL/TP is hit, delegates to closePositionNow(), which places the market
+ *   close order and updates PnL, slippage, and history.
+ */
+export async function applyStopTakeProfitExits (state, marketPrice, strategyId = null) {
   const position = state.openPosition
   if (!position) return state
 

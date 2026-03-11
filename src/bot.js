@@ -5,7 +5,7 @@ import { getMarketDataSource } from './marketDataSource.js'
 import { loadState, saveState, migrateLegacyState } from './stateMulti.js'
 import { loadRunner } from './runner.js'
 import { STRATEGY_IDS, evaluateStrategy } from './strategies/registry.js'
-import { maybeClosePosition, openLongPosition, openShortPosition, closePositionNow } from './tradeManager.js'
+import { applyStopTakeProfitExits, openLongPosition, openShortPosition, closePositionNow } from './tradeManager.js'
 import { logOpenOrders } from './orders.js'
 import { computeRegime } from './regime.js'
 
@@ -115,7 +115,20 @@ async function tickStrategy (strategyId, ohlcv, lastClose, context = {}) {
     const stopPrice = useCloseOnlyExits && Array.isArray(ohlcv) && ohlcv.length
       ? ohlcv[ohlcv.length - 1][4]
       : lastClose
-    state = await maybeClosePosition(state, stopPrice, strategyId)
+    state = await applyStopTakeProfitExits(state, stopPrice, strategyId)
+  }
+
+  // Strategy entry/exit signals are evaluated only when a new candle has closed.
+  // Between closes, ohlcv contains the same closed-bar history, so recomputing
+  // the same decision each poll is wasted work and noisy in logs.
+  if (!isNewClosedCandle) {
+    saveState(strategyId, state)
+    logger.debug('tickStrategy end (no new candle)', {
+      strategyId,
+      hasOpenPosition: !!state.openPosition,
+      side: state.openPosition?.side || null
+    })
+    return state
   }
 
   if (state.openPosition) {
