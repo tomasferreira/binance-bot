@@ -371,10 +371,14 @@
               <input id="backtest-slippage" type="number" step="0.01" min="0" max="1" value="0" placeholder="0" title="Applied to entry and exit fills (e.g. 0.1 = 0.1%)" style="margin-top:0.15rem;background:#020617;border:1px solid #1f2937;border-radius:0.25rem;padding:0.2rem 0.4rem;color:#e5e7eb;font-size:0.9rem;width:5rem;">
             </label>
           </div>
-          <div class="row" style="margin-top:0.5rem;gap:0.5rem;flex-wrap:wrap;">
+          <div class="row" style="margin-top:0.5rem;gap:0.5rem;flex-wrap:wrap;align-items:center;">
             <button type="button" id="backtest-start-btn" class="primary">Run backtest</button>
             <button type="button" id="backtest-stop-btn" class="secondary">Stop backtest</button>
             <span id="backtest-status-text" style="font-size:0.85rem;color:#9ca3af;">Idle.</span>
+            <div id="backtest-progress-wrap" style="display:none; align-items:center; gap:0.5rem; min-width:12rem;">
+              <progress id="backtest-progress" max="100" value="0" style="height:0.5rem; flex:1; min-width:6rem; accent-color:#3b82f6;"></progress>
+              <span id="backtest-progress-text" style="font-size:0.8rem; color:#9ca3af; white-space:nowrap;">0 / 0 (0%)</span>
+            </div>
           </div>
           <div class="analysis-table-wrap" style="margin-top:0.75rem;">
             <table class="strategy-table analysis-table">

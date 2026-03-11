@@ -24,10 +24,23 @@ async function fetchBacktestStatus () {
 function renderBacktestStatus (status) {
   const statusEl = document.getElementById('backtest-status-text')
   const totalEl = document.getElementById('backtest-total-pnl')
+  const progressWrap = document.getElementById('backtest-progress-wrap')
+  const progressBar = document.getElementById('backtest-progress')
+  const progressText = document.getElementById('backtest-progress-text')
   if (!statusEl || !totalEl) return
 
   const s = status || { status: 'idle' }
   statusEl.textContent = `Status: ${s.status}${s.exitCode != null ? ' (code ' + s.exitCode + ')' : ''}`
+
+  const progress = s.progress
+  const showProgress = s.status === 'running' && progress && typeof progress.total === 'number' && progress.total > 0
+  if (progressWrap) progressWrap.style.display = showProgress ? 'flex' : 'none'
+  if (showProgress && progressBar && progressText) {
+    const pct = Math.min(100, Math.max(0, progress.pct ?? Math.round(100 * (progress.current || 0) / progress.total)))
+    progressBar.value = pct
+    progressBar.max = 100
+    progressText.textContent = `${(progress.current || 0).toLocaleString()} / ${(progress.total || 0).toLocaleString()} (${pct}%)`
+  }
 
   const summary = s.summary || {}
   const strategies = Array.isArray(summary.strategies) ? summary.strategies : []
@@ -281,8 +294,9 @@ function renderBacktestTable () {
 async function pollBacktestStatus () {
   const s = await fetchBacktestStatus()
   if (s) renderBacktestStatus(s)
+  const intervalMs = s && s.status === 'running' ? 1000 : 2000
   if (s && (s.status === 'running' || s.status === 'stopping')) {
-    backtestPollTimer = setTimeout(pollBacktestStatus, 2000)
+    backtestPollTimer = setTimeout(pollBacktestStatus, intervalMs)
   } else if (!s) {
     backtestPollTimer = setTimeout(pollBacktestStatus, 2000)
   } else {

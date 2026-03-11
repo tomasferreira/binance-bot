@@ -227,12 +227,35 @@ export function createApp () {
       const child = spawn(process.execPath, args, { cwd: process.cwd() })
       let stdout = ''
       let stderr = ''
+      let stderrBuffer = ''
 
       child.stdout.on('data', (data) => {
         stdout += data.toString()
       })
       child.stderr.on('data', (data) => {
-        stderr += data.toString()
+        const chunk = data.toString()
+        stderr += chunk
+        stderrBuffer += chunk
+        const lines = stderrBuffer.split('\n')
+        stderrBuffer = lines.pop() ?? ''
+        for (const line of lines) {
+          const m = line.match(/^PROGRESS\t(\d+)\t(\d+)/)
+          if (m) {
+            const current = parseInt(m[1], 10)
+            const total = parseInt(m[2], 10)
+            const cur = getCurrentBacktest()
+            if (cur && cur.status === 'running') {
+              setCurrentBacktest({
+                ...cur,
+                progress: {
+                  current,
+                  total,
+                  pct: total > 0 ? Math.round(100 * current / total) : 0
+                }
+              })
+            }
+          }
+        }
       })
 
       setCurrentBacktest({

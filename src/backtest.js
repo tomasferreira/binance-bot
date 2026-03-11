@@ -427,7 +427,20 @@ async function runBacktest () {
   }
 
   // Replay candles one by one (step by primary timeframe)
+  const totalBars = ohlcv.length
+  let lastPctReported = -1
+  const reportProgress = (current, total) => {
+    if (typeof process !== 'undefined' && process.stderr && process.stderr.writable) {
+      process.stderr.write(`PROGRESS\t${current}\t${total}\n`)
+    }
+  }
   for (let i = 0; i < ohlcv.length; i++) {
+    const current = i + 1
+    const pct = totalBars > 0 ? Math.floor(100 * current / totalBars) : 0
+    if (pct > lastPctReported && pct <= 100) {
+      reportProgress(current, totalBars)
+      lastPctReported = pct
+    }
     const [ts, , high, low, close] = ohlcv[i]
     const lastClose = close
     const barCloseTime = ts + periodMs
