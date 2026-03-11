@@ -20,12 +20,22 @@ function resolveLogLevel () {
 const fileMaxSizeBytes = Math.max(1, config.logging?.maxSizeMB || 10) * 1024 * 1024
 const fileMaxFiles = Math.max(1, config.logging?.maxFiles || 5)
 
-const logFormat = winston.format.printf(({ level, message, timestamp, stack }) => {
-  return `${timestamp} [${level}] ${stack || message}`
+const logFormat = winston.format.printf(info => {
+  const { level, message, timestamp, stack, metadata } = info
+  const base = `${timestamp} [${level}] ${stack || message}`
+  if (metadata && Object.keys(metadata).length > 0) {
+    return `${base} ${JSON.stringify(metadata)}`
+  }
+  return base
 })
 
-const backtestLogFormat = winston.format.printf(({ level, message, timestamp, stack }) => {
-  return `${timestamp} [${level}] [Backtest] ${stack || message}`
+const backtestLogFormat = winston.format.printf(info => {
+  const { level, message, timestamp, stack, metadata } = info
+  const base = `${timestamp} [${level}] [Backtest] ${stack || message}`
+  if (metadata && Object.keys(metadata).length > 0) {
+    return `${base} ${JSON.stringify(metadata)}`
+  }
+  return base
 })
 
 export const logger = winston.createLogger({
@@ -33,6 +43,7 @@ export const logger = winston.createLogger({
   format: winston.format.combine(
     winston.format.timestamp(),
     winston.format.errors({ stack: true }),
+    winston.format.metadata({ fillExcept: ['message', 'level', 'timestamp', 'stack'] }),
     logFormat
   ),
   transports: [
@@ -41,6 +52,7 @@ export const logger = winston.createLogger({
         winston.format.colorize(),
         winston.format.timestamp(),
         winston.format.errors({ stack: true }),
+        winston.format.metadata({ fillExcept: ['message', 'level', 'timestamp', 'stack'] }),
         logFormat
       )
     }),
@@ -59,6 +71,7 @@ export const backtestLogger = winston.createLogger({
   format: winston.format.combine(
     winston.format.timestamp(),
     winston.format.errors({ stack: true }),
+    winston.format.metadata({ fillExcept: ['message', 'level', 'timestamp', 'stack'] }),
     backtestLogFormat
   ),
   transports: [
@@ -67,6 +80,7 @@ export const backtestLogger = winston.createLogger({
         winston.format.colorize(),
         winston.format.timestamp(),
         winston.format.errors({ stack: true }),
+        winston.format.metadata({ fillExcept: ['message', 'level', 'timestamp', 'stack'] }),
         backtestLogFormat
       )
     }),
