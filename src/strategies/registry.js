@@ -22,6 +22,7 @@ import * as stochasticOversold from './stochasticOversold.js'
 import * as atrBreakout from './atrBreakout.js'
 import * as rangeBounce from './rangeBounce.js'
 import * as impulseFollow from './impulseFollow.js'
+import * as stopHuntReversal from './stopHuntReversal.js'
 import * as impulsePullback from './impulsePullback.js'
 
 const strategies = {
@@ -48,7 +49,8 @@ const strategies = {
   [atrBreakout.id]: atrBreakout,
   [rangeBounce.id]: rangeBounce,
   [impulseFollow.id]: impulseFollow,
-  [impulsePullback.id]: impulsePullback
+  [impulsePullback.id]: impulsePullback,
+  [stopHuntReversal.id]: stopHuntReversal
 }
 
 /** Regime filter: (regime) => true = allow entry. Omitted strategy = no filter. */
@@ -76,7 +78,8 @@ const REGIME_FILTERS = {
   [donchianBreakout.id]: (r) => r.trend === 'trending',
   [atrBreakout.id]: (r) => r.trend === 'trending',
   [impulseFollow.id]: (r) => r.trend === 'trending',
-  [impulsePullback.id]: (r) => r.trend === 'trending'
+  [impulsePullback.id]: (r) => r.trend === 'trending',
+  [stopHuntReversal.id]: (r) => r.trend === 'ranging' || r.trend === 'weak'
 }
 
 export const STRATEGY_IDS = Object.keys(strategies)
@@ -106,7 +109,8 @@ const STRATEGY_DIRECTIONS = {
   [atrBreakout.id]: 'long',
   [rangeBounce.id]: 'long',
   [impulseFollow.id]: 'both',
-  [impulsePullback.id]: 'both'
+  [impulsePullback.id]: 'both',
+  [stopHuntReversal.id]: 'both'
 }
 
 export function getStrategy (id) {
