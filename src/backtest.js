@@ -7,6 +7,11 @@ import { calculatePositionSize } from './risk.js'
 import { backtestLogger as logger } from './logger.js'
 import { computeRegime } from './regime.js'
 
+// Heuristics for backtest recommendations
+const MIN_TRADES_FOR_RECOMMENDATION = 10
+const MIN_PROFIT_FACTOR = 1.1
+const MIN_CALMAR = 0.3
+
 function timeframeToMs (tf) {
   const m = (tf || '').match(/^(\d+)(m|h|d)$/)
   if (!m) return 60 * 1000
@@ -496,21 +501,51 @@ async function runBacktest () {
     const s = states[id]
     totalPnl += s.realizedPnl || 0
     const direction = getStrategyDirection(id)
-    summaryStrategies.push({
+    const base = {
       id,
       direction,
       realizedPnl: s.realizedPnl ?? 0,
       trades: s.closedTrades ?? 0,
       wins: s.wins ?? 0,
       losses: s.losses ?? 0,
-      maxDrawdown: s.maxDrawdown ?? 0,
-      ...backtestMetricsFromHistory(s)
-    })
+      maxDrawdown: s.maxDrawdown ?? 0
+    }
+    const metrics = backtestMetricsFromHistory(s)
+
+    // Simple recommendation heuristic to guide which strategies to enable.
+    let recommended = 'insufficient-data'
+    let reason = 'not enough trades'
+    if (base.trades >= MIN_TRADES_FOR_RECOMMENDATION) {
+      const pnlOk = base.realizedPnl > 0
+      const pfOk = metrics.profitFactor != null && metrics.profitFactor >= MIN_PROFIT_FACTOR
+      const calmarOk = metrics.calmarRatio != null && metrics.calmarRatio >= MIN_CALMAR
+      if (pnlOk && pfOk && calmarOk) {
+        recommended = 'enable'
+        reason = 'positive PnL, profitFactor and Calmar'
+      } else {
+        recommended = 'disable'
+        reason = `pnlOk=${pnlOk}, pfOk=${pfOk}, calmarOk=${calmarOk}`
+      }
+    }
+
+    const summary = {
+      ...base,
+      ...metrics,
+      recommendation: recommended,
+      recommendationReason: reason
+    }
+    summaryStrategies.push(summary)
+
     logger.info(
-      `${id}: PnL=${s.realizedPnl.toFixed(2)} USDT, trades=${s.closedTrades}, wins=${s.wins}, losses=${s.losses}, maxDD=${s.maxDrawdown.toFixed(2)}`
+      `${id}: PnL=${base.realizedPnl.toFixed(2)} USDT, trades=${base.trades}, wins=${base.wins}, losses=${base.losses}, maxDD=${base.maxDrawdown.toFixed(2)}, ` +
+      `profitFactor=${metrics.profitFactor ?? 'n/a'}, calmar=${metrics.calmarRatio ?? 'n/a'}, reco=${recommended}`
     )
   }
   logger.info(`Backtest TOTAL PnL: ${totalPnl.toFixed(2)} USDT`)
+  logger.info('Backtest recommendations (enable/disable based on this run):')
+  for (const s of summaryStrategies) {
+    logger.info(`  ${s.id}: ${s.recommendation} (${s.recommendationReason})`)
+  }
   const totalTrades = summaryStrategies.reduce((acc, s) => acc + (s.trades ?? 0), 0)
   const meta = {
     timeframe,
@@ -522,7 +557,15 @@ async function runBacktest () {
     durationMs: Date.now() - startedAtMs
   }
   // Single line for API to parse (no logger prefix)
-  process.stdout.write('BACKTEST_RESULT:' + JSON.stringify({ strategies: summaryStrategies, totalPnl, meta }) + '\n')
+  process.stdout.write(
+    'BACKTEST_RESULT:' +
+      JSON.stringify({
+        strategies: summaryStrategies,
+        totalPnl,
+        meta
+      }) +
+      '\n'
+  )
 }
 
 runBacktest().catch(err => {

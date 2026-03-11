@@ -49,6 +49,7 @@ function renderBacktestStatus (status) {
     const totalTrades = typeof meta.totalTrades === 'number' ? meta.totalTrades : null
     const slippagePct = typeof meta.slippagePct === 'number' && meta.slippagePct > 0 ? meta.slippagePct : null
     const durationMs = typeof meta.durationMs === 'number' ? meta.durationMs : null
+    const enabled = strategies.filter(r => r.recommendation === 'enable').map(r => r.id)
     const parts = []
     if (tf) parts.push(tf)
     if (candles != null) parts.push(`${candles} candles`)
@@ -63,6 +64,9 @@ function renderBacktestStatus (status) {
           : (seconds / 60).toFixed(1) + 'm'
       parts.push(formatted)
     }
+    if (enabled.length) {
+      parts.push(`Reco: ${enabled.join(', ')}`)
+    }
     metaEl.textContent = parts.length ? parts.join(', ') : '–'
   }
 }
@@ -72,7 +76,7 @@ function renderBacktestTable () {
   if (!tbody) return
   const strategies = Array.isArray(backtestLastStrategies) ? backtestLastStrategies : []
   if (!strategies.length) {
-    tbody.innerHTML = '<tr><td colspan="31">No results yet.</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="32">No results yet.</td></tr>'
     return
   }
 
@@ -80,6 +84,8 @@ function renderBacktestTable () {
     const id = r.id || '-'
     const rawDir = r.direction || (id.startsWith('short_') ? 'short' : 'long')
     const typeTag = rawDir === 'both' ? 'Both' : (rawDir === 'short' ? 'Short' : 'Long')
+    const reco = r.recommendation || 'insufficient-data'
+    const recoReason = r.recommendationReason || ''
     const realized = Number(r.realizedPnl || 0)
     const trades = r.trades ?? 0
     const wins = r.wins ?? 0
@@ -91,6 +97,8 @@ function renderBacktestTable () {
       raw: r,
       id,
       typeTag,
+      reco,
+      _recoReason: recoReason,
       realized,
       trades,
       wins,
@@ -121,6 +129,11 @@ function renderBacktestTable () {
     if (key === 'id') {
       va = a.id
       vb = b.id
+      return backtestSortDesc ? vb.localeCompare(va) : va.localeCompare(vb)
+    }
+    if (key === 'reco') {
+      va = a.reco || ''
+      vb = b.reco || ''
       return backtestSortDesc ? vb.localeCompare(va) : va.localeCompare(vb)
     }
     if (key === 'type') {
@@ -201,6 +214,7 @@ function renderBacktestTable () {
     const {
       id,
       typeTag,
+      reco,
       realized,
       trades,
       wl,
@@ -222,9 +236,16 @@ function renderBacktestTable () {
     } = s
     const winRateColor = winRate == null ? '' : (winRate >= 50 ? '#22c55e' : '#ef4444')
     const ddColor = maxDd > 0 ? '#ef4444' : ''
+    const recoLower = (reco || '').toLowerCase()
+    const recoColor = recoLower === 'enable'
+      ? '#22c55e'
+      : recoLower === 'disable'
+        ? '#ef4444'
+        : '#9ca3af'
     return '<tr>' +
       '<td>' + id + '</td>' +
       '<td class="numeric">' + typeTag + '</td>' +
+      '<td class="numeric" style="color:' + recoColor + '" title="' + (s._recoReason || '') + '">' + (reco || '–') + '</td>' +
       '<td class="numeric" style="color:' + backtestPnlColor(realized) + '">' + fmt(realized) + '</td>' +
       '<td class="numeric" style="color:' + backtestPnlColor(realized) + '">' + fmt(realized) + '</td>' +
       '<td class="numeric">0.00</td>' +
