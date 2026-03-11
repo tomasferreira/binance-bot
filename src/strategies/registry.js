@@ -24,6 +24,7 @@ import * as rangeBounce from './rangeBounce.js'
 import * as impulseFollow from './impulseFollow.js'
 import * as stopHuntReversal from './stopHuntReversal.js'
 import * as impulsePullback from './impulsePullback.js'
+import * as vwapRevert from './vwapRevert.js'
 
 const strategies = {
   [emaCrossover.id]: emaCrossover,
@@ -50,7 +51,8 @@ const strategies = {
   [rangeBounce.id]: rangeBounce,
   [impulseFollow.id]: impulseFollow,
   [impulsePullback.id]: impulsePullback,
-  [stopHuntReversal.id]: stopHuntReversal
+  [stopHuntReversal.id]: stopHuntReversal,
+  [vwapRevert.id]: vwapRevert
 }
 
 /** Regime filter: (regime) => true = allow entry. Omitted strategy = no filter. */
@@ -79,7 +81,8 @@ const REGIME_FILTERS = {
   [atrBreakout.id]: (r) => r.trend === 'trending',
   [impulseFollow.id]: (r) => r.trend === 'trending',
   [impulsePullback.id]: (r) => r.trend === 'trending',
-  [stopHuntReversal.id]: (r) => r.trend === 'ranging' || r.trend === 'weak'
+  [stopHuntReversal.id]: (r) => r.trend === 'ranging' || r.trend === 'weak',
+  [vwapRevert.id]: (r) => r.trend === 'ranging' || r.trend === 'weak'
 }
 
 export const STRATEGY_IDS = Object.keys(strategies)
@@ -110,7 +113,8 @@ const STRATEGY_DIRECTIONS = {
   [rangeBounce.id]: 'long',
   [impulseFollow.id]: 'both',
   [impulsePullback.id]: 'both',
-  [stopHuntReversal.id]: 'both'
+  [stopHuntReversal.id]: 'both',
+  [vwapRevert.id]: 'both'
 }
 
 export function getStrategy (id) {
