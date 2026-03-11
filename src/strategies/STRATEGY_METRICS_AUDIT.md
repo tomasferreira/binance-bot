@@ -32,7 +32,7 @@ Each strategy runs on a fixed timeframe (see `STRATEGY_TIMEFRAMES` in `registry.
 | Strategy | Metrics | Wall clock (15m) | Suggestion |
 |----------|---------|-------------------|------------|
 | **multi_ema** | 9, 21, 50 | ~2.25h, 5.25h, 12.5h | No change. |
-| **price_vs_ema** | 20, 50 | 5h, 12.5h | No change. |
+| **price_vs_ema** | 20, 50, 200 | 5h, 12.5h, 50h | **Done:** require EMA50 > EMA200 for entry; exit on price < EMA50. |
 | **donchian_breakout** | DONCHIAN 20, EMA 50 | 5h channel, 12.5h | No change. |
 | **stochastic_oversold** | K 14, D 3 | — | No change. Standard. |
 | **stop_hunt_reversal** | LOOKBACK 36 | ~9h range | **Done:** 50 → 36 (tighter “recent” range for failed breakout). |
