@@ -4,7 +4,7 @@ import { logger } from '../logger.js'
 export const id = 'donchian_breakout'
 export const name = 'Donchian Channel Breakout (Long)'
 export const description =
-  'Long when close breaks above the highest high of the last N periods. Optional: price above EMA 50 for trend filter.'
+  'Long when close breaks above the highest high of the last N periods, above EMA 50. Exits when price closes below EMA 50; otherwise SL/TP.'
 
 const DONCHIAN_PERIOD = 20
 const EMA_TREND = 50
@@ -38,6 +38,10 @@ export function evaluate (ohlcv, state) {
   if (!state?.openPosition && breakAbove && aboveEma50) {
     logger.info(`[${id}] LONG signal`)
     return { action: 'enter-long', detail: { price, upper: upperPrev, ema50 } }
+  }
+  if (state?.openPosition && ema50 != null && price < ema50) {
+    logger.info(`[${id}] EXIT signal (price below EMA 50)`)
+    return { action: 'exit-long', detail: { price, upper: upperNow, ema50 } }
   }
 
   return { action: 'hold', detail: { price, upper: upperNow } }

@@ -1,11 +1,13 @@
+import { calculateEMA } from '../indicators.js'
 import { logger } from '../logger.js'
 
 export const id = 'impulse_pullback'
 export const name = 'Impulse Pullback Continuation'
 export const description =
-  'Waits for a shallow pullback after a strong impulse bar in the direction of the trend, then enters with tighter risk. Exits via SL/TP.'
+  'Waits for a shallow pullback after a strong impulse bar in the direction of the trend, then enters. Exits when price closes beyond EMA 20 (vs trend); otherwise SL/TP.'
 
 const LOOKBACK = 20
+const TREND_EMA = 20
 const RANGE_MULT = 1.5
 const BODY_MULT = 1.5
 const VOL_MULT = 1.5
@@ -14,7 +16,7 @@ const MAX_PULLBACK_BARS = 3
 const MAX_RETRACE_FRACTION = 0.5 // how deep the pullback can go into the impulse
 
 export function evaluate (ohlcv, state, context = {}) {
-  if (!Array.isArray(ohlcv) || ohlcv.length < LOOKBACK + MAX_PULLBACK_BARS + 2) {
+  if (!Array.isArray(ohlcv) || ohlcv.length < Math.max(LOOKBACK + MAX_PULLBACK_BARS + 2, TREND_EMA + 2)) {
     return { action: 'hold', detail: {} }
   }
 
@@ -36,18 +38,23 @@ export function evaluate (ohlcv, state, context = {}) {
   const allowShort = trend === 'trending' && dir === 'bearish'
 
   const [tsNow, , , , closeNow] = ohlcv[n - 1]
+  const closes = ohlcv.map(c => c[4])
+  const emaArr = calculateEMA(closes, TREND_EMA)
+  const ema20 = emaArr[n - 1]
 
-  // Only look for entries when flat; rely on SL/TP for exits
-  if (state?.openPosition) {
+  if (state?.openPosition && ema20 != null) {
+    const side = state.openPosition.side || 'long'
+    if (side === 'long' && closeNow < ema20) {
+      logger.info(`[${id}] EXIT signal (price below EMA 20)`)
+      return { action: 'exit-long', detail: { ts: tsNow, closeNow, ema20, avgRange, avgBody, avgVol } }
+    }
+    if (side === 'short' && closeNow > ema20) {
+      logger.info(`[${id}] EXIT signal (price above EMA 20)`)
+      return { action: 'exit-short', detail: { ts: tsNow, closeNow, ema20, avgRange, avgBody, avgVol } }
+    }
     return {
       action: 'hold',
-      detail: {
-        ts: tsNow,
-        avgRange,
-        avgBody,
-        avgVol,
-        hasOpenPosition: true
-      }
+      detail: { ts: tsNow, avgRange, avgBody, avgVol, hasOpenPosition: true }
     }
   }
 

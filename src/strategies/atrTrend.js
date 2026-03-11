@@ -4,7 +4,7 @@ import { logger } from '../logger.js'
 export const id = 'atr_trend'
 export const name = 'ATR Trend EMA (50/200)'
 export const description =
-  'EMA(50/200) crossover trend follower that only enters when ATR(14) / price is above a minimum threshold.'
+  'EMA(50/200) crossover trend follower that only enters when ATR(14)/price is above a minimum. Exits when price closes below EMA 50; otherwise SL/TP.'
 
 const ATR_PERIOD = 14
 // Minimum ATR as a fraction of price (e.g. 0.004 = 0.4%)
@@ -39,8 +39,11 @@ export function evaluate (ohlcv, state) {
     logger.info(`[${id}] LONG signal (EMA cross + ATR filter)`)
     return { action: 'enter-long', detail: { price, atr, atrRel, ema50, ema200 } }
   }
+  if (state?.openPosition && ema50 != null && price < ema50) {
+    logger.info(`[${id}] EXIT signal (price below EMA 50)`)
+    return { action: 'exit-long', detail: { price, atr, atrRel, ema50, ema200 } }
+  }
 
-  // Exits are handled by SL/TP only; this strategy only provides entries
   return { action: 'hold', detail: { price, atr, atrRel, ema50, ema200 } }
 }
 

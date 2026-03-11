@@ -1,23 +1,29 @@
+import { calculateEMA } from '../indicators.js'
 import { logger } from '../logger.js'
 
 export const id = 'impulse_follow'
 export const name = 'Impulse Follow-through'
 export const description =
-  'Scalps short-term continuation after a strong impulse bar (range + volume spike) in the direction of the trend. Exits via SL/TP.'
+  'Scalps short-term continuation after a strong impulse bar (range + volume spike) in the direction of the trend. Exits when price closes beyond EMA 20 (vs trend); otherwise SL/TP.'
 
 const LOOKBACK = 20
+const TREND_EMA = 20
 const RANGE_MULT = 1.5
 const BODY_MULT = 1.5
 const VOL_MULT = 1.5
 const CLOSE_POS_THRESHOLD = 0.7
 
 export function evaluate (ohlcv, state, context = {}) {
-  if (!Array.isArray(ohlcv) || ohlcv.length < LOOKBACK + 2) {
+  if (!Array.isArray(ohlcv) || ohlcv.length < Math.max(LOOKBACK, TREND_EMA) + 2) {
     return { action: 'hold', detail: {} }
   }
 
   const i = ohlcv.length - 1
   const [ts, open, high, low, close, volume] = ohlcv[i]
+  const closes = ohlcv.map(c => c[4])
+  const emaArr = calculateEMA(closes, TREND_EMA)
+  const ema20 = emaArr[i]
+  const price = close ?? ohlcv[i][4]
 
   const recent = ohlcv.slice(-LOOKBACK)
   const ranges = recent.map(c => (c[2] - c[3]) || 0)
@@ -90,7 +96,18 @@ export function evaluate (ohlcv, state, context = {}) {
     }
   }
 
-  // No new entry; rely on SL/TP (and any generic exits) to manage open positions.
+  if (state?.openPosition && ema20 != null) {
+    const side = state.openPosition.side || 'long'
+    if (side === 'long' && price < ema20) {
+      logger.info(`[${id}] EXIT signal (price below EMA 20)`)
+      return { action: 'exit-long', detail: { ts, price, ema20, range, avgRange, vol, avgVol } }
+    }
+    if (side === 'short' && price > ema20) {
+      logger.info(`[${id}] EXIT signal (price above EMA 20)`)
+      return { action: 'exit-short', detail: { ts, price, ema20, range, avgRange, vol, avgVol } }
+    }
+  }
+
   return {
     action: 'hold',
     detail: {
