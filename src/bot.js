@@ -190,6 +190,7 @@ async function botTick () {
       getRegime()
     ])
     const primaryOhlcv = ohlcvByTf[primaryTf] || []
+    // Last candle close = current price at poll time; same for any TF (we use primary for consistency).
     const lastClose = primaryOhlcv.length ? primaryOhlcv[primaryOhlcv.length - 1][4] : null
     const isNewClosedCandleByTf = {}
     for (const tf of uniqueTfs) {

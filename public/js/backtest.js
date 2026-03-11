@@ -57,6 +57,7 @@ function renderBacktestStatus (status) {
   const metaEl = document.getElementById('backtest-meta')
   if (metaEl) {
     const meta = summary.meta || {}
+    const days = typeof meta.days === 'number' && meta.days > 0 ? meta.days : null
     const tf = meta.timeframe || '–'
     const candles = typeof meta.candles === 'number' ? meta.candles : null
     const totalTrades = typeof meta.totalTrades === 'number' ? meta.totalTrades : null
@@ -64,6 +65,7 @@ function renderBacktestStatus (status) {
     const durationMs = typeof meta.durationMs === 'number' ? meta.durationMs : null
     const enabled = strategies.filter(r => r.recommendation === 'enable').map(r => r.id)
     const parts = []
+    if (days != null) parts.push(`${days} day${days !== 1 ? 's' : ''}`)
     if (tf) parts.push(tf)
     if (candles != null) parts.push(`${candles} candles`)
     if (totalTrades != null) parts.push(`${totalTrades} trades`)

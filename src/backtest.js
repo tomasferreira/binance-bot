@@ -603,6 +603,7 @@ async function runBacktest () {
   }
   const totalTrades = summaryStrategies.reduce((acc, s) => acc + (s.trades ?? 0), 0)
   const meta = {
+    days: daysBack,
     timeframe,
     candles: ohlcv.length,
     totalTrades,
