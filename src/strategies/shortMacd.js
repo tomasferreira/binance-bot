@@ -4,7 +4,7 @@ import { logger } from '../logger.js'
 export const id = 'short_macd'
 export const name = 'Short MACD Bearish Cross'
 export const description =
-  'Shorts when MACD crosses below signal in a bearish regime. Exits on opposite cross or MACD turning up.'
+  'Shorts when MACD crosses below signal and EMA 50 < EMA 200 (bearish trend only). Exits on opposite cross or MACD turning up.'
 
 const FAST_EMA = 50
 const SLOW_EMA = 200
@@ -28,7 +28,7 @@ export function evaluate (ohlcv, state) {
     return { action: 'hold', detail: { price, emaFast, emaSlow, macd, signal, histogram, crossSignal } }
   }
 
-  const trendBearish = emaFast < emaSlow || macd < 0
+  const trendBearish = emaFast < emaSlow
   const bearishCross = crossSignal === 'short'
   const bullishCross = crossSignal === 'long'
 

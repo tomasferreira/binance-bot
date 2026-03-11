@@ -4,7 +4,7 @@ import { logger } from '../logger.js'
 export const id = 'short_rejection'
 export const name = 'Short Rejection at Resistance'
 export const description =
-  'Shorts rejection candles at recent resistance in a bearish/neutral EMA regime. Exits if resistance is broken.'
+  'Shorts rejection candles at recent resistance only when EMA 50 < EMA 200 (bearish trend). Exits if resistance is broken.'
 
 const FAST = 50
 const SLOW = 200
@@ -42,7 +42,7 @@ export function evaluate (ohlcv, state) {
   const hasUpperWick = upperWick > body
   const rejection = touchedResistance && bearishCandle && hasUpperWick
 
-  const trendBearishOrNeutral = close <= emaFast || emaFast <= emaSlow
+  const trendBearish = emaFast < emaSlow
 
   const detail = {
     open,
@@ -54,13 +54,13 @@ export function evaluate (ohlcv, state) {
     emaFast,
     emaSlow,
     rejection,
-    trendBearishOrNeutral
+    trendBearish
   }
 
   logger.info(
     `[${id}] close=${close.toFixed(2)} res=${resistance.toFixed(
       2
-    )} rejection=${rejection} trendOk=${trendBearishOrNeutral}`
+    )} rejection=${rejection} trendBearish=${trendBearish}`
   )
 
   if (state?.openPosition?.side === 'short') {
@@ -72,7 +72,7 @@ export function evaluate (ohlcv, state) {
     return { action: 'hold', detail }
   }
 
-  if (!state?.openPosition && trendBearishOrNeutral && rejection) {
+  if (!state?.openPosition && trendBearish && rejection) {
     logger.info(`[${id}] ENTER-SHORT on rejection`)
     return { action: 'enter-short', detail }
   }
