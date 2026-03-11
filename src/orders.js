@@ -10,7 +10,7 @@ export async function logOpenOrders () {
     const orders = await exchange.fetchOpenOrders(symbol)
 
     if (!orders || orders.length === 0) {
-      logger.info(`Open orders (${symbol}): none`)
+      logger.debug(`Open orders (${symbol}): none`)
       return
     }
 

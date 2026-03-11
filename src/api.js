@@ -30,6 +30,7 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const apiPort = config.http.apiPort
+const apiDebug = process.env.API_DEBUG === 'true'
 
 export function createApp () {
   const app = express()
@@ -37,7 +38,8 @@ export function createApp () {
 
   // Inbound API debug logging: request + response (body + headers) when LOG_LEVEL=DEBUG
   app.use((req, res, next) => {
-    logger.debug('HTTP inbound', {
+    if (!apiDebug) return next()
+      logger.debug('HTTP inbound', {
       method: req.method,
       url: req.originalUrl || req.url,
       headers: req.headers,
@@ -73,12 +75,12 @@ export function createApp () {
   // Status endpoint used by the dashboard
   app.get('/api/status', async (req, res) => {
     try {
-      logger.debug('HTTP GET /api/status')
+      if (apiDebug) logger.debug('HTTP GET /api/status')
       const runner = loadRunner()
       const exchange = getTradingExchange()
-      logger.debug('exchange.fetchBalance request (/api/status)', { symbol })
+      if (apiDebug) logger.debug('exchange.fetchBalance request (/api/status)', { symbol })
       const balance = await exchange.fetchBalance()
-      logger.debug('exchange.fetchBalance response (/api/status)', {
+      if (apiDebug) logger.debug('exchange.fetchBalance response (/api/status)', {
         total: balance.total,
         free: balance.free,
         used: balance.used
@@ -136,9 +138,9 @@ export function createApp () {
         logger.warn('Regime fetch or calculation failed', { err: err.message })
       }
 
-      logger.debug('exchange.fetchOpenOrders request (/api/status)', { symbol })
+      if (apiDebug) logger.debug('exchange.fetchOpenOrders request (/api/status)', { symbol })
       const openOrders = await exchange.fetchOpenOrders(symbol)
-      logger.debug('exchange.fetchOpenOrders response (/api/status)', { count: openOrders.length })
+      if (apiDebug) logger.debug('exchange.fetchOpenOrders response (/api/status)', { count: openOrders.length })
       const payload = buildStatusPayload({
         runner,
         lastDecisionByStrategy: getLastDecisionByStrategy(),
@@ -376,7 +378,7 @@ export function createApp () {
   })
 
   app.get('/api/strategies', (req, res) => {
-    logger.debug('HTTP GET /api/strategies')
+      if (apiDebug) logger.debug('HTTP GET /api/strategies')
     const runner = loadRunner()
     const list = STRATEGY_IDS.map(id => ({
       id,
@@ -389,7 +391,7 @@ export function createApp () {
   app.post('/api/strategies/:id/start', (req, res) => {
     try {
       const { id } = req.params
-      logger.debug('HTTP POST /api/strategies/:id/start', { id })
+      if (apiDebug) logger.debug('HTTP POST /api/strategies/:id/start', { id })
       if (!STRATEGY_IDS.includes(id)) {
         return res.status(400).json({ error: 'Unknown strategy' })
       }
@@ -404,7 +406,7 @@ export function createApp () {
   app.post('/api/strategies/:id/stop', (req, res) => {
     try {
       const { id } = req.params
-      logger.debug('HTTP POST /api/strategies/:id/stop', { id })
+      if (apiDebug) logger.debug('HTTP POST /api/strategies/:id/stop', { id })
       if (!STRATEGY_IDS.includes(id)) {
         return res.status(400).json({ error: 'Unknown strategy' })
       }
@@ -418,7 +420,7 @@ export function createApp () {
 
   app.post('/api/strategies/start-all', (req, res) => {
     try {
-      logger.debug('HTTP POST /api/strategies/start-all')
+      if (apiDebug) logger.debug('HTTP POST /api/strategies/start-all')
       const runner = setAllRunning(true)
       res.json({ status: 'ok', running: runner.running })
     } catch (err) {
@@ -429,7 +431,7 @@ export function createApp () {
 
   app.post('/api/strategies/stop-all', (req, res) => {
     try {
-      logger.debug('HTTP POST /api/strategies/stop-all')
+      if (apiDebug) logger.debug('HTTP POST /api/strategies/stop-all')
       const runner = setAllRunning(false)
       res.json({ status: 'ok', running: runner.running })
     } catch (err) {
@@ -441,7 +443,7 @@ export function createApp () {
   app.post('/api/strategies/:id/buy', async (req, res) => {
     try {
       const { id } = req.params
-      logger.debug('HTTP POST /api/strategies/:id/buy', { id })
+      if (apiDebug) logger.debug('HTTP POST /api/strategies/:id/buy', { id })
       if (!STRATEGY_IDS.includes(id)) {
         return res.status(400).json({ error: 'Unknown strategy' })
       }
@@ -464,7 +466,7 @@ export function createApp () {
   app.post('/api/strategies/:id/short', async (req, res) => {
     try {
       const { id } = req.params
-      logger.debug('HTTP POST /api/strategies/:id/short', { id })
+      if (apiDebug) logger.debug('HTTP POST /api/strategies/:id/short', { id })
       if (!STRATEGY_IDS.includes(id)) {
         return res.status(400).json({ error: 'Unknown strategy' })
       }
@@ -486,7 +488,7 @@ export function createApp () {
 
   app.post('/api/close-all', async (req, res) => {
     try {
-      logger.debug('HTTP POST /api/close-all')
+      if (apiDebug) logger.debug('HTTP POST /api/close-all')
       const ohlcv = await fetchMarketData(2)
       const lastClose = ohlcv[ohlcv.length - 1][4]
       const closed = []
@@ -509,7 +511,7 @@ export function createApp () {
   app.post('/api/strategies/:id/sell', async (req, res) => {
     try {
       const { id } = req.params
-      logger.debug('HTTP POST /api/strategies/:id/sell', { id })
+      if (apiDebug) logger.debug('HTTP POST /api/strategies/:id/sell', { id })
       if (!STRATEGY_IDS.includes(id)) {
         return res.status(400).json({ error: 'Unknown strategy' })
       }
@@ -532,7 +534,7 @@ export function createApp () {
   app.post('/api/strategies/:id/reset-pnl', (req, res) => {
     try {
       const { id } = req.params
-      logger.debug('HTTP POST /api/strategies/:id/reset-pnl', { id })
+      if (apiDebug) logger.debug('HTTP POST /api/strategies/:id/reset-pnl', { id })
       if (!STRATEGY_IDS.includes(id)) {
         return res.status(400).json({ error: 'Unknown strategy' })
       }
@@ -554,7 +556,7 @@ export function createApp () {
 
   app.post('/api/reset-all-pnl', (req, res) => {
     try {
-      logger.debug('HTTP POST /api/reset-all-pnl')
+      if (apiDebug) logger.debug('HTTP POST /api/reset-all-pnl')
       for (const id of STRATEGY_IDS) {
         saveState(id, resetPnlState(loadState(id)))
       }
@@ -569,7 +571,7 @@ export function createApp () {
   app.post('/api/config', (req, res) => {
     try {
       const { autoTradingEnabled, riskPerTrade, stopLossPct, takeProfitPct } = req.body || {}
-      logger.debug('HTTP POST /api/config', { autoTradingEnabled, riskPerTrade, stopLossPct, takeProfitPct })
+      if (apiDebug) logger.debug('HTTP POST /api/config', { autoTradingEnabled, riskPerTrade, stopLossPct, takeProfitPct })
 
       for (const id of STRATEGY_IDS) {
         let state = loadState(id)
@@ -645,10 +647,10 @@ export function createApp () {
     try {
       const exchange = getTradingExchange()
       const limit = Math.min(Number(req.query.limit) || 50, 500)
-      logger.debug('HTTP GET /api/trades', { limit })
-      logger.debug('exchange.fetchMyTrades request', { symbol, limit })
+      if (apiDebug) logger.debug('HTTP GET /api/trades', { limit })
+      if (apiDebug) logger.debug('exchange.fetchMyTrades request', { symbol, limit })
       const trades = await exchange.fetchMyTrades(symbol, undefined, limit)
-      logger.debug('exchange.fetchMyTrades response', { count: trades.length })
+      if (apiDebug) logger.debug('exchange.fetchMyTrades response', { count: trades.length })
       const orderToStrategy = getOrderStrategyMap()
 
       const withFees = trades.map(t => {
@@ -723,7 +725,7 @@ export function createApp () {
     try {
       const maxCandles = config.trading.closedTradesHistoryLimit ?? 500
       const limit = Math.min(Math.max(1, Number(req.query.limit) || 200), maxCandles)
-      logger.debug('HTTP GET /api/candles', { limit, source: getMarketDataSource() })
+      if (apiDebug) logger.debug('HTTP GET /api/candles', { limit, source: getMarketDataSource() })
       const ohlcv = await fetchMarketData(limit)
 
       let lastValidClose = null

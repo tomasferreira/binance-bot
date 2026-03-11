@@ -165,6 +165,7 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
     const triggerPrice = exitDetail.triggerPrice
     if (triggerPrice != null) {
       const slippageAmount = exitFillPrice - triggerPrice
+      console.log('slippageAmount', slippageAmount);
       const runBy = (exitDetail.trigger === 'stop_loss' && (side === 'long' ? slippageAmount < 0 : slippageAmount > 0)) ||
         (exitDetail.trigger === 'take_profit' && side === 'short' && slippageAmount < 0)
       logger.info(
