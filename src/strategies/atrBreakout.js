@@ -4,7 +4,7 @@ import { logger } from '../logger.js'
 export const id = 'atr_breakout'
 export const name = 'ATR Breakout (Long)'
 export const description =
-  'Long when close breaks above the N-period high and ATR is rising (volatility expansion). Exits via SL/TP.'
+  'Long when close breaks above the N-period high (two-bar confirmation: prev and current close above) and ATR is rising. Exits via SL/TP.'
 
 const LOOKBACK = 24 // 2h on 5m for N-period high
 const ATR_PERIOD = 14
@@ -19,6 +19,7 @@ export function evaluate (ohlcv, state) {
   const prev = i - 1
   const highPrev = Math.max(...ohlcv.slice(prev - LOOKBACK + 1, prev + 1).map(c => c[2]))
   const price = ohlcv[i][4]
+  const prevClose = ohlcv[prev][4]
   const atrArr = calculateATR(ohlcv, ATR_PERIOD)
   const atrNow = atrArr[i]
   const atrPast = atrArr[i - ATR_RISE_LOOKBACK]
@@ -27,16 +28,16 @@ export function evaluate (ohlcv, state) {
     return { action: 'hold', detail: { price, highPrev, atr: atrNow } }
   }
 
-  const breakAbove = price > highPrev
   const atrRising = atrNow > atrPast
+  const bothClosesAbove = prevClose > highPrev && price > highPrev
 
   logger.info(
-    `[${id}] price=${price.toFixed(2)} high${LOOKBACK}=${highPrev.toFixed(2)} breakAbove=${breakAbove} atrRising=${atrRising}`
+    `[${id}] price=${price.toFixed(2)} prevClose=${prevClose.toFixed(2)} high${LOOKBACK}=${highPrev.toFixed(2)} bothAbove=${bothClosesAbove} atrRising=${atrRising}`
   )
 
-  if (!state?.openPosition && breakAbove && atrRising) {
-    logger.info(`[${id}] LONG signal`)
-    return { action: 'enter-long', detail: { price, highPrev, atr: atrNow } }
+  if (!state?.openPosition && bothClosesAbove && atrRising) {
+    logger.info(`[${id}] LONG signal (two-bar close above + ATR rising)`)
+    return { action: 'enter-long', detail: { price, highPrev, prevClose, atr: atrNow } }
   }
 
   return { action: 'hold', detail: { price, highPrev, atr: atrNow } }
