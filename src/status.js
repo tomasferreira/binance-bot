@@ -139,9 +139,12 @@ export function buildStatusPayload (deps) {
   const totalUnrealized = strategies.reduce((a, s) => a + (s.unrealizedPnl ?? 0), 0)
   const firstOpen = strategies.find(s => s.position.open)
 
-  // Aggregate average slippage % across trades since reset that have slippage metadata.
+  // Aggregate average SL/TP slippage % (trigger-based) across trades since reset.
   let slippageSumRatio = 0
   let slippageCount = 0
+  // Aggregate average execution slippage % across trades since reset (all exits with execSlippagePct).
+  let execSlipSum = 0
+  let execSlipCount = 0
   for (const s of strategies) {
     // Use same window as realized PnL in overview: trades since last reset, if any.
     const allHist = Array.isArray(s.closedTradesHistory) ? s.closedTradesHistory : []
@@ -159,9 +162,15 @@ export function buildStatusPayload (deps) {
         slippageSumRatio += Math.abs(sa / tp)
         slippageCount++
       }
+      const execPct = typeof e.execSlippagePct === 'number' ? e.execSlippagePct : null
+      if (execPct != null && Number.isFinite(execPct)) {
+        execSlipSum += Math.abs(execPct)
+        execSlipCount++
+      }
     }
   }
   const avgSlippagePct = slippageCount > 0 ? (slippageSumRatio / slippageCount) * 100 : null
+  const avgExecSlippagePct = execSlipCount > 0 ? (execSlipSum / execSlipCount) * 100 : null
 
   return {
     bot: {
@@ -250,7 +259,8 @@ export function buildStatusPayload (deps) {
       realized: Number(totalRealized),
       unrealized: Number(totalUnrealized),
       total: Number(totalRealized) + Number(totalUnrealized),
-      avgSlippagePct: avgSlippagePct != null ? avgSlippagePct : null
+      avgSlippagePct: avgSlippagePct != null ? avgSlippagePct : null,
+      avgExecSlippagePct: avgExecSlippagePct != null ? avgExecSlippagePct : null
     }
   }
 }

@@ -94,8 +94,23 @@ async function openPosition (state, marketPrice, side, strategyId, entryDetail, 
     ? order.average
     : (typeof order?.price === 'number' && order.price > 0 ? order.price : marketPrice)
 
+  // Execution slippage for entry vs decision-time price (marketPrice).
+  const entryExecSlippageAmount = entryFillPrice - marketPrice
+  const entryExecSlippagePct = marketPrice ? entryExecSlippageAmount / marketPrice : null
+  if (entryExecSlippageAmount !== 0 && entryExecSlippagePct != null && Number.isFinite(entryExecSlippagePct)) {
+    logger.info(
+      `Entry exec slippage: decisionPrice=${marketPrice}, fill=${entryFillPrice}, delta=${entryExecSlippageAmount.toFixed(2)} (${(entryExecSlippagePct * 100).toFixed(3)}%)`
+    )
+  }
+  const enrichedEntryDetail = {
+    ...(entryDetail || {}),
+    fillPrice: entryFillPrice,
+    execSlippageAmount: entryExecSlippageAmount,
+    execSlippagePct: entryExecSlippagePct
+  }
+
   const recordReason = strategyId === 'manual' ? 'Manual' : (side === 'short' ? 'Short entry' : 'Entry')
-  if (strategyId) recordOrderStrategy(order.id, strategyId, recordReason, entryDetail ?? null)
+  if (strategyId) recordOrderStrategy(order.id, strategyId, recordReason, enrichedEntryDetail)
 
   const newPosition = {
     side,
@@ -143,7 +158,7 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
   const orderSide = side === 'short' ? 'buy' : 'sell'
 
   logger.info(
-    `Manual CLOSE ${side.toUpperCase()} position at marketPrice=${marketPrice}, entry=${position.entryPrice}, amount=${amount}`
+    `CLOSE ${side.toUpperCase()} position at marketPrice=${marketPrice}, entry=${position.entryPrice}, amount=${amount}`
   )
 
   if (orderSide === 'sell') {
@@ -165,7 +180,6 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
     const triggerPrice = exitDetail.triggerPrice
     if (triggerPrice != null) {
       const slippageAmount = exitFillPrice - triggerPrice
-      console.log('slippageAmount', slippageAmount);
       const runBy = (exitDetail.trigger === 'stop_loss' && (side === 'long' ? slippageAmount < 0 : slippageAmount > 0)) ||
         (exitDetail.trigger === 'take_profit' && side === 'short' && slippageAmount < 0)
       logger.info(
@@ -178,6 +192,21 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
         runBy
       }
     }
+  }
+
+  // Execution slippage vs decision-time price (applies to all exits).
+  const execSlippageAmount = exitFillPrice - marketPrice
+  const execSlippagePct = marketPrice ? execSlippageAmount / marketPrice : null
+  if (execSlippageAmount !== 0 && execSlippagePct != null && Number.isFinite(execSlippagePct)) {
+    logger.info(
+      `Exec slippage: decisionPrice=${marketPrice}, fill=${exitFillPrice}, delta=${execSlippageAmount.toFixed(2)} (${(execSlippagePct * 100).toFixed(3)}%)`
+    )
+  }
+  exitDetail = {
+    ...(exitDetail || {}),
+    fillPrice: (exitDetail && exitDetail.fillPrice != null) ? exitDetail.fillPrice : exitFillPrice,
+    execSlippageAmount,
+    execSlippagePct
   }
 
   const pnl = side === 'short'
@@ -221,6 +250,7 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
 
   const closedTradesHistory = Array.isArray(state.closedTradesHistory) ? state.closedTradesHistory : []
   const historyEntry = { timestamp: new Date().toISOString(), pnl }
+  // Store SL/TP slippage + run-by when present (trigger-based).
   if (exitDetail?.trigger && exitDetail.triggerPrice != null && exitDetail.slippageAmount != null) {
     const runBy = typeof exitDetail.runBy === 'boolean'
       ? exitDetail.runBy
@@ -230,6 +260,11 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
     historyEntry.triggerPrice = exitDetail.triggerPrice
     historyEntry.slippageAmount = exitDetail.slippageAmount
     historyEntry.runBy = runBy
+  }
+  // Store generic execution slippage for all exits when available.
+  if (exitDetail && typeof exitDetail.execSlippageAmount === 'number' && typeof exitDetail.execSlippagePct === 'number') {
+    historyEntry.execSlippageAmount = exitDetail.execSlippageAmount
+    historyEntry.execSlippagePct = exitDetail.execSlippagePct
   }
   closedTradesHistory.push(historyEntry)
   const maxHistory = Math.max(100, closedTradesHistoryLimit || 500)
