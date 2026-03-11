@@ -204,7 +204,8 @@ export async function updateAnalysisPanel (strategies) {
     const sharpe = computeSharpe(hist)
     const extra = computeExtraMetrics(hist, s)
     const td = state.analysisTradesData[s.id] || {}
-    const typeTag = s.id && s.id.startsWith('short_') ? 'Short' : 'Long'
+    const rawDir = s.direction || (s.id && s.id.startsWith('short_') ? 'short' : 'long')
+    const typeTag = rawDir === 'both' ? 'Both' : (rawDir === 'short' ? 'Short' : 'Long')
     return {
       ...s,
       _metrics: m,

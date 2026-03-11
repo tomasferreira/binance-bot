@@ -78,7 +78,8 @@ function renderBacktestTable () {
 
   const enriched = strategies.map(r => {
     const id = r.id || '-'
-    const typeTag = id.startsWith('short_') ? 'Short' : 'Long'
+    const rawDir = r.direction || (id.startsWith('short_') ? 'short' : 'long')
+    const typeTag = rawDir === 'both' ? 'Both' : (rawDir === 'short' ? 'Short' : 'Long')
     const realized = Number(r.realizedPnl || 0)
     const trades = r.trades ?? 0
     const wins = r.wins ?? 0

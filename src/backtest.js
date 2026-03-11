@@ -1,7 +1,7 @@
 import { config } from './config.js'
 import { getTradingExchange, getDataExchange } from './exchange.js'
 import { getMarketDataSource, setMarketDataSource } from './marketDataSource.js'
-import { STRATEGY_IDS, evaluateStrategy } from './strategies/registry.js'
+import { STRATEGY_IDS, evaluateStrategy, getStrategyDirection } from './strategies/registry.js'
 import { getEffectiveTradingConfig } from './runtimeConfig.js'
 import { calculatePositionSize } from './risk.js'
 import { backtestLogger as logger } from './logger.js'
@@ -495,8 +495,10 @@ async function runBacktest () {
   for (const id of STRATEGY_IDS) {
     const s = states[id]
     totalPnl += s.realizedPnl || 0
+    const direction = getStrategyDirection(id)
     summaryStrategies.push({
       id,
+      direction,
       realizedPnl: s.realizedPnl ?? 0,
       trades: s.closedTrades ?? 0,
       wins: s.wins ?? 0,
