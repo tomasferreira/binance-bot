@@ -11,7 +11,7 @@ const SLOW = 26
 const SIGNAL = 9
 const EMA_TREND = 200
 
-export function evaluate (ohlcv, state) {
+export function evaluate (ohlcv, state, context = {}) {
   const minLen = SLOW + SIGNAL + EMA_TREND + 2
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
@@ -35,10 +35,14 @@ export function evaluate (ohlcv, state) {
   const above200 = price > ema200
   const below200 = price < ema200
 
+  const dir = context?.regime?.trendDirection || null
+  const allowLong = dir === 'bullish'
+  const allowShort = dir === 'bearish'
+
   logger.info(
     `[${id}] price=${price.toFixed(2)} hist=${histNow.toFixed(4)} ema200=${ema200.toFixed(
       2
-    )} crossUp=${crossUp} crossDown=${crossDown} above200=${above200} below200=${below200}`
+    )} crossUp=${crossUp} crossDown=${crossDown} above200=${above200} below200=${below200} dir=${dir ?? 'n/a'} allowLong=${allowLong} allowShort=${allowShort}`
   )
 
   // Manage existing position first
@@ -63,13 +67,13 @@ export function evaluate (ohlcv, state) {
     }
   }
 
-  // No open position: look for new entries
-  if (!state?.openPosition && crossUp && above200) {
+  // No open position: look for new entries (only in direction of regime)
+  if (!state?.openPosition && crossUp && above200 && allowLong) {
     logger.info(`[${id}] LONG signal`)
     return { action: 'enter-long', detail: { price, histogram: histNow, ema200 } }
   }
 
-  if (!state?.openPosition && crossDown && below200) {
+  if (!state?.openPosition && crossDown && below200 && allowShort) {
     logger.info(`[${id}] SHORT signal`)
     return { action: 'enter-short', detail: { price, histogram: histNow, ema200 } }
   }
