@@ -9,6 +9,8 @@ const LOOKBACK = 24 // 2h on 5m for N-period high
 const ATR_PERIOD = 14
 const ATR_RISE_LOOKBACK = 5
 const TREND_EMA = 20
+const SL_ATR_MULT = 1.5
+const TP_ATR_MULT = 2.5
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -45,7 +47,7 @@ export function evaluate (ohlcv, state, context = {}) {
 
   if (!state?.openPosition && bothClosesAbove && atrRising) {
     if (log) log.info(`[${id}] LONG signal (two-bar close above + ATR rising)`)
-    return { action: 'enter-long', detail: { price, highPrev, prevClose, atr: atrNow } }
+    return { action: 'enter-long', detail: { price, highPrev, prevClose, atr: atrNow, stopLoss: (atrNow != null ? price - SL_ATR_MULT * atrNow : undefined), takeProfit: (atrNow != null ? price + TP_ATR_MULT * atrNow : undefined) } }
   }
   if (state?.openPosition && ema20 != null && price < ema20) {
     if (log) log.info(`[${id}] EXIT signal (price below EMA 20)`)

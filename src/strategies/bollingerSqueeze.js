@@ -1,4 +1,4 @@
-import { calculateBollinger, calculateEMA } from '../indicators.js'
+import { calculateATR, calculateBollinger, calculateEMA } from '../indicators.js'
 
 export const id = 'bb_squeeze'
 export const name = 'Bollinger Squeeze Breakout (Long)'
@@ -10,6 +10,8 @@ const K = 2
 const WIDTH_LOOKBACK = 50
 const TREND_EMA = 50
 const WIDTH_PERCENTILE = 20 // squeeze = width in bottom 20% of recent
+const SL_ATR_MULT = 1.5
+const TP_ATR_MULT = 2.5
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -27,6 +29,8 @@ export function evaluate (ohlcv, state, context = {}) {
   const upperNow = upper[i]
   const lowerNow = lower[i]
   const ema50 = emaArr[i]
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
 
   if (upperNow == null || lowerNow == null) {
     return { action: 'hold', detail: { price, upper: upperNow, lower: lowerNow } }
@@ -54,7 +58,7 @@ export function evaluate (ohlcv, state, context = {}) {
 
   if (!state?.openPosition && squeeze && breakAboveUpper) {
     if (log) log.info(`[${id}] LONG signal (squeeze breakout)`)
-    return { action: 'enter-long', detail: { price, upper: upperNow, lower: lowerNow, width } }
+    return { action: 'enter-long', detail: { price, upper: upperNow, lower: lowerNow, width, stopLoss: (atr != null ? price - SL_ATR_MULT * atr : undefined), takeProfit: (atr != null ? price + TP_ATR_MULT * atr : undefined) } }
   }
   if (state?.openPosition && ema50 != null && price < ema50) {
     if (log) log.info(`[${id}] EXIT signal (price below EMA 50)`)

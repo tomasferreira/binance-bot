@@ -1,4 +1,4 @@
-import { calculateEMA } from '../indicators.js'
+import { calculateATR, calculateEMA } from '../indicators.js'
 
 export const id = 'impulse_pullback'
 export const name = 'Impulse Pullback Continuation'
@@ -13,6 +13,8 @@ const VOL_MULT = 1.5
 const CLOSE_POS_THRESHOLD = 0.7
 const MAX_PULLBACK_BARS = 3
 const MAX_RETRACE_FRACTION = 0.5 // how deep the pullback can go into the impulse
+const SL_ATR_MULT = 1.5
+const TP_ATR_MULT = 2
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -41,6 +43,8 @@ export function evaluate (ohlcv, state, context = {}) {
   const closes = ohlcv.map(c => c[4])
   const emaArr = calculateEMA(closes, TREND_EMA)
   const ema20 = emaArr[n - 1]
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
 
   if (state?.openPosition && ema20 != null) {
     const side = state.openPosition.side || 'long'
@@ -158,7 +162,9 @@ export function evaluate (ohlcv, state, context = {}) {
         impulseLow,
         avgRange,
         avgBody,
-        avgVol
+        avgVol,
+        stopLoss: (atr != null ? closePull - SL_ATR_MULT * atr : undefined),
+        takeProfit: (atr != null ? closePull + TP_ATR_MULT * atr : undefined)
       }
     }
   }
@@ -175,7 +181,9 @@ export function evaluate (ohlcv, state, context = {}) {
         impulseLow,
         avgRange,
         avgBody,
-        avgVol
+        avgVol,
+        stopLoss: (atr != null ? closePull + SL_ATR_MULT * atr : undefined),
+        takeProfit: (atr != null ? closePull - TP_ATR_MULT * atr : undefined)
       }
     }
   }

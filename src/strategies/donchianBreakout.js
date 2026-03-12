@@ -1,4 +1,4 @@
-import { calculateDonchian, calculateEMA } from '../indicators.js'
+import { calculateATR, calculateDonchian, calculateEMA } from '../indicators.js'
 
 export const id = 'donchian_breakout'
 export const name = 'Donchian Channel Breakout (Long)'
@@ -7,6 +7,8 @@ export const description =
 
 const DONCHIAN_PERIOD = 20
 const EMA_TREND = 50
+const SL_ATR_MULT = 1.5
+const TP_ATR_MULT = 2.5
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -23,6 +25,8 @@ export function evaluate (ohlcv, state, context = {}) {
   const upperPrev = upper[prev]
   const upperNow = upper[i]
   const ema50 = emaArr[i]
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
 
   if (upperPrev == null || upperNow == null) {
     return { action: 'hold', detail: { price, upper: upperNow } }
@@ -41,7 +45,7 @@ export function evaluate (ohlcv, state, context = {}) {
 
   if (!state?.openPosition && breakAbove && aboveEma50) {
     if (log) log.info(`[${id}] LONG signal`)
-    return { action: 'enter-long', detail: { price, upper: upperPrev, ema50 } }
+    return { action: 'enter-long', detail: { price, upper: upperPrev, ema50, stopLoss: (atr != null ? price - SL_ATR_MULT * atr : undefined), takeProfit: (atr != null ? price + TP_ATR_MULT * atr : undefined) } }
   }
   if (state?.openPosition && ema50 != null && price < ema50) {
     if (log) log.info(`[${id}] EXIT signal (price below EMA 50)`)

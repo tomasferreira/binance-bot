@@ -1,4 +1,4 @@
-import { calculateEMA } from '../indicators.js'
+import { calculateATR, calculateEMA } from '../indicators.js'
 
 export const id = 'impulse_follow'
 export const name = 'Impulse Follow-through'
@@ -11,6 +11,8 @@ const RANGE_MULT = 1.5
 const BODY_MULT = 1.5
 const VOL_MULT = 1.5
 const CLOSE_POS_THRESHOLD = 0.7
+const SL_ATR_MULT = 1.5
+const TP_ATR_MULT = 2
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -24,6 +26,8 @@ export function evaluate (ohlcv, state, context = {}) {
   const emaArr = calculateEMA(closes, TREND_EMA)
   const ema20 = emaArr[i]
   const price = close ?? ohlcv[i][4]
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
 
   const recent = ohlcv.slice(-(LOOKBACK + 1), -1)
   const ranges = recent.map(c => (c[2] - c[3]) || 0)
@@ -81,7 +85,9 @@ export function evaluate (ohlcv, state, context = {}) {
           body,
           avgBody,
           vol,
-          avgVol
+          avgVol,
+          stopLoss: (atr != null ? price - SL_ATR_MULT * atr : undefined),
+          takeProfit: (atr != null ? price + TP_ATR_MULT * atr : undefined)
         }
       }
     }
@@ -98,7 +104,9 @@ export function evaluate (ohlcv, state, context = {}) {
           body,
           avgBody,
           vol,
-          avgVol
+          avgVol,
+          stopLoss: (atr != null ? price + SL_ATR_MULT * atr : undefined),
+          takeProfit: (atr != null ? price - TP_ATR_MULT * atr : undefined)
         }
       }
     }
