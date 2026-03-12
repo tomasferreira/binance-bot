@@ -451,11 +451,11 @@ async function runBacktest () {
       }
     }
 
-    // Regime in effect at ts: use exactly the 300 bars ending at T = last regime bar before ts,
-    // keyed by time so 22d vs 23d get the same window for the same ts.
+    // Regime: use only fully completed regime bars (no look-ahead into the forming bar).
+    // T = start of the regime bar that contains ts; T - regimePeriodMs = last completed bar.
     let regime = null
     if (regimeFilterEnabled && regimeOhlcv.length >= regimeComputeWindow) {
-      const T = Math.floor((ts - 1) / regimePeriodMs) * regimePeriodMs // last regime bar open time before ts
+      const T = Math.floor(ts / regimePeriodMs) * regimePeriodMs - regimePeriodMs
       const windowStart = T - (regimeComputeWindow - 1) * regimePeriodMs
       let lo = 0
       let hi = regimeOhlcv.length - 1
