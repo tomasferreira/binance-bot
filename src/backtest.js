@@ -434,6 +434,24 @@ async function runBacktest () {
   const totalBars = ohlcv.length
   let lastPctReported = -1
   let prevRegime = null
+  let lastRegimeBarTs = null
+  let regime = null
+
+  // Optimization: cache last decision per strategy, skip evaluation when TF candle unchanged
+  const lastDecisionById = {}
+  const lastSliceLenById = {}
+  const lastHadPositionById = {}
+
+  // Optimization: advancing index per secondary TF (avoids O(n) filter each bar)
+  const sliceEndByTf = {}
+  const tfPeriodMsByTf = {}
+  for (const tf of uniqueTfs) {
+    if (tf !== primaryTf) {
+      tfPeriodMsByTf[tf] = timeframeToMs(tf)
+      sliceEndByTf[tf] = 0
+    }
+  }
+
   const reportProgress = (current, total) => {
     if (typeof process !== 'undefined' && process.stderr && process.stderr.writable) {
       process.stderr.write(`PROGRESS\t${current}\t${total}\n`)
@@ -450,7 +468,6 @@ async function runBacktest () {
     const lastClose = close
     const barCloseTime = ts + periodMs
 
-    // Log once per strategy that each uses its own TF and slice (verifies multi-TF backtest)
     if (i === 0) {
       for (const id of STRATEGY_IDS) {
         const stTf = getStrategyTimeframe(id, primaryTf)
@@ -462,43 +479,69 @@ async function runBacktest () {
       }
     }
 
-    let regime = null
+    // Optimization #3: only recompute regime when the regime-TF candle changes
     if (regimeFilterEnabled && regimeOhlcv.length >= regimeComputeWindow) {
       const T = Math.floor(ts / regimePeriodMs) * regimePeriodMs - regimePeriodMs
-      const windowStart = T - (regimeComputeWindow - 1) * regimePeriodMs
-      let lo = 0
-      let hi = regimeOhlcv.length - 1
-      while (lo < hi) {
-        const mid = (lo + hi) >>> 1
-        if (regimeOhlcv[mid][0] < windowStart) lo = mid + 1
-        else hi = mid
-      }
-      const k = lo
-      const lastBarTime = regimeOhlcv[k + regimeComputeWindow - 1]?.[0]
-      if (k + regimeComputeWindow <= regimeOhlcv.length && lastBarTime != null && lastBarTime <= T) {
-        const r = computeRegime(regimeOhlcv.slice(k, k + regimeComputeWindow), prevRegime)
-        if (r) { regime = r; prevRegime = r }
+      if (T !== lastRegimeBarTs) {
+        lastRegimeBarTs = T
+        const windowStart = T - (regimeComputeWindow - 1) * regimePeriodMs
+        let lo = 0
+        let hi = regimeOhlcv.length - 1
+        while (lo < hi) {
+          const mid = (lo + hi) >>> 1
+          if (regimeOhlcv[mid][0] < windowStart) lo = mid + 1
+          else hi = mid
+        }
+        const k = lo
+        const lastBarTime = regimeOhlcv[k + regimeComputeWindow - 1]?.[0]
+        if (k + regimeComputeWindow <= regimeOhlcv.length && lastBarTime != null && lastBarTime <= T) {
+          const r = computeRegime(regimeOhlcv.slice(k, k + regimeComputeWindow), prevRegime)
+          if (r) { regime = r; prevRegime = r }
+        }
       }
     }
-    // One slice per bar for primary TF; one slice per secondary TF per bar (cached)
+
+    // Optimization #2: advancing index for secondary TFs (O(1) amortized vs O(n) filter)
     const primarySlice = ohlcv.slice(0, i + 1)
     const sliceByTf = { [primaryTf]: primarySlice }
+    for (const tf of uniqueTfs) {
+      if (tf === primaryTf) continue
+      const tfArr = ohlcvByTf[tf] || []
+      const tfPMs = tfPeriodMsByTf[tf]
+      let endIdx = sliceEndByTf[tf]
+      while (endIdx < tfArr.length && tfArr[endIdx][0] + tfPMs <= barCloseTime) {
+        endIdx++
+      }
+      sliceEndByTf[tf] = endIdx
+      sliceByTf[tf] = endIdx > 0 ? tfArr.slice(0, endIdx) : []
+    }
+
     for (const id of STRATEGY_IDS) {
       let state = states[id]
       const stTf = getStrategyTimeframe(id, primaryTf)
-      let slice = sliceByTf[stTf]
-      if (slice === undefined) {
-        slice = getOhlcvSliceClosedBy(ohlcvByTf[stTf] || [], stTf, barCloseTime)
-        sliceByTf[stTf] = slice
-      }
+      const slice = sliceByTf[stTf]
       const context = {
         regime,
         regimeFilterEnabled,
         timeframe: stTf,
-        // Pass logger through so strategy logs and evaluateStrategy logs go to backtest.log
         logger
       }
-      const decision = evaluateStrategy(id, slice, state, context)
+
+      // Optimization #1: skip evaluateStrategy when slice hasn't changed and position state is same
+      const sliceLen = slice.length
+      const currentHasPosition = !!state.openPosition
+      const needsEval = sliceLen !== (lastSliceLenById[id] ?? -1) ||
+        currentHasPosition !== (lastHadPositionById[id] ?? false)
+
+      let decision
+      if (needsEval) {
+        decision = evaluateStrategy(id, slice, state, context)
+        lastDecisionById[id] = decision
+        lastSliceLenById[id] = sliceLen
+        lastHadPositionById[id] = currentHasPosition
+      } else {
+        decision = lastDecisionById[id] ?? { action: 'hold', detail: {} }
+      }
       const action = decision?.action || 'hold'
 
       if (state.openPosition) {
