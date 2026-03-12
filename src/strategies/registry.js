@@ -57,35 +57,46 @@ const strategies = {
   [volumeClimaxReversal.id]: volumeClimaxReversal
 }
 
-/** Regime filter: (regime) => true = allow entry. Omitted strategy = no filter. */
+/** Regime filter: (regime) => true = allow entry. Omitted strategy = no filter.
+ *  trend: 'trending' (ADX>=25), 'weak' (20-25), 'ranging' (<20)
+ *  trendDirection: 'bullish', 'bearish', 'neutral' (from smoothed DI+/DI-)
+ *  Trend-followers accept 'trending' or 'weak' with correct direction (catches early moves).
+ *  Mean-reversion accepts 'ranging' or 'weak' (transitional zone suits mean reversion).
+ *  Reversal strategies only in non-trending markets. */
+const notTrending = (r) => r.trend !== 'trending'
+const bullish = (r) => (r.trend === 'trending' || r.trend === 'weak') && r.trendDirection === 'bullish'
+const bearish = (r) => (r.trend === 'trending' || r.trend === 'weak') && r.trendDirection === 'bearish'
+const directional = (r) => (r.trend === 'trending' || r.trend === 'weak') && r.trendDirection !== 'neutral'
+const meanRevert = (r) => r.trend === 'ranging' || r.trend === 'weak' || r.volatility === 'low'
+
 const REGIME_FILTERS = {
-  [emaCrossover.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
-  [macd.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
-  [multiEma.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
-  [priceVsEma.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
-  [rsiPullback.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
-  [multiTfTrend.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
-  [atrTrend.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
-  [macdHistogram.id]: (r) => r.trend === 'trending' && (r.trendDirection === 'bullish' || r.trendDirection === 'bearish'),
-  [volumeEmaCrossover.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
-  [emaFastCrossover.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
-  [rsiMacdCombo.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
-  [shortTrend.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bearish',
-  [shortBreakdown.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bearish',
-  [shortMacd.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bearish',
+  [emaCrossover.id]: bullish,
+  [macd.id]: bullish,
+  [multiEma.id]: bullish,
+  [priceVsEma.id]: bullish,
+  [rsiPullback.id]: bullish,
+  [multiTfTrend.id]: bullish,
+  [atrTrend.id]: bullish,
+  [macdHistogram.id]: directional,
+  [volumeEmaCrossover.id]: bullish,
+  [emaFastCrossover.id]: bullish,
+  [rsiMacdCombo.id]: bullish,
+  [shortTrend.id]: bearish,
+  [shortBreakdown.id]: bearish,
+  [shortMacd.id]: bearish,
   [shortOverbought.id]: (r) => r.trendDirection === 'bearish',
-  [shortRejection.id]: (r) => r.trendDirection === 'bearish' || r.trendDirection === 'neutral',
-  [bollingerMeanRevert.id]: (r) => r.trend === 'ranging' || r.volatility === 'low',
-  [rangeBounce.id]: (r) => r.trend === 'ranging' || r.volatility === 'low',
-  [stochasticOversold.id]: (r) => r.trend === 'ranging' || (r.trend === 'trending' && r.trendDirection === 'bullish'),
-  [bollingerSqueeze.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
-  [donchianBreakout.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
-  [atrBreakout.id]: (r) => r.trend === 'trending' && r.trendDirection === 'bullish',
-  [impulseFollow.id]: (r) => r.trend === 'trending' && (r.trendDirection === 'bullish' || r.trendDirection === 'bearish'),
-  [impulsePullback.id]: (r) => r.trend === 'trending' && (r.trendDirection === 'bullish' || r.trendDirection === 'bearish'),
-  [stopHuntReversal.id]: (r) => r.trend === 'ranging' || r.trend === 'weak',
-  [vwapRevert.id]: (r) => r.trend === 'ranging' || r.trend === 'weak',
-  [volumeClimaxReversal.id]: (r) => r.trend === 'ranging' || r.trend === 'weak'
+  [shortRejection.id]: (r) => r.trendDirection !== 'bullish',
+  [bollingerMeanRevert.id]: meanRevert,
+  [rangeBounce.id]: meanRevert,
+  [stochasticOversold.id]: (r) => r.trend !== 'trending' || r.trendDirection === 'bullish',
+  [bollingerSqueeze.id]: bullish,
+  [donchianBreakout.id]: bullish,
+  [atrBreakout.id]: bullish,
+  [impulseFollow.id]: directional,
+  [impulsePullback.id]: directional,
+  [stopHuntReversal.id]: notTrending,
+  [vwapRevert.id]: notTrending,
+  [volumeClimaxReversal.id]: notTrending
 }
 
 // Recommended timeframe per strategy (candle size for signal evaluation).
@@ -174,9 +185,9 @@ export function getStrategyTimeframe (id, defaultTf = '15m') {
 /** True if this strategy is allowed to enter in the current regime (for dashboard highlighting). */
 export function isRegimeActive (id, regime, regimeFilterEnabled) {
   if (!regimeFilterEnabled) return true
-  if (!regime) return true
   const filter = REGIME_FILTERS[id]
   if (!filter) return true
+  if (!regime) return false
   return !!filter(regime)
 }
 
@@ -215,12 +226,11 @@ export function evaluateStrategy (id, ohlcv, state, context = {}) {
   const filter = REGIME_FILTERS[id]
   if (
     regimeFilterEnabled &&
-    regime &&
     filter &&
     (action === 'enter-long' || action === 'enter-short') &&
-    !filter(regime)
+    (!regime || !filter(regime))
   ) {
-    log.debug(`evaluateStrategy: ${id} regime filter blocked entry`, { regime, action })
+    log.debug(`evaluateStrategy: ${id} regime filter blocked entry`, { regime, action, reason: regime ? 'filter rejected' : 'regime unavailable' })
     return {
       action: 'hold',
       detail: { ...(decision?.detail || {}), regimeSkipped: true }

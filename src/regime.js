@@ -3,6 +3,16 @@ import { calculateATR, calculateADX } from './indicators.js'
 const ATR_PERIOD = 14
 const ADX_PERIOD = 14
 const ATR_LOOKBACK = 50
+const ADX_SMOOTH = 3
+
+function avgNonNull (arr) {
+  let sum = 0
+  let count = 0
+  for (const v of arr) {
+    if (v != null) { sum += v; count++ }
+  }
+  return count > 0 ? sum / count : null
+}
 
 /**
  * Compute regime (volatility, trend, trend direction) from regime OHLCV.
@@ -14,9 +24,9 @@ export function computeRegime (regimeOhlcv) {
 
   const atrArr = calculateATR(regimeOhlcv, ATR_PERIOD)
   const atrNow = atrArr.length ? atrArr[atrArr.length - 1] : null
-  const atrAvg = (atrArr.length >= ATR_LOOKBACK)
-    ? atrArr.slice(-ATR_LOOKBACK).reduce((a, b) => a + b, 0) / ATR_LOOKBACK
-    : (atrArr.length ? atrArr.reduce((a, b) => a + b, 0) / atrArr.length : null)
+  const atrAvg = atrArr.length >= ATR_LOOKBACK
+    ? avgNonNull(atrArr.slice(-ATR_LOOKBACK))
+    : avgNonNull(atrArr)
 
   let volatility = 'neutral'
   let volatilityRatio = null
@@ -27,9 +37,11 @@ export function computeRegime (regimeOhlcv) {
   }
 
   const { adx: adxArr, plusDi: plusDiArr, minusDi: minusDiArr } = calculateADX(regimeOhlcv, ADX_PERIOD)
-  const adxNow = adxArr.length ? adxArr[adxArr.length - 1] : null
-  const plusDiNow = plusDiArr.length ? plusDiArr[plusDiArr.length - 1] : null
-  const minusDiNow = minusDiArr.length ? minusDiArr[minusDiArr.length - 1] : null
+
+  // Smooth ADX/DI over last ADX_SMOOTH bars to reduce flicker at thresholds
+  const adxNow = avgNonNull(adxArr.slice(-ADX_SMOOTH))
+  const plusDiNow = avgNonNull(plusDiArr.slice(-ADX_SMOOTH))
+  const minusDiNow = avgNonNull(minusDiArr.slice(-ADX_SMOOTH))
 
   let trend = 'weak'
   if (adxNow != null) {

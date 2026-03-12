@@ -118,7 +118,7 @@ export function createApp () {
       }
 
       const regimeTf = config.trading.regimeTimeframe || '1h'
-      const regimeCandles = config.trading.regimeCandles ?? 200
+      const regimeCandles = Number.isFinite(config.trading.regimeCandles) ? config.trading.regimeCandles : 200
       let regime = { volatility: 'neutral', trend: 'weak', trendDirection: 'neutral' }
       let volatilityRatio = null
       let adxNow = null

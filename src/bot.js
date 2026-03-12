@@ -56,7 +56,7 @@ async function fetchRegimeData () {
   const source = getMarketDataSource()
   const exchange = source === 'testnet' ? getTradingExchange() : getDataExchange()
   const regimeTf = config.trading.regimeTimeframe || '1h'
-  const regimeLimit = Math.min(config.trading.regimeCandles ?? 200, BINANCE_KLINES_MAX)
+  const regimeLimit = Math.min(Number.isFinite(config.trading.regimeCandles) ? config.trading.regimeCandles : 200, BINANCE_KLINES_MAX)
   logger.debug('exchange.fetchOHLCV request (regime)', { symbol, timeframe: regimeTf, limit: regimeLimit })
   const ohlcv = await exchange.fetchOHLCV(symbol, regimeTf, undefined, regimeLimit)
   logger.debug('exchange.fetchOHLCV response (regime)', { candles: ohlcv.length })
@@ -83,12 +83,11 @@ async function fetchMarketDataChunked (requestedLimit, tf) {
   return result.slice(-requestedLimit)
 }
 
-/** Returns { volatility, trend, trendDirection } or null if regime data unavailable. */
+/** Returns full regime object or null if regime data unavailable. */
 async function getRegime () {
   try {
     const regimeOhlcv = await fetchRegimeData()
-    const computed = computeRegime(regimeOhlcv)
-    return computed ? { volatility: computed.volatility, trend: computed.trend, trendDirection: computed.trendDirection } : null
+    return computeRegime(regimeOhlcv)
   } catch (err) {
     logger.warn('getRegime failed', { err: err.message })
     return null
