@@ -1,5 +1,4 @@
 import { calculateEMA } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'impulse_follow'
 export const name = 'Impulse Follow-through'
@@ -14,6 +13,7 @@ const VOL_MULT = 1.5
 const CLOSE_POS_THRESHOLD = 0.7
 
 export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   if (!Array.isArray(ohlcv) || ohlcv.length < Math.max(LOOKBACK, TREND_EMA) + 2) {
     return { action: 'hold', detail: {} }
   }
@@ -57,11 +57,19 @@ export function evaluate (ohlcv, state, context = {}) {
   const isBullishImpulse = hasRange && hasBody && hasVol && isBullishShape && allowLong
   const isBearishImpulse = hasRange && hasBody && hasVol && isBearishShape && allowShort
 
-  logger.info(`[${id}] ts=${new Date(ts).toISOString()} range=${range.toFixed(2)} avgRange=${avgRange.toFixed(2)} body=${body.toFixed(2)} avgBody=${avgBody.toFixed(2)} vol=${vol.toFixed(0)} avgVol=${avgVol.toFixed(0)} bullImpulse=${isBullishImpulse} bearImpulse=${isBearishImpulse}`)
+  if (log) {
+    log.info(
+      `[${id}] ts=${new Date(ts).toISOString()} range=${range.toFixed(
+        2
+      )} avgRange=${avgRange.toFixed(2)} body=${body.toFixed(2)} avgBody=${avgBody.toFixed(
+        2
+      )} vol=${vol.toFixed(0)} avgVol=${avgVol.toFixed(0)} bullImpulse=${isBullishImpulse} bearImpulse=${isBearishImpulse}`
+    )
+  }
 
   if (!state?.openPosition) {
     if (isBullishImpulse) {
-      logger.info(`[${id}] LONG impulse signal`)
+      if (log) log.info(`[${id}] LONG impulse signal`)
       return {
         action: 'enter-long',
         detail: {
@@ -78,7 +86,7 @@ export function evaluate (ohlcv, state, context = {}) {
       }
     }
     if (isBearishImpulse) {
-      logger.info(`[${id}] SHORT impulse signal`)
+      if (log) log.info(`[${id}] SHORT impulse signal`)
       return {
         action: 'enter-short',
         detail: {
@@ -99,11 +107,11 @@ export function evaluate (ohlcv, state, context = {}) {
   if (state?.openPosition && ema20 != null) {
     const side = state.openPosition.side || 'long'
     if (side === 'long' && price < ema20) {
-      logger.info(`[${id}] EXIT signal (price below EMA 20)`)
+      if (log) log.info(`[${id}] EXIT signal (price below EMA 20)`)
       return { action: 'exit-long', detail: { ts, price, ema20, range, avgRange, vol, avgVol } }
     }
     if (side === 'short' && price > ema20) {
-      logger.info(`[${id}] EXIT signal (price above EMA 20)`)
+      if (log) log.info(`[${id}] EXIT signal (price above EMA 20)`)
       return { action: 'exit-short', detail: { ts, price, ema20, range, avgRange, vol, avgVol } }
     }
   }

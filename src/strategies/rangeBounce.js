@@ -1,5 +1,4 @@
 import { calculateEMA } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'range_bounce'
 export const name = 'Range Bounce (Long)'
@@ -11,7 +10,8 @@ const TREND_EMA = 50
 const TOUCH_MARGIN = 0.002 // price within 0.2% of range low
 const BOUNCE_CANDLES = 2 // number of candles to confirm bounce
 
-export function evaluate (ohlcv, state) {
+export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   const minLen = Math.max(RANGE_LOOKBACK + BOUNCE_CANDLES + 2, TREND_EMA + 2)
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
@@ -34,7 +34,7 @@ export function evaluate (ohlcv, state) {
   if (state?.openPosition) {
     const nearRangeHigh = price >= rangeHigh * (1 - TOUCH_MARGIN)
     if (nearRangeHigh) {
-      logger.info(`[${id}] EXIT signal (target near range high)`)
+      if (log) log.info(`[${id}] EXIT signal (target near range high)`)
       return { action: 'exit-long', detail: { price, rangeHigh, rangeLow } }
     }
     return { action: 'hold', detail: { price, rangeHigh, rangeLow } }
@@ -42,12 +42,16 @@ export function evaluate (ohlcv, state) {
 
   const longSignal = candleBullish && bouncedFromLow && aboveEma50
 
-  logger.info(
-    `[${id}] price=${price.toFixed(2)} rangeLow=${rangeLow.toFixed(2)} rangeHigh=${rangeHigh.toFixed(2)} bullish=${candleBullish} bounced=${bouncedFromLow} aboveEma50=${aboveEma50}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] price=${price.toFixed(2)} rangeLow=${rangeLow.toFixed(2)} rangeHigh=${rangeHigh.toFixed(
+        2
+      )} bullish=${candleBullish} bounced=${bouncedFromLow} aboveEma50=${aboveEma50}`
+    )
+  }
 
   if (longSignal) {
-    logger.info(`[${id}] LONG signal (range bounce above EMA 50)`)
+    if (log) log.info(`[${id}] LONG signal (range bounce above EMA 50)`)
     return { action: 'enter-long', detail: { price, rangeHigh, rangeLow, rangeMid, ema50 } }
   }
 

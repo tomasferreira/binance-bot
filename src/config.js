@@ -59,9 +59,9 @@ const trading = {
   assetsToLog: typeof rawAssetsToLog === 'string'
     ? rawAssetsToLog.split(',').map(s => s.trim()).filter(Boolean)
     : Array.isArray(rawAssetsToLog) ? rawAssetsToLog : [],
-  closedTradesHistoryLimit: Math.max(100, Math.min(10000, Number(rawClosedLimit))),
+  closedTradesHistoryLimit: Math.max(100, Math.min(10000, Number(rawClosedLimit) || 500)),
   regimeTimeframe: envOverride('REGIME_TIMEFRAME') ?? tradingFromFile.regimeTimeframe,
-  regimeCandles: Math.max(100, Math.min(1000, Number(rawRegimeCandles))),
+  regimeCandles: Math.max(100, Math.min(1000, Number(rawRegimeCandles) || 200)),
   regimeFilterEnabled: envOverride('REGIME_FILTER_ENABLED', 'boolean') ?? tradingFromFile.regimeFilterEnabled,
   closeOnlyExits: envOverride('CLOSE_ONLY_EXITS', 'boolean') ?? tradingFromFile.closeOnlyExits
 }

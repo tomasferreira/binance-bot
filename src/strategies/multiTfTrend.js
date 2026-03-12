@@ -1,5 +1,4 @@
 import { calculateEMA } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'multi_tf_trend'
 export const name = 'Multi-TF Trend (approx)'
@@ -11,7 +10,8 @@ const SHORT_SLOW = 50
 const LONG_FAST = 100
 const LONG_SLOW = 200
 
-export function evaluate (ohlcv, state) {
+export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   const minLen = Math.max(LONG_SLOW, SHORT_SLOW) + 2
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
@@ -40,14 +40,16 @@ export function evaluate (ohlcv, state) {
   const longUp = ema100 > ema200
   const crossUp = pricePrev <= ema20Prev && price > ema20
 
-  logger.info(
-    `[${id}] price=${price.toFixed(2)} EMA20=${ema20.toFixed(2)} EMA50=${ema50.toFixed(
-      2
-    )} EMA100=${ema100.toFixed(2)} EMA200=${ema200.toFixed(2)} shortUp=${shortUp} longUp=${longUp} crossUp=${crossUp}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] price=${price.toFixed(2)} EMA20=${ema20.toFixed(2)} EMA50=${ema50.toFixed(
+        2
+      )} EMA100=${ema100.toFixed(2)} EMA200=${ema200.toFixed(2)} shortUp=${shortUp} longUp=${longUp} crossUp=${crossUp}`
+    )
+  }
 
   if (!state?.openPosition && shortUp && longUp && crossUp) {
-    logger.info(`[${id}] LONG signal`)
+    if (log) log.info(`[${id}] LONG signal`)
     return { action: 'enter-long', detail: { price, ema20, ema50, ema100, ema200 } }
   }
 
@@ -55,7 +57,7 @@ export function evaluate (ohlcv, state) {
     const crossDown = pricePrev >= ema20Prev && price < ema20
     const shortTrendBroken = ema20 <= ema50
     if (crossDown || shortTrendBroken) {
-      logger.info(`[${id}] EXIT signal (short-term trend broken)`)
+      if (log) log.info(`[${id}] EXIT signal (short-term trend broken)`)
       return { action: 'exit-long', detail: { price, ema20, ema50, ema100, ema200 } }
     }
   }

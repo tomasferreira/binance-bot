@@ -1,5 +1,4 @@
 import { calculateEMA, calculateRSI } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'short_overbought'
 export const name = 'Short Overbought in Downtrend (RSI 14)'
@@ -10,7 +9,8 @@ const RSI_PERIOD = 14
 const FAST = 50
 const SLOW = 200
 
-export function evaluate (ohlcv, state) {
+export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   const minLen = Math.max(SLOW, RSI_PERIOD) + 2
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
@@ -39,25 +39,27 @@ export function evaluate (ohlcv, state) {
 
   const detail = { price, rsi, emaFast, emaSlow, trendDown, rsiCrossIntoOverbought }
 
-  logger.info(
-    `[${id}] price=${price.toFixed(2)} RSI=${rsi.toFixed(
-      2
-    )} emaFast=${emaFast.toFixed(2)} emaSlow=${emaSlow.toFixed(
-      2
-    )} trendDown=${trendDown} overboughtCross=${rsiCrossIntoOverbought}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] price=${price.toFixed(2)} RSI=${rsi.toFixed(
+        2
+      )} emaFast=${emaFast.toFixed(2)} emaSlow=${emaSlow.toFixed(
+        2
+      )} trendDown=${trendDown} overboughtCross=${rsiCrossIntoOverbought}`
+    )
+  }
 
   if (state?.openPosition?.side === 'short') {
     const exitCondition = rsiNormalized || !trendDown
     if (exitCondition) {
-      logger.info(`[${id}] EXIT-SHORT signal`)
+      if (log) log.info(`[${id}] EXIT-SHORT signal`)
       return { action: 'exit-short', detail: { ...detail, rsiNormalized } }
     }
     return { action: 'hold', detail }
   }
 
   if (!state?.openPosition && trendDown && rsiCrossIntoOverbought) {
-    logger.info(`[${id}] ENTER-SHORT on overbought bounce`)
+    if (log) log.info(`[${id}] ENTER-SHORT on overbought bounce`)
     return { action: 'enter-short', detail }
   }
 

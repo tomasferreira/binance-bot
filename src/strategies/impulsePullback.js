@@ -1,5 +1,4 @@
 import { calculateEMA } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'impulse_pullback'
 export const name = 'Impulse Pullback Continuation'
@@ -16,6 +15,7 @@ const MAX_PULLBACK_BARS = 3
 const MAX_RETRACE_FRACTION = 0.5 // how deep the pullback can go into the impulse
 
 export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   if (!Array.isArray(ohlcv) || ohlcv.length < Math.max(LOOKBACK + MAX_PULLBACK_BARS + 2, TREND_EMA + 2)) {
     return { action: 'hold', detail: {} }
   }
@@ -45,11 +45,11 @@ export function evaluate (ohlcv, state, context = {}) {
   if (state?.openPosition && ema20 != null) {
     const side = state.openPosition.side || 'long'
     if (side === 'long' && closeNow < ema20) {
-      logger.info(`[${id}] EXIT signal (price below EMA 20)`)
+      if (log) log.info(`[${id}] EXIT signal (price below EMA 20)`)
       return { action: 'exit-long', detail: { ts: tsNow, closeNow, ema20, avgRange, avgBody, avgVol } }
     }
     if (side === 'short' && closeNow > ema20) {
-      logger.info(`[${id}] EXIT signal (price above EMA 20)`)
+      if (log) log.info(`[${id}] EXIT signal (price above EMA 20)`)
       return { action: 'exit-short', detail: { ts: tsNow, closeNow, ema20, avgRange, avgBody, avgVol } }
     }
     return {
@@ -140,11 +140,13 @@ export function evaluate (ohlcv, state, context = {}) {
     enterShort = shallowRetrace && holdsBelowMid && allowShort
   }
 
-  logger.info(
-    `[${id}] ts=${new Date(tsPull).toISOString()} impulseIdx=${impulseIndex} side=${impulseSide} ` +
-      `impulseHigh=${impulseHigh?.toFixed?.(2)} impulseLow=${impulseLow?.toFixed?.(2)} ` +
-      `closePull=${closePull?.toFixed?.(2)} enterLong=${enterLong} enterShort=${enterShort}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] ts=${new Date(tsPull).toISOString()} impulseIdx=${impulseIndex} side=${impulseSide} ` +
+        `impulseHigh=${impulseHigh?.toFixed?.(2)} impulseLow=${impulseLow?.toFixed?.(2)} ` +
+        `closePull=${closePull?.toFixed?.(2)} enterLong=${enterLong} enterShort=${enterShort}`
+    )
+  }
 
   if (enterLong) {
     return {

@@ -1,5 +1,4 @@
 import { calculateBollinger, calculateEMA } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'bb_squeeze'
 export const name = 'Bollinger Squeeze Breakout (Long)'
@@ -12,7 +11,8 @@ const WIDTH_LOOKBACK = 50
 const TREND_EMA = 50
 const WIDTH_PERCENTILE = 80 // squeeze = width in bottom 20% of recent
 
-export function evaluate (ohlcv, state) {
+export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   const minLen = Math.max(PERIOD, WIDTH_LOOKBACK, TREND_EMA) + 2
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
@@ -44,16 +44,20 @@ export function evaluate (ohlcv, state) {
   const squeeze = width <= threshold
   const breakAboveUpper = pricePrev <= upper[prev] && price > upperNow
 
-  logger.info(
-    `[${id}] price=${price.toFixed(2)} upper=${upperNow.toFixed(2)} width=${width.toFixed(2)} squeeze=${squeeze} breakAbove=${breakAboveUpper}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] price=${price.toFixed(2)} upper=${upperNow.toFixed(
+        2
+      )} width=${width.toFixed(2)} squeeze=${squeeze} breakAbove=${breakAboveUpper}`
+    )
+  }
 
   if (!state?.openPosition && squeeze && breakAboveUpper) {
-    logger.info(`[${id}] LONG signal (squeeze breakout)`)
+    if (log) log.info(`[${id}] LONG signal (squeeze breakout)`)
     return { action: 'enter-long', detail: { price, upper: upperNow, lower: lowerNow, width } }
   }
   if (state?.openPosition && ema50 != null && price < ema50) {
-    logger.info(`[${id}] EXIT signal (price below EMA 50)`)
+    if (log) log.info(`[${id}] EXIT signal (price below EMA 50)`)
     return { action: 'exit-long', detail: { price, upper: upperNow, lower: lowerNow, ema50 } }
   }
 

@@ -1,5 +1,3 @@
-import { logger } from '../logger.js'
-
 export const id = 'vwap_revert'
 export const name = 'VWAP Mean Reversion'
 export const description =
@@ -35,6 +33,7 @@ function computeSessionVwap (ohlcv, lookback) {
 }
 
 export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   const vwapLookback = getVwapLookback(context?.timeframe || '5m')
   if (!Array.isArray(ohlcv) || ohlcv.length < vwapLookback + 2) {
     return { action: 'hold', detail: {} }
@@ -64,11 +63,13 @@ export function evaluate (ohlcv, state, context = {}) {
   const allowCounterLong = isRangingOrWeak || dir !== 'bearish'
   const allowCounterShort = isRangingOrWeak || dir !== 'bullish'
 
-  logger.info(
-    `[${id}] ts=${new Date(ts).toISOString()} close=${close.toFixed(2)} vwap=${vwap.toFixed(
-      2
-    )} dist=${(dist * 100).toFixed(2)}% trend=${trend} dir=${dir}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] ts=${new Date(ts).toISOString()} close=${close.toFixed(2)} vwap=${vwap.toFixed(
+        2
+      )} dist=${(dist * 100).toFixed(2)}% trend=${trend} dir=${dir}`
+    )
+  }
 
   if (state?.openPosition) {
     return {
@@ -98,7 +99,7 @@ export function evaluate (ohlcv, state, context = {}) {
   }
 
   if (enterLong) {
-    logger.info(`[${id}] ENTER-LONG (below VWAP, fade up)`)
+    if (log) log.info(`[${id}] ENTER-LONG (below VWAP, fade up)`)
     return {
       action: 'enter-long',
       detail: {
@@ -115,7 +116,7 @@ export function evaluate (ohlcv, state, context = {}) {
   }
 
   if (enterShort) {
-    logger.info(`[${id}] ENTER-SHORT (above VWAP, fade down)`)
+    if (log) log.info(`[${id}] ENTER-SHORT (above VWAP, fade down)`)
     return {
       action: 'enter-short',
       detail: {

@@ -1,5 +1,4 @@
 import { calculateMACD, calculateEMA } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'macd_histogram'
 export const name = 'MACD Histogram Zero-Line'
@@ -12,6 +11,7 @@ const SIGNAL = 9
 const EMA_TREND = 200
 
 export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   const minLen = SLOW + SIGNAL + EMA_TREND + 2
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
@@ -39,11 +39,13 @@ export function evaluate (ohlcv, state, context = {}) {
   const allowLong = dir === 'bullish'
   const allowShort = dir === 'bearish'
 
-  logger.info(
-    `[${id}] price=${price.toFixed(2)} hist=${histNow.toFixed(4)} ema200=${ema200.toFixed(
-      2
-    )} crossUp=${crossUp} crossDown=${crossDown} above200=${above200} below200=${below200} dir=${dir ?? 'n/a'} allowLong=${allowLong} allowShort=${allowShort}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] price=${price.toFixed(2)} hist=${histNow.toFixed(4)} ema200=${ema200.toFixed(
+        2
+      )} crossUp=${crossUp} crossDown=${crossDown} above200=${above200} below200=${below200} dir=${dir ?? 'n/a'} allowLong=${allowLong} allowShort=${allowShort}`
+    )
+  }
 
   // Manage existing position first
   if (state?.openPosition) {
@@ -52,7 +54,7 @@ export function evaluate (ohlcv, state, context = {}) {
       const exitCrossDown = crossDown
       const exitTrendBroken = !above200
       if (exitCrossDown || exitTrendBroken) {
-        logger.info(`[${id}] EXIT-LONG signal`)
+        if (log) log.info(`[${id}] EXIT-LONG signal`)
         return { action: 'exit-long', detail: { price, histogram: histNow, ema200 } }
       }
       return { action: 'hold', detail: { price, histogram: histNow, ema200 } }
@@ -60,7 +62,7 @@ export function evaluate (ohlcv, state, context = {}) {
       const exitCrossUp = crossUp
       const exitTrendBroken = above200
       if (exitCrossUp || exitTrendBroken) {
-        logger.info(`[${id}] EXIT-SHORT signal`)
+        if (log) log.info(`[${id}] EXIT-SHORT signal`)
         return { action: 'exit-short', detail: { price, histogram: histNow, ema200 } }
       }
       return { action: 'hold', detail: { price, histogram: histNow, ema200 } }
@@ -69,12 +71,12 @@ export function evaluate (ohlcv, state, context = {}) {
 
   // No open position: look for new entries (only in direction of regime)
   if (!state?.openPosition && crossUp && above200 && allowLong) {
-    logger.info(`[${id}] LONG signal`)
+    if (log) log.info(`[${id}] LONG signal`)
     return { action: 'enter-long', detail: { price, histogram: histNow, ema200 } }
   }
 
   if (!state?.openPosition && crossDown && below200 && allowShort) {
-    logger.info(`[${id}] SHORT signal`)
+    if (log) log.info(`[${id}] SHORT signal`)
     return { action: 'enter-short', detail: { price, histogram: histNow, ema200 } }
   }
 

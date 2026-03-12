@@ -1,5 +1,4 @@
 import { getEMACrossSignalPeriods, calculateATR } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'ema_fast_crossover'
 export const name = 'EMA Fast Crossover (9/21)'
@@ -11,7 +10,8 @@ const SLOW = 21
 const ATR_PERIOD = 14
 const MIN_ATR_REL = 0.004 // 0.4% min volatility to avoid whipsaw in flat markets
 
-export function evaluate (ohlcv, state) {
+export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   const minLen = Math.max(SLOW + 2, ATR_PERIOD + 2)
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
@@ -28,12 +28,16 @@ export function evaluate (ohlcv, state) {
     return { action: 'hold', detail: { fast, slow, signal, atrRel } }
   }
 
-  logger.info(
-    `[${id}] price=${price.toFixed(2)} ema9=${fast.toFixed(2)} ema21=${slow.toFixed(2)} signal=${signal || 'none'} atrRel=${(atrRel * 100).toFixed(2)}% volOk=${volatilityOk}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] price=${price.toFixed(2)} ema9=${fast.toFixed(2)} ema21=${slow.toFixed(
+        2
+      )} signal=${signal || 'none'} atrRel=${(atrRel * 100).toFixed(2)}% volOk=${volatilityOk}`
+    )
+  }
 
   if (!state?.openPosition && signal === 'long' && volatilityOk) {
-    logger.info(`[${id}] LONG signal (EMA cross + volatility filter)`)
+    if (log) log.info(`[${id}] LONG signal (EMA cross + volatility filter)`)
     return { action: 'enter-long', detail: { fast, slow, signal, atrRel } }
   }
 

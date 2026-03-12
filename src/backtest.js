@@ -401,7 +401,7 @@ async function runBacktest () {
 
   // Regime: compute on the fly from last N bars before each candle so the same calendar time
   // always gets the same regime regardless of backtest length (22d vs 23d etc).
-  const regimeComputeWindow = Math.max(30, regimeCandles ?? 200) // same as live
+  const regimeComputeWindow = Math.max(30, Number.isFinite(regimeCandles) ? regimeCandles : 200)
   let regimeOhlcv = []
   let regimePeriodMs = 0
   if (regimeFilterEnabled) {
@@ -412,7 +412,7 @@ async function runBacktest () {
       const sinceRegime = sinceMs - regimeComputeWindow * regimePeriodMs
       const regimeBarsNeeded =
         Math.ceil((endMs - sinceRegime) / regimePeriodMs) + 10
-      const regimeLimit = Math.min(Math.max(regimeBarsNeeded, 100), 2000)
+      const regimeLimit = Math.max(regimeBarsNeeded, 100)
       regimeOhlcv = await fetchHistoricalCandles(symbol, regimeTf, sinceRegime, regimeLimit)
       logger.info(`Backtest: regime data ${regimeOhlcv.length} bars (${regimeComputeWindow} used per candle)`)
     } catch (err) {
@@ -485,7 +485,9 @@ async function runBacktest () {
       const context = {
         regime,
         regimeFilterEnabled,
-        timeframe: stTf
+        timeframe: stTf,
+        // Pass logger through so strategy logs and evaluateStrategy logs go to backtest.log
+        logger
       }
       const decision = evaluateStrategy(id, slice, state, context)
       const action = decision?.action || 'hold'

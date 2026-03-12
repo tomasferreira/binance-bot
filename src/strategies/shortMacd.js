@@ -1,5 +1,4 @@
 import { calculateEMA, getMACDCrossSignal } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'short_macd'
 export const name = 'Short MACD Bearish Cross'
@@ -9,7 +8,8 @@ export const description =
 const FAST_EMA = 50
 const SLOW_EMA = 200
 
-export function evaluate (ohlcv, state) {
+export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   if (!Array.isArray(ohlcv) || ohlcv.length < 60) {
     return { action: 'hold', detail: {} }
   }
@@ -34,25 +34,27 @@ export function evaluate (ohlcv, state) {
 
   const detail = { price, emaFast, emaSlow, macd, signal, histogram, trendBearish, bearishCross, bullishCross }
 
-  logger.info(
-    `[${id}] price=${price.toFixed(
-      2
-    )} macd=${macd.toFixed(4)} signal=${signal.toFixed(
-      4
-    )} trendBearish=${trendBearish} cross=${crossSignal || 'none'}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] price=${price.toFixed(
+        2
+      )} macd=${macd.toFixed(4)} signal=${signal.toFixed(
+        4
+      )} trendBearish=${trendBearish} cross=${crossSignal || 'none'}`
+    )
+  }
 
   if (state?.openPosition?.side === 'short') {
     const exitCondition = bullishCross || macd >= 0
     if (exitCondition) {
-      logger.info(`[${id}] EXIT-SHORT (MACD turning up)`)
+      if (log) log.info(`[${id}] EXIT-SHORT (MACD turning up)`)
       return { action: 'exit-short', detail }
     }
     return { action: 'hold', detail }
   }
 
   if (!state?.openPosition && trendBearish && bearishCross) {
-    logger.info(`[${id}] ENTER-SHORT on MACD cross down`)
+    if (log) log.info(`[${id}] ENTER-SHORT on MACD cross down`)
     return { action: 'enter-short', detail }
   }
 

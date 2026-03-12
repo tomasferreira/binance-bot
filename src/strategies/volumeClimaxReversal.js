@@ -1,5 +1,3 @@
-import { logger } from '../logger.js'
-
 export const id = 'volume_climax_reversal'
 export const name = 'Volume Climax Reversal'
 export const description =
@@ -19,6 +17,7 @@ const WICK_VS_BODY = 1.5 // dominant wick: wick >= body * this
 const CLOSE_OUTER_THIRD = 1 / 3 // close in outer 1/3 of range (bottom for long, top for short)
 
 export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   const minLen = Math.max(VOL_LOOKBACK, MOVE_LOOKBACK) + 2
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
@@ -63,10 +62,16 @@ export function evaluate (ohlcv, state, context = {}) {
   const allowLong = trend === 'trending' ? dir !== 'bearish' : true
   const allowShort = trend === 'trending' ? dir !== 'bullish' : true
 
-  logger.info(
-    `[${id}] ts=${new Date(ts).toISOString()} vol=${vol.toFixed(0)} avgVol=${avgVol.toFixed(0)} climaxVol=${isClimaxVol} ` +
-      `downMovePct=${(downMovePct * 100).toFixed(2)}% upMovePct=${(upMovePct * 100).toFixed(2)}% hadDown=${hadDownMove} hadUp=${hadUpMove} bullClimax=${bullishClimax} bearClimax=${bearishClimax}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] ts=${new Date(ts).toISOString()} vol=${vol.toFixed(0)} avgVol=${avgVol.toFixed(
+        0
+      )} climaxVol=${isClimaxVol} ` +
+        `downMovePct=${(downMovePct * 100).toFixed(2)}% upMovePct=${(upMovePct * 100).toFixed(
+          2
+        )}% hadDown=${hadDownMove} hadUp=${hadUpMove} bullClimax=${bullishClimax} bearClimax=${bearishClimax}`
+    )
+  }
 
   if (state?.openPosition) {
     return {
@@ -76,7 +81,7 @@ export function evaluate (ohlcv, state, context = {}) {
   }
 
   if (!state?.openPosition && bullishClimax && allowLong) {
-    logger.info(`[${id}] ENTER-LONG (volume climax after down move)`)
+    if (log) log.info(`[${id}] ENTER-LONG (volume climax after down move)`)
     return {
       action: 'enter-long',
       detail: {
@@ -93,7 +98,7 @@ export function evaluate (ohlcv, state, context = {}) {
   }
 
   if (!state?.openPosition && bearishClimax && allowShort) {
-    logger.info(`[${id}] ENTER-SHORT (volume climax after up move)`)
+    if (log) log.info(`[${id}] ENTER-SHORT (volume climax after up move)`)
     return {
       action: 'enter-short',
       detail: {

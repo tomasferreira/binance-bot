@@ -1,5 +1,4 @@
 import { calculateEMA, calculateRSI } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'rsi_pullback'
 export const name = 'RSI Pullback (14)'
@@ -10,7 +9,8 @@ const RSI_PERIOD = 14
 const FAST = 50
 const SLOW = 200
 
-export function evaluate (ohlcv, state) {
+export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   const minLen = Math.max(SLOW, RSI_PERIOD) + 2
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
@@ -33,14 +33,16 @@ export function evaluate (ohlcv, state) {
   const trendUp = emaFast > emaSlow
   const rsiCrossUpFromOversold = rsiPrev < 30 && rsi >= 30
 
-  logger.info(
-    `[${id}] price=${price.toFixed(2)} RSI=${rsi.toFixed(2)} EMA(${FAST})=${emaFast.toFixed(
-      2
-    )} EMA(${SLOW})=${emaSlow.toFixed(2)} trendUp=${trendUp} crossUp=${rsiCrossUpFromOversold}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] price=${price.toFixed(2)} RSI=${rsi.toFixed(2)} EMA(${FAST})=${emaFast.toFixed(
+        2
+      )} EMA(${SLOW})=${emaSlow.toFixed(2)} trendUp=${trendUp} crossUp=${rsiCrossUpFromOversold}`
+    )
+  }
 
   if (!state?.openPosition && trendUp && rsiCrossUpFromOversold) {
-    logger.info(`[${id}] LONG signal`)
+    if (log) log.info(`[${id}] LONG signal`)
     return { action: 'enter-long', detail: { price, rsi, emaFast, emaSlow } }
   }
 
@@ -48,7 +50,7 @@ export function evaluate (ohlcv, state) {
     const rsiHigh = rsi >= 60
     const trendBroken = emaFast <= emaSlow
     if (rsiHigh || trendBroken) {
-      logger.info(`[${id}] EXIT signal`)
+      if (log) log.info(`[${id}] EXIT signal`)
       return { action: 'exit-long', detail: { price, rsi, emaFast, emaSlow } }
     }
   }

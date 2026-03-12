@@ -1,5 +1,4 @@
 import { calculateStochastic } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'stochastic_oversold'
 export const name = 'Stochastic Oversold (Long)'
@@ -10,7 +9,8 @@ const K_PERIOD = 14
 const D_PERIOD = 3
 const OVERSOLD = 20
 
-export function evaluate (ohlcv, state) {
+export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   const minLen = K_PERIOD + D_PERIOD + 2
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
@@ -35,18 +35,22 @@ export function evaluate (ohlcv, state) {
   if (state?.openPosition) {
     const crossDown = kPrev >= dPrev && kNow < dNow
     if (crossDown) {
-      logger.info(`[${id}] EXIT signal (Stoch cross down)`)
+      if (log) log.info(`[${id}] EXIT signal (Stoch cross down)`)
       return { action: 'exit-long', detail: { price, k: kNow, d: dNow } }
     }
     return { action: 'hold', detail: { price, k: kNow, d: dNow } }
   }
 
-  logger.info(
-    `[${id}] price=${price.toFixed(2)} %K=${kNow.toFixed(2)} %D=${dNow.toFixed(2)} wasOversold=${wasOversold} crossUp=${crossUp}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] price=${price.toFixed(2)} %K=${kNow.toFixed(
+        2
+      )} %D=${dNow.toFixed(2)} wasOversold=${wasOversold} crossUp=${crossUp}`
+    )
+  }
 
   if (longSignal) {
-    logger.info(`[${id}] LONG signal`)
+    if (log) log.info(`[${id}] LONG signal`)
     return { action: 'enter-long', detail: { price, k: kNow, d: dNow } }
   }
 

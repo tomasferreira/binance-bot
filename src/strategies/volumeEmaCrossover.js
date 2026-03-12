@@ -1,5 +1,4 @@
 import { getEMACrossSignal, averageVolume } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'volume_ema_crossover'
 export const name = 'Volume-Filtered EMA Crossover (50/200)'
@@ -9,7 +8,8 @@ export const description =
 const VOLUME_PERIOD = 24 // 1 day on 1h (24 bars)
 const VOLUME_MULT = 1.5
 
-export function evaluate (ohlcv, state) {
+export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   if (!Array.isArray(ohlcv) || ohlcv.length < 210) {
     return { action: 'hold', detail: {} }
   }
@@ -25,16 +25,22 @@ export function evaluate (ohlcv, state) {
 
   const volumeOk = avgVol > 0 && currentVol >= VOLUME_MULT * avgVol
 
-  logger.info(
-    `[${id}] price=${price.toFixed(2)} ema50=${fast.toFixed(2)} ema200=${slow.toFixed(2)} signal=${signal || 'none'} vol=${currentVol.toFixed(0)} avgVol=${avgVol.toFixed(0)} volumeOk=${volumeOk}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] price=${price.toFixed(2)} ema50=${fast.toFixed(2)} ema200=${slow.toFixed(
+        2
+      )} signal=${signal || 'none'} vol=${currentVol.toFixed(0)} avgVol=${avgVol.toFixed(
+        0
+      )} volumeOk=${volumeOk}`
+    )
+  }
 
   if (!state?.openPosition && signal === 'long' && volumeOk) {
-    logger.info(`[${id}] LONG signal (EMA cross + volume confirmation)`)
+    if (log) log.info(`[${id}] LONG signal (EMA cross + volume confirmation)`)
     return { action: 'enter-long', detail: { fast, slow, signal, volume: currentVol, avgVol } }
   }
   if (state?.openPosition && signal === 'short') {
-    logger.info(`[${id}] EXIT signal (EMA 50 cross below 200)`)
+    if (log) log.info(`[${id}] EXIT signal (EMA 50 cross below 200)`)
     return { action: 'exit-long', detail: { fast, slow, signal, volume: currentVol, avgVol } }
   }
 

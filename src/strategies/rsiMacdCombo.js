@@ -1,5 +1,4 @@
 import { getMACDCrossSignal, calculateRSI } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'rsi_macd_combo'
 export const name = 'RSI + MACD Combo (Long)'
@@ -10,7 +9,8 @@ const RSI_PERIOD = 14
 const RSI_LOW = 40
 const RSI_HIGH = 60
 
-export function evaluate (ohlcv, state) {
+export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   const minLen = 26 + 9 + RSI_PERIOD + 2
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
@@ -29,12 +29,14 @@ export function evaluate (ohlcv, state) {
   const macdLong = crossSignal === 'long'
   const rsiInZone = rsi >= RSI_LOW && rsi <= RSI_HIGH
 
-  logger.info(
-    `[${id}] price=${price.toFixed(2)} RSI=${rsi.toFixed(2)} macdCross=${crossSignal || 'none'} rsiInZone=${rsiInZone}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] price=${price.toFixed(2)} RSI=${rsi.toFixed(2)} macdCross=${crossSignal || 'none'} rsiInZone=${rsiInZone}`
+    )
+  }
 
   if (!state?.openPosition && macdLong && rsiInZone) {
-    logger.info(`[${id}] LONG signal`)
+    if (log) log.info(`[${id}] LONG signal`)
     return { action: 'enter-long', detail: { price, rsi, crossSignal } }
   }
 

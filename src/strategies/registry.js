@@ -1,4 +1,4 @@
-import { logger } from '../logger.js'
+import { logger as defaultLogger } from '../logger.js'
 import * as emaCrossover from './emaCrossover.js'
 import * as macd from './macd.js'
 import * as multiEma from './multiEma.js'
@@ -181,15 +181,17 @@ export function isRegimeActive (id, regime, regimeFilterEnabled) {
 }
 
 export function evaluateStrategy (id, ohlcv, state, context = {}) {
+  const log = (context && context.logger) || defaultLogger
   const s = getStrategy(id)
   if (!s?.evaluate) return { action: 'hold', detail: {} }
   const lastClose = Array.isArray(ohlcv) && ohlcv.length ? ohlcv[ohlcv.length - 1][4] : null
-  logger.debug(`evaluateStrategy: ${id} start`, {
+  log.debug(`evaluateStrategy: ${id} start`, {
     lastClose,
     hasOpenPosition: !!state?.openPosition,
     side: state?.openPosition?.side || null
   })
-  const decision = s.evaluate(ohlcv, state, context)
+  const strategyContext = { ...context, logger: log }
+  const decision = s.evaluate(ohlcv, state, strategyContext)
   const action = decision?.action || 'hold'
   // Highlight whenever a strategy **requests** an entry/exit, regardless of
   // whether auto-trading, regime filter, or other constraints will actually
@@ -200,7 +202,7 @@ export function evaluateStrategy (id, ohlcv, state, context = {}) {
     action === 'exit-long' ||
     action === 'exit-short'
   ) {
-    logger.warn(`strategy-decision: ${id} requested ${action}`, {
+    log.warn(`strategy-decision: ${id} requested ${action}`, {
       hasOpenPosition: !!state?.openPosition,
       side: state?.openPosition?.side || null,
       detail: decision?.detail || {},
@@ -218,13 +220,13 @@ export function evaluateStrategy (id, ohlcv, state, context = {}) {
     (action === 'enter-long' || action === 'enter-short') &&
     !filter(regime)
   ) {
-    logger.debug(`evaluateStrategy: ${id} regime filter blocked entry`, { regime, action })
+    log.debug(`evaluateStrategy: ${id} regime filter blocked entry`, { regime, action })
     return {
       action: 'hold',
       detail: { ...(decision?.detail || {}), regimeSkipped: true }
     }
   }
-  logger.debug(`evaluateStrategy: ${id} result`, {
+  log.debug(`evaluateStrategy: ${id} result`, {
     action: decision?.action,
     detail: decision?.detail
   })

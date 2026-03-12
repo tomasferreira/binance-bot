@@ -1,5 +1,4 @@
 import { calculateEMA } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'price_vs_ema'
 export const name = 'Price vs EMA (20)'
@@ -16,7 +15,8 @@ const PULLBACK_LOOKBACK = 10
 // Price within this fraction of EMA(20) counts as "touched" (e.g. 0.002 = 0.2%)
 const PULLBACK_TOUCH_MARGIN = 0.002
 
-export function evaluate (ohlcv, state) {
+export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   const minLen = Math.max(PERIOD, TREND_PERIOD, TREND_200_PERIOD) + PULLBACK_LOOKBACK + 1
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
@@ -54,25 +54,27 @@ export function evaluate (ohlcv, state) {
   }
   const pullbackThenAbove = hadPullback && strongAbove
 
-  logger.info(
-    `[${id}] price=${price.toFixed(2)} EMA(${PERIOD})=${emaVal.toFixed(
-      2
-    )} EMA(${TREND_PERIOD})=${ema50.toFixed(2)} EMA(${TREND_200_PERIOD})=${ema200.toFixed(
-      2
-    )} above=${above} strongAbove=${strongAbove} trendUp=${trendUp} trendBullish=${trendBullish} hadPullback=${hadPullback} pullbackThenAbove=${pullbackThenAbove}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] price=${price.toFixed(2)} EMA(${PERIOD})=${emaVal.toFixed(
+        2
+      )} EMA(${TREND_PERIOD})=${ema50.toFixed(2)} EMA(${TREND_200_PERIOD})=${ema200.toFixed(
+        2
+      )} above=${above} strongAbove=${strongAbove} trendUp=${trendUp} trendBullish=${trendBullish} hadPullback=${hadPullback} pullbackThenAbove=${pullbackThenAbove}`
+    )
+  }
 
   if (!state?.openPosition && pullbackThenAbove && trendUp && trendBullish) {
-    logger.info(`[${id}] LONG signal (pullback to EMA20 then close above + trend)`)
+    if (log) log.info(`[${id}] LONG signal (pullback to EMA20 then close above + trend)`)
     return { action: 'enter-long', detail: { price, ema: emaVal, ema50, ema200, hadPullback } }
   }
   if (state?.openPosition) {
     if (!above) {
-      logger.info(`[${id}] EXIT signal (price < EMA20)`)
+      if (log) log.info(`[${id}] EXIT signal (price < EMA20)`)
       return { action: 'exit-long', detail: { price, ema: emaVal, ema50, ema200 } }
     }
     if (price < ema50) {
-      logger.info(`[${id}] EXIT signal (price < EMA50 trend break)`)
+      if (log) log.info(`[${id}] EXIT signal (price < EMA50 trend break)`)
       return { action: 'exit-long', detail: { price, ema: emaVal, ema50, ema200 } }
     }
   }

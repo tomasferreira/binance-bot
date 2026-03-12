@@ -1,5 +1,4 @@
 import { calculateATR, calculateEMA } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'atr_breakout'
 export const name = 'ATR Breakout (Long)'
@@ -11,7 +10,8 @@ const ATR_PERIOD = 14
 const ATR_RISE_LOOKBACK = 5
 const TREND_EMA = 20
 
-export function evaluate (ohlcv, state) {
+export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   const minLen = Math.max(LOOKBACK, ATR_PERIOD, TREND_EMA) + ATR_RISE_LOOKBACK + 2
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
@@ -35,16 +35,20 @@ export function evaluate (ohlcv, state) {
   const atrRising = atrNow > atrPast
   const bothClosesAbove = prevClose > highPrev && price > highPrev
 
-  logger.info(
-    `[${id}] price=${price.toFixed(2)} prevClose=${prevClose.toFixed(2)} high${LOOKBACK}=${highPrev.toFixed(2)} bothAbove=${bothClosesAbove} atrRising=${atrRising}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] price=${price.toFixed(2)} prevClose=${prevClose.toFixed(
+        2
+      )} high${LOOKBACK}=${highPrev.toFixed(2)} bothAbove=${bothClosesAbove} atrRising=${atrRising}`
+    )
+  }
 
   if (!state?.openPosition && bothClosesAbove && atrRising) {
-    logger.info(`[${id}] LONG signal (two-bar close above + ATR rising)`)
+    if (log) log.info(`[${id}] LONG signal (two-bar close above + ATR rising)`)
     return { action: 'enter-long', detail: { price, highPrev, prevClose, atr: atrNow } }
   }
   if (state?.openPosition && ema20 != null && price < ema20) {
-    logger.info(`[${id}] EXIT signal (price below EMA 20)`)
+    if (log) log.info(`[${id}] EXIT signal (price below EMA 20)`)
     return { action: 'exit-long', detail: { price, highPrev, atr: atrNow, ema20 } }
   }
 

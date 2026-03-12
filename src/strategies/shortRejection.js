@@ -1,5 +1,4 @@
 import { calculateEMA } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'short_rejection'
 export const name = 'Short Rejection at Resistance'
@@ -10,7 +9,8 @@ const FAST = 50
 const SLOW = 200
 const LOOKBACK = 30
 
-export function evaluate (ohlcv, state) {
+export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   const minLen = Math.max(SLOW, LOOKBACK) + 2
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
@@ -57,23 +57,25 @@ export function evaluate (ohlcv, state) {
     trendBearish
   }
 
-  logger.info(
-    `[${id}] close=${close.toFixed(2)} res=${resistance.toFixed(
-      2
-    )} rejection=${rejection} trendBearish=${trendBearish}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] close=${close.toFixed(2)} res=${resistance.toFixed(
+        2
+      )} rejection=${rejection} trendBearish=${trendBearish}`
+    )
+  }
 
   if (state?.openPosition?.side === 'short') {
     const brokenResistance = close > resistance || close > emaFast
     if (brokenResistance) {
-      logger.info(`[${id}] EXIT-SHORT (resistance broken)`)
+      if (log) log.info(`[${id}] EXIT-SHORT (resistance broken)`)
       return { action: 'exit-short', detail: { ...detail, brokenResistance } }
     }
     return { action: 'hold', detail }
   }
 
   if (!state?.openPosition && trendBearish && rejection) {
-    logger.info(`[${id}] ENTER-SHORT on rejection`)
+    if (log) log.info(`[${id}] ENTER-SHORT on rejection`)
     return { action: 'enter-short', detail }
   }
 

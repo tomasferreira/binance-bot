@@ -1,5 +1,3 @@
-import { logger } from '../logger.js'
-
 export const id = 'stop_hunt_reversal'
 export const name = 'Stop-Hunt Reversal'
 export const description =
@@ -10,6 +8,7 @@ const WICK_MULTIPLIER = 1.5 // wick must be > body * this
 const MIN_WICK_FRACTION = 0.4 // wick must be at least this fraction of total bar range
 
 export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   const minLen = LOOKBACK + 2
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
@@ -48,12 +47,14 @@ export function evaluate (ohlcv, state, context = {}) {
   const allowShort = trend === 'trending' ? dir !== 'bullish' : true
   const allowLong = trend === 'trending' ? dir !== 'bearish' : true
 
-  logger.info(
-    `[${id}] ts=${new Date(ts).toISOString()} high=${high.toFixed(2)} low=${low.toFixed(
-      2
-    )} priorHigh=${priorHigh.toFixed(2)} priorLow=${priorLow.toFixed(2)} ` +
-      `bearStopHunt=${bearStopHunt} bullStopHunt=${bullStopHunt}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] ts=${new Date(ts).toISOString()} high=${high.toFixed(2)} low=${low.toFixed(
+        2
+      )} priorHigh=${priorHigh.toFixed(2)} priorLow=${priorLow.toFixed(2)} ` +
+        `bearStopHunt=${bearStopHunt} bullStopHunt=${bullStopHunt}`
+    )
+  }
 
   if (state?.openPosition) {
     return {
@@ -71,7 +72,7 @@ export function evaluate (ohlcv, state, context = {}) {
   }
 
   if (!state?.openPosition && bearStopHunt && allowShort) {
-    logger.info(`[${id}] ENTER-SHORT on stop-hunt above range`)
+    if (log) log.info(`[${id}] ENTER-SHORT on stop-hunt above range`)
     return {
       action: 'enter-short',
       detail: {
@@ -89,7 +90,7 @@ export function evaluate (ohlcv, state, context = {}) {
   }
 
   if (!state?.openPosition && bullStopHunt && allowLong) {
-    logger.info(`[${id}] ENTER-LONG on stop-hunt below range`)
+    if (log) log.info(`[${id}] ENTER-LONG on stop-hunt below range`)
     return {
       action: 'enter-long',
       detail: {

@@ -1,5 +1,4 @@
 import { calculateEMA } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'multi_ema'
 export const name = 'Multi-EMA (9/21/50)'
@@ -9,7 +8,8 @@ const P1 = 9
 const P2 = 21
 const P3 = 50
 
-export function evaluate (ohlcv, state) {
+export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   if (!Array.isArray(ohlcv) || ohlcv.length < P3 + 2) {
     return { action: 'hold', detail: {} }
   }
@@ -30,13 +30,19 @@ export function evaluate (ohlcv, state) {
   const price = closes[i]
   const stacked = price > e9 && e9 > e21 && e21 > e50
   const exitCross = e9Prev != null && e21Prev != null && e9Prev > e21Prev && e9 < e21
-  logger.info(`[${id}] price=${price.toFixed(2)} EMA9=${e9.toFixed(2)} EMA21=${e21.toFixed(2)} EMA50=${e50.toFixed(2)} stacked=${stacked} exitCross=${exitCross}`)
+  if (log) {
+    log.info(
+      `[${id}] price=${price.toFixed(2)} EMA9=${e9.toFixed(2)} EMA21=${e21.toFixed(
+        2
+      )} EMA50=${e50.toFixed(2)} stacked=${stacked} exitCross=${exitCross}`
+    )
+  }
   if (state?.openPosition && exitCross) {
-    logger.info(`[${id}] EXIT signal (EMA9 < EMA21)`)
+    if (log) log.info(`[${id}] EXIT signal (EMA9 < EMA21)`)
     return { action: 'exit-long', detail: { price, ema9: e9, ema21: e21, ema50: e50 } }
   }
   if (!state?.openPosition && stacked) {
-    logger.info(`[${id}] LONG signal`)
+    if (log) log.info(`[${id}] LONG signal`)
     return { action: 'enter-long', detail: { price, ema9: e9, ema21: e21, ema50: e50 } }
   }
   return { action: 'hold', detail: { ema9: e9, ema21: e21, ema50: e50 } }

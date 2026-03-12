@@ -1,5 +1,4 @@
 import { calculateEMA } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'short_trend'
 export const name = 'Short Trend (EMA 50/200)'
@@ -9,7 +8,8 @@ export const description =
 const FAST = 50
 const SLOW = 200
 
-export function evaluate (ohlcv, state) {
+export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   const minLen = SLOW + 2
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
@@ -31,22 +31,24 @@ export function evaluate (ohlcv, state) {
   const bearishStack = price < emaFast && emaFast < emaSlow
   const exitCondition = price > emaFast || emaFast >= emaSlow
 
-  logger.info(
-    `[${id}] price=${price.toFixed(2)} emaFast=${emaFast.toFixed(
-      2
-    )} emaSlow=${emaSlow.toFixed(2)} bearishStack=${bearishStack} exit=${exitCondition}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] price=${price.toFixed(2)} emaFast=${emaFast.toFixed(
+        2
+      )} emaSlow=${emaSlow.toFixed(2)} bearishStack=${bearishStack} exit=${exitCondition}`
+    )
+  }
 
   if (state?.openPosition?.side === 'short') {
     if (exitCondition) {
-      logger.info(`[${id}] EXIT-SHORT signal`)
+      if (log) log.info(`[${id}] EXIT-SHORT signal`)
       return { action: 'exit-short', detail: { price, emaFast, emaSlow } }
     }
     return { action: 'hold', detail: { price, emaFast, emaSlow } }
   }
 
   if (!state?.openPosition && bearishStack) {
-    logger.info(`[${id}] ENTER-SHORT signal`)
+    if (log) log.info(`[${id}] ENTER-SHORT signal`)
     return { action: 'enter-short', detail: { price, emaFast, emaSlow } }
   }
 

@@ -1,5 +1,4 @@
 import { calculateEMA } from '../indicators.js'
-import { logger } from '../logger.js'
 
 export const id = 'short_breakdown'
 export const name = 'Short Breakdown (support break)'
@@ -10,7 +9,8 @@ const FAST = 50
 const SLOW = 200
 const LOOKBACK = 14 // ~2 weeks on 1h for recent support
 
-export function evaluate (ohlcv, state) {
+export function evaluate (ohlcv, state, context = {}) {
+  const log = context?.logger
   const minLen = Math.max(SLOW, LOOKBACK) + 2
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
@@ -38,23 +38,25 @@ export function evaluate (ohlcv, state) {
 
   const detail = { price, prevClose, support, emaFast, emaSlow, trendDown, brokeSupport }
 
-  logger.info(
-    `[${id}] price=${price.toFixed(2)} support=${support.toFixed(
-      2
-    )} trendDown=${trendDown} brokeSupport=${brokeSupport}`
-  )
+  if (log) {
+    log.info(
+      `[${id}] price=${price.toFixed(2)} support=${support.toFixed(
+        2
+      )} trendDown=${trendDown} brokeSupport=${brokeSupport}`
+    )
+  }
 
   if (state?.openPosition?.side === 'short') {
     const reclaimed = price > support || !trendDown
     if (reclaimed) {
-      logger.info(`[${id}] EXIT-SHORT (reclaim or trend broken)`)
+      if (log) log.info(`[${id}] EXIT-SHORT (reclaim or trend broken)`)
       return { action: 'exit-short', detail }
     }
     return { action: 'hold', detail }
   }
 
   if (!state?.openPosition && trendDown && brokeSupport) {
-    logger.info(`[${id}] ENTER-SHORT on breakdown`)
+    if (log) log.info(`[${id}] ENTER-SHORT on breakdown`)
     return { action: 'enter-short', detail }
   }
 
