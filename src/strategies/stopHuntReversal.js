@@ -1,3 +1,5 @@
+import { calculateATR } from '../indicators.js'
+
 export const id = 'stop_hunt_reversal'
 export const name = 'Stop-Hunt Reversal'
 export const description =
@@ -6,6 +8,8 @@ export const description =
 const LOOKBACK = 36 // ~9h on 15m for recent range (failed breakout)
 const WICK_MULTIPLIER = 1.5 // wick must be > body * this
 const MIN_WICK_FRACTION = 0.4 // wick must be at least this fraction of total bar range
+const SL_ATR_MULT = 2
+const TP_ATR_MULT = 3
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -16,6 +20,8 @@ export function evaluate (ohlcv, state, context = {}) {
 
   const i = ohlcv.length - 1
   const [ts, open, high, low, close, volume] = ohlcv[i]
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
 
   const window = ohlcv.slice(i - LOOKBACK, i) // exclude current bar
   const priorHigh = Math.max(...window.map(c => c[2]))
@@ -84,7 +90,9 @@ export function evaluate (ohlcv, state, context = {}) {
         high,
         low,
         close,
-        volume
+        volume,
+        stopLoss: atr != null ? close + SL_ATR_MULT * atr : undefined,
+        takeProfit: atr != null ? close - TP_ATR_MULT * atr : undefined
       }
     }
   }
@@ -102,7 +110,9 @@ export function evaluate (ohlcv, state, context = {}) {
         high,
         low,
         close,
-        volume
+        volume,
+        stopLoss: atr != null ? close - SL_ATR_MULT * atr : undefined,
+        takeProfit: atr != null ? close + TP_ATR_MULT * atr : undefined
       }
     }
   }

@@ -1,3 +1,5 @@
+import { calculateATR } from '../indicators.js'
+
 export const id = 'volume_climax_reversal'
 export const name = 'Volume Climax Reversal'
 export const description =
@@ -15,6 +17,8 @@ const MIN_MOVE_PCT = 0.005 // prior move must be at least 0.5% (avoid tiny noise
 // Climax bar shape
 const WICK_VS_BODY = 1.5 // dominant wick: wick >= body * this
 const CLOSE_OUTER_THIRD = 1 / 3 // close in outer 1/3 of range (top for hammer/long, bottom for shooting star/short)
+const SL_ATR_MULT = 2
+const TP_ATR_MULT = 3
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -25,6 +29,8 @@ export function evaluate (ohlcv, state, context = {}) {
 
   const i = ohlcv.length - 1
   const [ts, open, high, low, close, volume] = ohlcv[i]
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
   const range = (high - low) || 0
   const body = Math.abs((close ?? 0) - (open ?? 0))
   const upperWick = high - Math.max(open, close)
@@ -92,7 +98,9 @@ export function evaluate (ohlcv, state, context = {}) {
         avgVol,
         closePosInRange,
         lowerWick,
-        body
+        body,
+        stopLoss: atr != null ? close - SL_ATR_MULT * atr : undefined,
+        takeProfit: atr != null ? close + TP_ATR_MULT * atr : undefined
       }
     }
   }
@@ -109,7 +117,9 @@ export function evaluate (ohlcv, state, context = {}) {
         avgVol,
         closePosInRange,
         upperWick,
-        body
+        body,
+        stopLoss: atr != null ? close + SL_ATR_MULT * atr : undefined,
+        takeProfit: atr != null ? close - TP_ATR_MULT * atr : undefined
       }
     }
   }

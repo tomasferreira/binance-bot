@@ -1,14 +1,16 @@
-import { calculateEMA, calculateBollinger } from '../indicators.js'
+import { calculateEMA, calculateBollinger, calculateATR } from '../indicators.js'
 
 export const id = 'bb_mean_revert'
 export const name = 'Bollinger Mean Revert (20,2)'
 export const description =
-  'Buys dips below Bollinger lower band (20,2) when EMA(50) is not in strong downtrend. Exits near middle band.'
+  'Buys when price bounces back above the Bollinger lower band (20,2) after dipping below it, when EMA(50) is not in strong downtrend. Exits near middle band.'
 
 const PERIOD = 20
 const K = 2
 const TREND_FAST = 50
 const TREND_SLOW = 200
+const SL_ATR_MULT = 1.5
+const TP_ATR_MULT = 2
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -29,13 +31,15 @@ export function evaluate (ohlcv, state, context = {}) {
   const lowPrev = lower[prev]
   const emaFast = emaFastArr[i]
   const emaSlow = emaSlowArr[i]
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
 
   if ([mid, low, lowPrev, emaFast, emaSlow].some(v => v == null)) {
     return { action: 'hold', detail: { price, mid, low, emaFast, emaSlow } }
   }
 
   const trendNotDown = emaFast >= emaSlow
-  const crossedBelowLower = pricePrev >= lowPrev && price < low
+  const bouncedAboveLower = pricePrev < lowPrev && price >= low
 
   if (log) {
     log.info(
@@ -43,13 +47,20 @@ export function evaluate (ohlcv, state, context = {}) {
         2
       )} emaFast=${emaFast.toFixed(2)} emaSlow=${emaSlow.toFixed(
         2
-      )} trendNotDown=${trendNotDown} crossedBelowLower=${crossedBelowLower}`
+      )} trendNotDown=${trendNotDown} bouncedAboveLower=${bouncedAboveLower}`
     )
   }
 
-  if (!state?.openPosition && trendNotDown && crossedBelowLower) {
-    if (log) log.info(`[${id}] LONG signal`)
-    return { action: 'enter-long', detail: { price, mid, low, emaFast, emaSlow } }
+  if (!state?.openPosition && trendNotDown && bouncedAboveLower) {
+    if (log) log.info(`[${id}] LONG signal (bounce above lower band)`)
+    return {
+      action: 'enter-long',
+      detail: {
+        price, mid, low, emaFast, emaSlow,
+        stopLoss: atr != null ? price - SL_ATR_MULT * atr : undefined,
+        takeProfit: atr != null ? price + TP_ATR_MULT * atr : undefined
+      }
+    }
   }
 
   if (state?.openPosition && price >= mid) {

@@ -1,4 +1,4 @@
-import { calculateEMA, calculateRSI } from '../indicators.js'
+import { calculateEMA, calculateRSI, calculateATR } from '../indicators.js'
 
 export const id = 'rsi_pullback'
 export const name = 'RSI Pullback (14)'
@@ -8,6 +8,8 @@ export const description =
 const RSI_PERIOD = 14
 const FAST = 50
 const SLOW = 200
+const SL_ATR_MULT = 1.5
+const TP_ATR_MULT = 2
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -26,6 +28,8 @@ export function evaluate (ohlcv, state, context = {}) {
   const rsiPrev = rsiArr[prev]
   const emaFast = emaFastArr[i]
   const emaSlow = emaSlowArr[i]
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
   if ([rsi, rsiPrev, emaFast, emaSlow].some(v => v == null)) {
     return { action: 'hold', detail: { price, rsi, emaFast, emaSlow } }
   }
@@ -43,7 +47,14 @@ export function evaluate (ohlcv, state, context = {}) {
 
   if (!state?.openPosition && trendUp && rsiCrossUpFromOversold) {
     if (log) log.info(`[${id}] LONG signal`)
-    return { action: 'enter-long', detail: { price, rsi, emaFast, emaSlow } }
+    return {
+      action: 'enter-long',
+      detail: {
+        price, rsi, emaFast, emaSlow,
+        stopLoss: atr != null ? price - SL_ATR_MULT * atr : undefined,
+        takeProfit: atr != null ? price + TP_ATR_MULT * atr : undefined
+      }
+    }
   }
 
   if (state?.openPosition) {

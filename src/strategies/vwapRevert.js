@@ -1,3 +1,5 @@
+import { calculateATR } from '../indicators.js'
+
 export const id = 'vwap_revert'
 export const name = 'VWAP Mean Reversion'
 export const description =
@@ -8,6 +10,8 @@ const BARS_PER_24H = { '1m': 1440, '5m': 288, '15m': 96, '30m': 48, '1h': 24 }
 const DEFAULT_VWAP_LOOKBACK = 288 // 5m default
 const DISTANCE_ENTRY = 0.01 // 1% away from VWAP to consider overextended
 const MIN_BODY_FRACTION = 0.3 // body at least 30% of bar range
+const SL_ATR_MULT = 1.5
+const TP_ATR_MULT = 2
 
 function getVwapLookback (timeframe) {
   return BARS_PER_24H[timeframe] ?? DEFAULT_VWAP_LOOKBACK
@@ -46,6 +50,9 @@ export function evaluate (ohlcv, state, context = {}) {
   if (vwap == null || vwap === 0) {
     return { action: 'hold', detail: { vwap: null } }
   }
+
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
 
   const dist = (close - vwap) / vwap // positive = above VWAP
   const range = (high - low) || 0
@@ -110,7 +117,9 @@ export function evaluate (ohlcv, state, context = {}) {
         dist,
         trend,
         dir,
-        volume
+        volume,
+        stopLoss: atr != null ? close - SL_ATR_MULT * atr : undefined,
+        takeProfit: atr != null ? close + TP_ATR_MULT * atr : undefined
       }
     }
   }
@@ -127,7 +136,9 @@ export function evaluate (ohlcv, state, context = {}) {
         dist,
         trend,
         dir,
-        volume
+        volume,
+        stopLoss: atr != null ? close + SL_ATR_MULT * atr : undefined,
+        takeProfit: atr != null ? close - TP_ATR_MULT * atr : undefined
       }
     }
   }

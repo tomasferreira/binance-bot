@@ -1,4 +1,4 @@
-import { calculateEMA } from '../indicators.js'
+import { calculateEMA, calculateATR } from '../indicators.js'
 
 export const id = 'short_breakdown'
 export const name = 'Short Breakdown (support break)'
@@ -8,6 +8,8 @@ export const description =
 const FAST = 50
 const SLOW = 200
 const LOOKBACK = 14 // ~2 weeks on 1h for recent support
+const SL_ATR_MULT = 2
+const TP_ATR_MULT = 3
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -26,6 +28,8 @@ export function evaluate (ohlcv, state, context = {}) {
   const prevClose = closes[prev]
   const emaFast = emaFastArr[i]
   const emaSlow = emaSlowArr[i]
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
 
   if ([price, prevClose, emaFast, emaSlow].some(v => v == null)) {
     return { action: 'hold', detail: { price, emaFast, emaSlow } }
@@ -57,7 +61,14 @@ export function evaluate (ohlcv, state, context = {}) {
 
   if (!state?.openPosition && trendDown && brokeSupport) {
     if (log) log.info(`[${id}] ENTER-SHORT on breakdown`)
-    return { action: 'enter-short', detail }
+    return {
+      action: 'enter-short',
+      detail: {
+        ...detail,
+        stopLoss: atr != null ? price + SL_ATR_MULT * atr : undefined,
+        takeProfit: atr != null ? price - TP_ATR_MULT * atr : undefined
+      }
+    }
   }
 
   return { action: 'hold', detail }

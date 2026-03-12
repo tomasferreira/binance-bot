@@ -1,4 +1,4 @@
-import { calculateEMA } from '../indicators.js'
+import { calculateEMA, calculateATR } from '../indicators.js'
 
 export const id = 'range_bounce'
 export const name = 'Range Bounce (Long)'
@@ -9,6 +9,8 @@ const RANGE_LOOKBACK = 50
 const TREND_EMA = 50
 const TOUCH_MARGIN = 0.002 // price within 0.2% of range low
 const BOUNCE_CANDLES = 2 // number of candles to confirm bounce
+const SL_ATR_MULT = 1.5
+const TP_ATR_MULT = 2
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -20,6 +22,8 @@ export function evaluate (ohlcv, state, context = {}) {
   const closes = ohlcv.map(c => c[4])
   const ema50Arr = calculateEMA(closes, TREND_EMA)
   const ema50 = ema50Arr[i]
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
   const slice = ohlcv.slice(i - RANGE_LOOKBACK + 1, i + 1)
   const rangeHigh = Math.max(...slice.map(c => c[2]))
   const rangeLow = Math.min(...slice.map(c => c[3]))
@@ -52,7 +56,14 @@ export function evaluate (ohlcv, state, context = {}) {
 
   if (longSignal) {
     if (log) log.info(`[${id}] LONG signal (range bounce above EMA 50)`)
-    return { action: 'enter-long', detail: { price, rangeHigh, rangeLow, rangeMid, ema50 } }
+    return {
+      action: 'enter-long',
+      detail: {
+        price, rangeHigh, rangeLow, rangeMid, ema50,
+        stopLoss: atr != null ? price - SL_ATR_MULT * atr : undefined,
+        takeProfit: atr != null ? price + TP_ATR_MULT * atr : undefined
+      }
+    }
   }
 
   return { action: 'hold', detail: { price, rangeHigh, rangeLow, ema50 } }
