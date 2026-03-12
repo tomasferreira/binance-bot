@@ -21,7 +21,7 @@ export function evaluate (ohlcv, state, context = {}) {
   const closes = ohlcv.map(c => c[4])
   const emaArr = calculateEMA(closes, TREND_EMA)
   const ema20 = emaArr[i]
-  const highPrev = Math.max(...ohlcv.slice(prev - LOOKBACK + 1, prev + 1).map(c => c[2]))
+  const highPrev = Math.max(...ohlcv.slice(prev - LOOKBACK, prev).map(c => c[2]))
   const price = ohlcv[i][4]
   const prevClose = ohlcv[prev][4]
   const atrArr = calculateATR(ohlcv, ATR_PERIOD)

@@ -14,7 +14,7 @@ const MIN_MOVE_PCT = 0.005 // prior move must be at least 0.5% (avoid tiny noise
 
 // Climax bar shape
 const WICK_VS_BODY = 1.5 // dominant wick: wick >= body * this
-const CLOSE_OUTER_THIRD = 1 / 3 // close in outer 1/3 of range (bottom for long, top for short)
+const CLOSE_OUTER_THIRD = 1 / 3 // close in outer 1/3 of range (top for hammer/long, bottom for shooting star/short)
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -50,8 +50,8 @@ export function evaluate (ohlcv, state, context = {}) {
   const hadUpMove = closeThen != null && closeNow != null && closeNow > closeThen && upBars >= MIN_MOVE_BARS && upMovePct >= MIN_MOVE_PCT
 
   const closePosInRange = range > 0 ? (close - low) / range : 0.5
-  const dominantLowerWick = body > 0 && lowerWick >= WICK_VS_BODY * body && range > 0 && closePosInRange <= CLOSE_OUTER_THIRD
-  const dominantUpperWick = body > 0 && upperWick >= WICK_VS_BODY * body && range > 0 && (1 - closePosInRange) <= CLOSE_OUTER_THIRD
+  const dominantLowerWick = body > 0 && lowerWick >= WICK_VS_BODY * body && range > 0 && closePosInRange >= (1 - CLOSE_OUTER_THIRD)
+  const dominantUpperWick = body > 0 && upperWick >= WICK_VS_BODY * body && range > 0 && closePosInRange <= CLOSE_OUTER_THIRD
 
   const bullishClimax = isClimaxVol && hadDownMove && dominantLowerWick
   const bearishClimax = isClimaxVol && hadUpMove && dominantUpperWick

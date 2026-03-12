@@ -9,7 +9,7 @@ const PERIOD = 20
 const K = 2
 const WIDTH_LOOKBACK = 50
 const TREND_EMA = 50
-const WIDTH_PERCENTILE = 80 // squeeze = width in bottom 20% of recent
+const WIDTH_PERCENTILE = 20 // squeeze = width in bottom 20% of recent
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger

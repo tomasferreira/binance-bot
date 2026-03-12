@@ -21,7 +21,7 @@ export function evaluate (ohlcv, state, context = {}) {
   }
 
   const n = ohlcv.length
-  const recent = ohlcv.slice(-LOOKBACK - MAX_PULLBACK_BARS)
+  const recent = ohlcv.slice(-(LOOKBACK + MAX_PULLBACK_BARS + 1), -1)
   const ranges = recent.map(c => (c[2] - c[3]) || 0)
   const bodies = recent.map(c => Math.abs((c[4] ?? 0) - (c[1] ?? 0)))
   const vols = recent.map(c => c[5] ?? 0)
@@ -58,8 +58,6 @@ export function evaluate (ohlcv, state, context = {}) {
     }
   }
 
-  // Find the most recent impulse bar within the last MAX_PULLBACK_BARS + 1 bars
-  const searchStart = Math.max(LOOKBACK, n - MAX_PULLBACK_BARS - 1)
   let impulseIndex = -1
   let impulseSide = null
   let impulseHigh = null
@@ -121,7 +119,7 @@ export function evaluate (ohlcv, state, context = {}) {
     }
   }
 
-  const [tsPull, , , lowPull, closePull] = ohlcv[n - 1]
+  const [tsPull, , highPull, lowPull, closePull] = ohlcv[n - 1]
 
   const impulseRange = (impulseHigh - impulseLow) || 0
   const midImpulse = impulseLow + impulseRange * 0.5
@@ -135,8 +133,8 @@ export function evaluate (ohlcv, state, context = {}) {
     const holdsAboveMid = closePull >= midImpulse
     enterLong = shallowRetrace && holdsAboveMid && allowLong
   } else if (impulseSide === 'short') {
-    const shallowRetrace = impulseRange > 0 && lowPull <= impulseHigh && closePull <= impulseHigh - impulseRange * (1 - MAX_RETRACE_FRACTION)
-    const holdsBelowMid = closePull <= impulseLow + impulseRange * 0.5
+    const shallowRetrace = impulseRange > 0 && highPull <= impulseHigh && highPull <= impulseLow + impulseRange * MAX_RETRACE_FRACTION
+    const holdsBelowMid = closePull <= midImpulse
     enterShort = shallowRetrace && holdsBelowMid && allowShort
   }
 

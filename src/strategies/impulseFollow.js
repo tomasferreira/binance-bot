@@ -25,7 +25,7 @@ export function evaluate (ohlcv, state, context = {}) {
   const ema20 = emaArr[i]
   const price = close ?? ohlcv[i][4]
 
-  const recent = ohlcv.slice(-LOOKBACK)
+  const recent = ohlcv.slice(-(LOOKBACK + 1), -1)
   const ranges = recent.map(c => (c[2] - c[3]) || 0)
   const bodies = recent.map(c => Math.abs((c[4] ?? 0) - (c[1] ?? 0)))
   const vols = recent.map(c => c[5] ?? 0)

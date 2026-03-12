@@ -10,7 +10,8 @@ const SLOW_EMA = 200
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
-  if (!Array.isArray(ohlcv) || ohlcv.length < 60) {
+  const minLen = Math.max(SLOW_EMA, 26 + 9) + 2
+  if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
   }
 

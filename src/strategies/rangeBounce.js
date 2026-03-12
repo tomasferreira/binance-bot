@@ -40,7 +40,7 @@ export function evaluate (ohlcv, state, context = {}) {
     return { action: 'hold', detail: { price, rangeHigh, rangeLow } }
   }
 
-  const longSignal = candleBullish && bouncedFromLow && aboveEma50
+  const longSignal = candleBullish && nearRangeLow && bouncedFromLow && aboveEma50
 
   if (log) {
     log.info(
