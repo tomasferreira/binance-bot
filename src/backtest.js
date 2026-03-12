@@ -423,6 +423,7 @@ async function runBacktest () {
   // Replay candles one by one (step by primary timeframe)
   const totalBars = ohlcv.length
   let lastPctReported = -1
+  let prevRegime = null
   const reportProgress = (current, total) => {
     if (typeof process !== 'undefined' && process.stderr && process.stderr.writable) {
       process.stderr.write(`PROGRESS\t${current}\t${total}\n`)
@@ -451,8 +452,6 @@ async function runBacktest () {
       }
     }
 
-    // Regime: use only fully completed regime bars (no look-ahead into the forming bar).
-    // T = start of the regime bar that contains ts; T - regimePeriodMs = last completed bar.
     let regime = null
     if (regimeFilterEnabled && regimeOhlcv.length >= regimeComputeWindow) {
       const T = Math.floor(ts / regimePeriodMs) * regimePeriodMs - regimePeriodMs
@@ -464,11 +463,11 @@ async function runBacktest () {
         if (regimeOhlcv[mid][0] < windowStart) lo = mid + 1
         else hi = mid
       }
-      const k = lo // first bar >= windowStart
+      const k = lo
       const lastBarTime = regimeOhlcv[k + regimeComputeWindow - 1]?.[0]
       if (k + regimeComputeWindow <= regimeOhlcv.length && lastBarTime != null && lastBarTime <= T) {
-        const r = computeRegime(regimeOhlcv.slice(k, k + regimeComputeWindow))
-        if (r) regime = r
+        const r = computeRegime(regimeOhlcv.slice(k, k + regimeComputeWindow), prevRegime)
+        if (r) { regime = r; prevRegime = r }
       }
     }
     // One slice per bar for primary TF; one slice per secondary TF per bar (cached)

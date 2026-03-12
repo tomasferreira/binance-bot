@@ -83,13 +83,18 @@ async function fetchMarketDataChunked (requestedLimit, tf) {
   return result.slice(-requestedLimit)
 }
 
+let prevRegimeResult = null
+
 /** Returns full regime object or null if regime data unavailable.
- *  Excludes the last (currently forming) candle so regime only reflects completed bars. */
+ *  Excludes the last (currently forming) candle so regime only reflects completed bars.
+ *  Passes previous result for hysteresis and min-hold stability. */
 async function getRegime () {
   try {
     const regimeOhlcv = await fetchRegimeData()
     const closed = regimeOhlcv.length > 1 ? regimeOhlcv.slice(0, -1) : regimeOhlcv
-    return computeRegime(closed)
+    const result = computeRegime(closed, prevRegimeResult)
+    if (result) prevRegimeResult = result
+    return result
   } catch (err) {
     logger.warn('getRegime failed', { err: err.message })
     return null

@@ -58,16 +58,18 @@ const strategies = {
 }
 
 /** Regime filter: (regime) => true = allow entry. Omitted strategy = no filter.
- *  trend: 'trending' (ADX>=25), 'weak' (20-25), 'ranging' (<20)
- *  trendDirection: 'bullish', 'bearish', 'neutral' (from smoothed DI+/DI-)
- *  Trend-followers accept 'trending' or 'weak' with correct direction (catches early moves).
- *  Mean-reversion accepts 'ranging' or 'weak' (transitional zone suits mean reversion).
- *  Reversal strategies only in non-trending markets. */
-const notTrending = (r) => r.trend !== 'trending'
-const bullish = (r) => (r.trend === 'trending' || r.trend === 'weak') && r.trendDirection === 'bullish'
-const bearish = (r) => (r.trend === 'trending' || r.trend === 'weak') && r.trendDirection === 'bearish'
-const directional = (r) => (r.trend === 'trending' || r.trend === 'weak') && r.trendDirection !== 'neutral'
-const meanRevert = (r) => r.trend === 'ranging' || r.trend === 'weak' || r.volatility === 'low'
+ *  trend: 'trending' (ADX>=25, hysteresis exit 22), 'weak' (20-25), 'ranging' (<20, hysteresis exit 23)
+ *  trendDirection: 'bullish', 'bearish', 'neutral' (from smoothed DI+/DI- with min gap 5)
+ *  Direction is 'neutral' in ranging markets (DI crossovers are noise without trend).
+ *  High volatility + weak/ranging = choppy whipsaw zone, blocked for all strategy types.
+ *  Trend-followers: confirmed trend OR weak trend with correct direction (not in high vol).
+ *  Mean-reversion: ranging or weak or low vol (not in high vol — swings are too wide).
+ *  Reversal: non-trending and not high vol. */
+const notTrending = (r) => r.trend !== 'trending' && r.volatility !== 'high'
+const bullish = (r) => (r.trend === 'trending' || (r.trend === 'weak' && r.volatility !== 'high')) && r.trendDirection === 'bullish'
+const bearish = (r) => (r.trend === 'trending' || (r.trend === 'weak' && r.volatility !== 'high')) && r.trendDirection === 'bearish'
+const directional = (r) => (r.trend === 'trending' || (r.trend === 'weak' && r.volatility !== 'high')) && r.trendDirection !== 'neutral'
+const meanRevert = (r) => (r.trend === 'ranging' || r.trend === 'weak' || r.volatility === 'low') && r.volatility !== 'high'
 
 const REGIME_FILTERS = {
   [emaCrossover.id]: bullish,
