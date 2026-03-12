@@ -367,9 +367,11 @@ async function runBacktest () {
   if (slippagePct > 0) logger.info(`Backtest: slippage ${(slippagePct * 100).toFixed(2)}%`)
   const sinceMs = Date.now() - daysBack * 24 * 60 * 60 * 1000
   const periodMs = timeframeToMs(timeframe)
+  // Cap high enough for 180d of 5m (51,840 candles); use 60k for headroom
+  const MAX_BACKTEST_CANDLES = 60000
   const requestedCandles = Math.min(
     Math.ceil((daysBack * 24 * 60 * 60 * 1000) / periodMs),
-    50000
+    MAX_BACKTEST_CANDLES
   )
 
   const primaryTf = timeframe
@@ -390,7 +392,7 @@ async function runBacktest () {
     const tfPeriodMs = timeframeToMs(tf)
     const tfRequested = Math.min(
       Math.ceil((endMs - sinceMs) / tfPeriodMs) + 50,
-      50000
+      MAX_BACKTEST_CANDLES
     )
     ohlcvByTf[tf] = await fetchHistoricalCandles(symbol, tf, sinceMs, tfRequested)
     logger.info(`Backtest: ${tf} series ${ohlcvByTf[tf].length} bars`)
