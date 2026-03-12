@@ -471,13 +471,17 @@ async function runBacktest () {
         if (r) regime = r
       }
     }
+    // One slice per bar for primary TF; one slice per secondary TF per bar (cached)
+    const primarySlice = ohlcv.slice(0, i + 1)
+    const sliceByTf = { [primaryTf]: primarySlice }
     for (const id of STRATEGY_IDS) {
       let state = states[id]
       const stTf = getStrategyTimeframe(id, primaryTf)
-      const slice =
-        stTf === primaryTf
-          ? ohlcv.slice(0, i + 1)
-          : getOhlcvSliceClosedBy(ohlcvByTf[stTf] || [], stTf, barCloseTime)
+      let slice = sliceByTf[stTf]
+      if (slice === undefined) {
+        slice = getOhlcvSliceClosedBy(ohlcvByTf[stTf] || [], stTf, barCloseTime)
+        sliceByTf[stTf] = slice
+      }
       const context = {
         regime,
         regimeFilterEnabled,
