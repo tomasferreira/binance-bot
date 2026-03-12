@@ -1,4 +1,4 @@
-import { calculateATR, calculateBollinger, calculateEMA } from '../indicators.js'
+import { calculateATR, calculateBollinger, calculateEMA, averageVolume } from '../indicators.js'
 
 export const id = 'bb_squeeze'
 export const name = 'Bollinger Squeeze Breakout (Long)'
@@ -12,6 +12,8 @@ const TREND_EMA = 50
 const WIDTH_PERCENTILE = 20 // squeeze = width in bottom 20% of recent
 const SL_ATR_MULT = 1.5
 const TP_ATR_MULT = 2.5
+const VOL_MULT = 1.2
+const VOL_PERIOD = 20
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -47,16 +49,19 @@ export function evaluate (ohlcv, state, context = {}) {
   const threshold = widths[Math.floor(widths.length * (WIDTH_PERCENTILE / 100))] ?? width
   const squeeze = width <= threshold
   const breakAboveUpper = pricePrev <= upper[prev] && price > upperNow
+  const vol = ohlcv[i][5] ?? 0
+  const avgVol = averageVolume(ohlcv.slice(0, i), VOL_PERIOD)
+  const volOk = avgVol != null && avgVol > 0 && vol > VOL_MULT * avgVol
 
   if (log) {
     log.info(
       `[${id}] price=${price.toFixed(2)} upper=${upperNow.toFixed(
         2
-      )} width=${width.toFixed(2)} squeeze=${squeeze} breakAbove=${breakAboveUpper}`
+      )} width=${width.toFixed(2)} squeeze=${squeeze} breakAbove=${breakAboveUpper} volOk=${volOk}`
     )
   }
 
-  if (!state?.openPosition && squeeze && breakAboveUpper) {
+  if (!state?.openPosition && squeeze && breakAboveUpper && volOk) {
     if (log) log.info(`[${id}] LONG signal (squeeze breakout)`)
     return { action: 'enter-long', detail: { price, upper: upperNow, lower: lowerNow, width, stopLoss: (atr != null ? price - SL_ATR_MULT * atr : undefined), takeProfit: (atr != null ? price + TP_ATR_MULT * atr : undefined) } }
   }

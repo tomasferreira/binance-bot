@@ -1,23 +1,28 @@
-import { calculateStochastic, calculateATR } from '../indicators.js'
+import { calculateStochastic, calculateATR, calculateEMA } from '../indicators.js'
 
 export const id = 'stochastic_oversold'
 export const name = 'Stochastic Oversold (Long)'
 export const description =
-  'Long when %K crosses above %D from below 20 (oversold). Exits when %K crosses below %D or RSI-style exit optional.'
+  'Long when %K crosses above %D from below 20 (oversold) and EMA 50 >= EMA 200 (uptrend). Exits when %K crosses below %D.'
 
 const K_PERIOD = 14
 const D_PERIOD = 3
 const OVERSOLD = 20
 const SL_ATR_MULT = 1.5
 const TP_ATR_MULT = 2
+const EMA_FAST = 50
+const EMA_SLOW = 200
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
-  const minLen = K_PERIOD + D_PERIOD + 2
+  const minLen = Math.max(K_PERIOD + D_PERIOD, EMA_SLOW) + 2
   if (!Array.isArray(ohlcv) || ohlcv.length < minLen) {
     return { action: 'hold', detail: {} }
   }
   const { k, d } = calculateStochastic(ohlcv, K_PERIOD, D_PERIOD)
+  const closes = ohlcv.map(c => c[4])
+  const emaFastArr = calculateEMA(closes, EMA_FAST)
+  const emaSlowArr = calculateEMA(closes, EMA_SLOW)
   const i = ohlcv.length - 1
   const prev = i - 1
   const price = ohlcv[i][4]
@@ -27,6 +32,8 @@ export function evaluate (ohlcv, state, context = {}) {
   const dNow = d[i]
   const kPrev = k[prev]
   const dPrev = d[prev]
+  const emaFast = emaFastArr[i]
+  const emaSlow = emaSlowArr[i]
 
   if (kNow == null || dNow == null || kPrev == null || dPrev == null) {
     return { action: 'hold', detail: { price, k: kNow, d: dNow } }
@@ -34,7 +41,8 @@ export function evaluate (ohlcv, state, context = {}) {
 
   const wasOversold = kPrev < OVERSOLD
   const crossUp = kPrev <= dPrev && kNow > dNow
-  const longSignal = wasOversold && crossUp
+  const trendUp = emaFast != null && emaSlow != null && emaFast >= emaSlow
+  const longSignal = wasOversold && crossUp && trendUp
 
   if (state?.openPosition) {
     const crossDown = kPrev >= dPrev && kNow < dNow
@@ -49,7 +57,7 @@ export function evaluate (ohlcv, state, context = {}) {
     log.info(
       `[${id}] price=${price.toFixed(2)} %K=${kNow.toFixed(
         2
-      )} %D=${dNow.toFixed(2)} wasOversold=${wasOversold} crossUp=${crossUp}`
+      )} %D=${dNow.toFixed(2)} wasOversold=${wasOversold} crossUp=${crossUp} trendUp=${trendUp}`
     )
   }
 

@@ -137,6 +137,68 @@ const STRATEGY_TIMEFRAMES = {
   [volumeClimaxReversal.id]: '5m'
 }
 
+const CORRELATION_CLASSES = {
+  [emaCrossover.id]: 'trend-long',
+  [macd.id]: 'trend-long',
+  [multiEma.id]: 'trend-long',
+  [priceVsEma.id]: 'trend-long',
+  [rsiPullback.id]: 'trend-long',
+  [multiTfTrend.id]: 'trend-long',
+  [atrTrend.id]: 'trend-long',
+  [volumeEmaCrossover.id]: 'trend-long',
+  [emaFastCrossover.id]: 'trend-long',
+  [rsiMacdCombo.id]: 'trend-long',
+  [shortTrend.id]: 'trend-short',
+  [shortMacd.id]: 'trend-short',
+  [shortOverbought.id]: 'trend-short',
+  [donchianBreakout.id]: 'breakout',
+  [atrBreakout.id]: 'breakout',
+  [bollingerSqueeze.id]: 'breakout',
+  [bollingerMeanRevert.id]: 'mean-reversion',
+  [rangeBounce.id]: 'mean-reversion',
+  [stochasticOversold.id]: 'mean-reversion',
+  [vwapRevert.id]: 'mean-reversion',
+  [stopHuntReversal.id]: 'reversal',
+  [volumeClimaxReversal.id]: 'reversal',
+  [shortRejection.id]: 'reversal',
+  [shortBreakdown.id]: 'reversal',
+  [impulseFollow.id]: 'scalper',
+  [impulsePullback.id]: 'scalper',
+  [macdHistogram.id]: 'scalper'
+}
+
+export const MAX_CONCURRENT_PER_CLASS = 2
+
+const MAX_BARS_HELD = {
+  [impulseFollow.id]: 24,
+  [impulsePullback.id]: 24,
+  [atrBreakout.id]: 48,
+  [emaFastCrossover.id]: 48,
+  [vwapRevert.id]: 48,
+  [volumeClimaxReversal.id]: 48,
+  [donchianBreakout.id]: 48,
+  [stochasticOversold.id]: 48,
+  [stopHuntReversal.id]: 48,
+  [multiEma.id]: 48,
+  [priceVsEma.id]: 48,
+  [emaCrossover.id]: 72,
+  [macd.id]: 72,
+  [macdHistogram.id]: 72,
+  [multiTfTrend.id]: 72,
+  [rsiPullback.id]: 72,
+  [rsiMacdCombo.id]: 72,
+  [bollingerMeanRevert.id]: 48,
+  [bollingerSqueeze.id]: 48,
+  [atrTrend.id]: 72,
+  [volumeEmaCrossover.id]: 72,
+  [shortTrend.id]: 72,
+  [shortBreakdown.id]: 48,
+  [shortOverbought.id]: 72,
+  [shortMacd.id]: 72,
+  [shortRejection.id]: 48,
+  [rangeBounce.id]: 48
+}
+
 export const STRATEGY_IDS = Object.keys(strategies)
 
 // Direction metadata for UI / analytics: 'long' | 'short' | 'both'
@@ -182,6 +244,14 @@ export function getStrategyDirection (id) {
 /** Timeframe (candle size) for a strategy's signal evaluation. Falls back to defaultTf if not in STRATEGY_TIMEFRAMES. */
 export function getStrategyTimeframe (id, defaultTf = '15m') {
   return STRATEGY_TIMEFRAMES[id] ?? defaultTf
+}
+
+export function getStrategyCorrelationClass (id) {
+  return CORRELATION_CLASSES[id] ?? 'uncategorized'
+}
+
+export function getMaxBarsHeld (id) {
+  return MAX_BARS_HELD[id] ?? 72
 }
 
 /** True if this strategy is allowed to enter in the current regime (for dashboard highlighting). */

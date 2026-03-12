@@ -1,7 +1,7 @@
 import { config } from './config.js'
 import { getTradingExchange, getDataExchange } from './exchange.js'
 import { getMarketDataSource, setMarketDataSource } from './marketDataSource.js'
-import { STRATEGY_IDS, evaluateStrategy, getStrategyDirection, getStrategyTimeframe } from './strategies/registry.js'
+import { STRATEGY_IDS, evaluateStrategy, getStrategyDirection, getStrategyTimeframe, getStrategyCorrelationClass, MAX_CONCURRENT_PER_CLASS, getMaxBarsHeld } from './strategies/registry.js'
 import { getEffectiveTradingConfig } from './runtimeConfig.js'
 import { calculatePositionSize } from './risk.js'
 import { backtestLogger as logger } from './logger.js'
@@ -11,6 +11,7 @@ import { computeRegime } from './regime.js'
 const MIN_TRADES_FOR_RECOMMENDATION = 10
 const MIN_PROFIT_FACTOR = 1.1
 const MIN_CALMAR = 0.3
+const COOLDOWN_BARS = 8
 
 function timeframeToMs (tf) {
   const m = (tf || '').match(/^(\d+)(m|h|d)$/)
@@ -219,7 +220,7 @@ async function fetchHistoricalCandles (symbol, timeframe, sinceMs, limit = 5000)
   return candles
 }
 
-function openSimPosition (state, side, price, candleTs, budgetQuote) {
+function openSimPosition (state, side, price, candleTs, budgetQuote, detail = null) {
   const { riskPerTrade, stopLossPct, takeProfitPct } = getEffectiveTradingConfig(state)
   if (!(riskPerTrade > 0) || !(stopLossPct > 0) || !(takeProfitPct > 0)) {
     return state
@@ -227,7 +228,13 @@ function openSimPosition (state, side, price, candleTs, budgetQuote) {
 
   const feeRate = (config.trading.feeRatePct ?? 0)
   let stopLossPrice, takeProfitPrice
-  if (side === 'long') {
+
+  const strategySl = detail?.stopLoss
+  const strategyTp = detail?.takeProfit
+  if (typeof strategySl === 'number' && strategySl > 0 && typeof strategyTp === 'number' && strategyTp > 0) {
+    stopLossPrice = strategySl
+    takeProfitPrice = strategyTp
+  } else if (side === 'long') {
     stopLossPrice = price * (1 - stopLossPct + feeRate) / (1 + feeRate)
     takeProfitPrice = price * (1 + takeProfitPct + 2 * feeRate)
   } else {
@@ -254,7 +261,10 @@ function openSimPosition (state, side, price, candleTs, budgetQuote) {
     amount,
     stopLoss: stopLossPrice,
     takeProfit: takeProfitPrice,
-    openedAt: candleTs
+    initialStopLoss: stopLossPrice,
+    bestPrice: price,
+    openedAt: candleTs,
+    entryDetail: detail || {}
   }
 
   const positionsOpened = (state.positionsOpened ?? 0) + 1
@@ -492,17 +502,52 @@ async function runBacktest () {
       const action = decision?.action || 'hold'
 
       if (state.openPosition) {
-        const pos = state.openPosition
+        let pos = state.openPosition
         const side = pos.side || 'long'
+
+        if (pos.initialStopLoss != null && pos.entryPrice != null) {
+          const initialRisk = Math.abs(pos.entryPrice - pos.initialStopLoss)
+          if (initialRisk > 0) {
+            let bestPrice = pos.bestPrice ?? pos.entryPrice
+            let newSl = pos.stopLoss
+            if (side === 'long') {
+              bestPrice = Math.max(bestPrice, high)
+              if (close - pos.entryPrice >= initialRisk) {
+                const trailedSl = bestPrice - 2 * initialRisk
+                newSl = Math.max(pos.entryPrice, trailedSl, newSl)
+              }
+            } else {
+              bestPrice = Math.min(bestPrice, low)
+              if (pos.entryPrice - close >= initialRisk) {
+                const trailedSl = bestPrice + 2 * initialRisk
+                newSl = Math.min(pos.entryPrice, trailedSl, newSl)
+              }
+            }
+            pos = { ...pos, stopLoss: newSl, bestPrice }
+            state = { ...state, openPosition: pos }
+          }
+        }
+
+        const stTfPeriodMs = timeframeToMs(getStrategyTimeframe(id, primaryTf))
+        const maxBars = getMaxBarsHeld(id)
+        const openedAtMs = typeof pos.openedAt === 'number' ? pos.openedAt : Date.parse(pos.openedAt)
+        const barsHeld = Number.isFinite(openedAtMs) ? Math.floor((ts - openedAtMs) / stTfPeriodMs) : 0
+        const pnlPct = pos.entryPrice > 0 ? Math.abs(close - pos.entryPrice) / pos.entryPrice : 0
+        if (barsHeld >= maxBars && pnlPct < 0.005) {
+          let exitPrice = lastClose
+          if (slippagePct > 0) exitPrice = side === 'long' ? lastClose * (1 - slippagePct) : lastClose * (1 + slippagePct)
+          state = closeSimPosition(state, exitPrice, ts)
+          states[id] = state
+          continue
+        }
+
         if (intrabarEnabled) {
-          // Simple intra-bar SL/TP check using high/low
           const hitSlLong = side === 'long' && low <= (pos.stopLoss ?? -Infinity)
           const hitTpLong = side === 'long' && high >= (pos.takeProfit ?? Infinity)
           const hitSlShort = side === 'short' && high >= (pos.stopLoss ?? Infinity)
           const hitTpShort = side === 'short' && low <= (pos.takeProfit ?? -Infinity)
 
           if (hitSlLong || hitTpLong || hitSlShort || hitTpShort) {
-            // Close at SL/TP price (worst-case within bar), then apply slippage (we get less when selling, pay more when buying)
             let exitPrice = hitSlLong
               ? pos.stopLoss
               : hitTpLong
@@ -514,6 +559,7 @@ async function runBacktest () {
               exitPrice = side === 'long' ? exitPrice * (1 - slippagePct) : exitPrice * (1 + slippagePct)
             }
             state = closeSimPosition(state, exitPrice, ts)
+            state = { ...state, lastSlTpExitTs: ts }
           } else {
             const wantsExitLong = side === 'long' && action === 'exit-long'
             const wantsExitShort = side === 'short' && action === 'exit-short'
@@ -533,12 +579,21 @@ async function runBacktest () {
           }
         }
       } else {
-        if (action === 'enter-long') {
-          const entryPrice = slippagePct > 0 ? lastClose * (1 + slippagePct) : lastClose
-          state = openSimPosition(state, 'long', entryPrice, ts, null)
-        } else if (action === 'enter-short') {
-          const entryPrice = slippagePct > 0 ? lastClose * (1 - slippagePct) : lastClose
-          state = openSimPosition(state, 'short', entryPrice, ts, null)
+        const inCooldown = state.lastSlTpExitTs && (ts - state.lastSlTpExitTs) < COOLDOWN_BARS * periodMs
+        const cls = getStrategyCorrelationClass(id)
+        const openInClass = STRATEGY_IDS.filter(otherId =>
+          getStrategyCorrelationClass(otherId) === cls && states[otherId].openPosition
+        ).length
+        const classAtLimit = openInClass >= MAX_CONCURRENT_PER_CLASS
+
+        if (!inCooldown && !classAtLimit) {
+          if (action === 'enter-long') {
+            const entryPrice = slippagePct > 0 ? lastClose * (1 + slippagePct) : lastClose
+            state = openSimPosition(state, 'long', entryPrice, ts, null, decision.detail)
+          } else if (action === 'enter-short') {
+            const entryPrice = slippagePct > 0 ? lastClose * (1 - slippagePct) : lastClose
+            state = openSimPosition(state, 'short', entryPrice, ts, null, decision.detail)
+          }
         }
       }
 

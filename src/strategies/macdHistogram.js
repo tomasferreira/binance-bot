@@ -1,4 +1,4 @@
-import { calculateMACD, calculateEMA, calculateATR } from '../indicators.js'
+import { calculateMACD, calculateEMA, calculateATR, averageVolume } from '../indicators.js'
 
 export const id = 'macd_histogram'
 export const name = 'MACD Histogram Zero-Line'
@@ -11,6 +11,8 @@ const SIGNAL = 9
 const EMA_TREND = 200
 const SL_ATR_MULT = 2.5
 const TP_ATR_MULT = 3.5
+const VOL_MULT = 1.2
+const VOL_PERIOD = 20
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -38,6 +40,9 @@ export function evaluate (ohlcv, state, context = {}) {
   const crossDown = histPrev > 0 && histNow <= 0
   const above200 = price > ema200
   const below200 = price < ema200
+  const vol = ohlcv[i][5] ?? 0
+  const avgVol = averageVolume(ohlcv.slice(0, i), VOL_PERIOD)
+  const volOk = avgVol != null && avgVol > 0 && vol > VOL_MULT * avgVol
 
   const dir = context?.regime?.trendDirection || null
   const allowLong = dir === 'bullish'
@@ -74,12 +79,12 @@ export function evaluate (ohlcv, state, context = {}) {
   }
 
   // No open position: look for new entries (only in direction of regime)
-  if (!state?.openPosition && crossUp && above200 && allowLong) {
+  if (!state?.openPosition && crossUp && above200 && allowLong && volOk) {
     if (log) log.info(`[${id}] LONG signal`)
     return { action: 'enter-long', detail: { price, histogram: histNow, ema200, stopLoss: (atr != null ? price - SL_ATR_MULT * atr : undefined), takeProfit: (atr != null ? price + TP_ATR_MULT * atr : undefined) } }
   }
 
-  if (!state?.openPosition && crossDown && below200 && allowShort) {
+  if (!state?.openPosition && crossDown && below200 && allowShort && volOk) {
     if (log) log.info(`[${id}] SHORT signal`)
     return { action: 'enter-short', detail: { price, histogram: histNow, ema200, stopLoss: (atr != null ? price + SL_ATR_MULT * atr : undefined), takeProfit: (atr != null ? price - TP_ATR_MULT * atr : undefined) } }
   }

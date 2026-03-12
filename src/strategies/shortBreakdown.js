@@ -51,20 +51,22 @@ export function evaluate (ohlcv, state, context = {}) {
   }
 
   if (state?.openPosition?.side === 'short') {
-    const reclaimed = price > support || !trendDown
+    const fixedSupport = state.openPosition.entryDetail?.supportAtEntry ?? support
+    const reclaimed = price > fixedSupport || !trendDown
     if (reclaimed) {
-      if (log) log.info(`[${id}] EXIT-SHORT (reclaim or trend broken)`)
-      return { action: 'exit-short', detail }
+      if (log) log.info(`[${id}] EXIT-SHORT (reclaim fixed support ${fixedSupport.toFixed(2)} or trend broken)`)
+      return { action: 'exit-short', detail: { ...detail, fixedSupport } }
     }
-    return { action: 'hold', detail }
+    return { action: 'hold', detail: { ...detail, fixedSupport } }
   }
 
   if (!state?.openPosition && trendDown && brokeSupport) {
-    if (log) log.info(`[${id}] ENTER-SHORT on breakdown`)
+    if (log) log.info(`[${id}] ENTER-SHORT on breakdown (support=${support.toFixed(2)})`)
     return {
       action: 'enter-short',
       detail: {
         ...detail,
+        supportAtEntry: support,
         stopLoss: atr != null ? price + SL_ATR_MULT * atr : undefined,
         takeProfit: atr != null ? price - TP_ATR_MULT * atr : undefined
       }

@@ -4,12 +4,13 @@ import { getTradingExchange, getDataExchange } from './exchange.js'
 import { getMarketDataSource } from './marketDataSource.js'
 import { loadState, saveState, migrateLegacyState } from './stateMulti.js'
 import { loadRunner } from './runner.js'
-import { STRATEGY_IDS, evaluateStrategy, getStrategyTimeframe } from './strategies/registry.js'
+import { STRATEGY_IDS, evaluateStrategy, getStrategyTimeframe, getStrategyCorrelationClass, MAX_CONCURRENT_PER_CLASS, getMaxBarsHeld } from './strategies/registry.js'
 import { applyStopTakeProfitExits, openLongPosition, openShortPosition, closePositionNow } from './tradeManager.js'
 import { logOpenOrders } from './orders.js'
 import { computeRegime } from './regime.js'
 
 const { symbol, timeframe, pollIntervalMs } = config.trading
+const COOLDOWN_BARS = 8
 
 /** If global budget is set, each strategy gets an equal share for position sizing. Otherwise null = use full balance. */
 function getStrategyBudget () {
@@ -141,26 +142,55 @@ async function tickStrategy (strategyId, ohlcv, lastClose, context = {}) {
   }
 
   if (state.openPosition) {
-    const decision = evaluateStrategy(strategyId, ohlcv, state, context)
-    lastDecisionByStrategy[strategyId] = decision.action
-    const side = state.openPosition?.side || 'long'
-    const wantsExitLong = side === 'long' && decision.action === 'exit-long'
-    const wantsExitShort = side === 'short' && decision.action === 'exit-short'
-    if (wantsExitLong || wantsExitShort) {
-      const reason = wantsExitShort ? 'Strategy short exit' : 'Strategy exit'
-      state = await closePositionNow(state, lastClose, strategyId, reason, decision.detail)
+    const tf = context?.timeframe || timeframe
+    const maxBars = getMaxBarsHeld(strategyId)
+    const openedAtMs = state.openPosition.openedAt ? Date.parse(state.openPosition.openedAt) : null
+    const barsHeld = openedAtMs != null && Number.isFinite(openedAtMs) ? Math.floor((Date.now() - openedAtMs) / timeframeMs(tf)) : 0
+    const pnlPct = state.openPosition.entryPrice > 0 ? Math.abs(lastClose - state.openPosition.entryPrice) / state.openPosition.entryPrice : 0
+
+    if (barsHeld >= maxBars && pnlPct < 0.005) {
+      logger.info(`[${strategyId}] time-exit: ${barsHeld} bars held (max ${maxBars}), PnL ${(pnlPct * 100).toFixed(2)}% (neutral)`)
+      state = await closePositionNow(state, lastClose, strategyId, 'Time-based exit (stale)')
+      lastDecisionByStrategy[strategyId] = 'time-exit'
     } else {
-      lastDecisionByStrategy[strategyId] = 'manage-open-position'
+      const decision = evaluateStrategy(strategyId, ohlcv, state, context)
+      lastDecisionByStrategy[strategyId] = decision.action
+      const side = state.openPosition?.side || 'long'
+      const wantsExitLong = side === 'long' && decision.action === 'exit-long'
+      const wantsExitShort = side === 'short' && decision.action === 'exit-short'
+      if (wantsExitLong || wantsExitShort) {
+        const reason = wantsExitShort ? 'Strategy short exit' : 'Strategy exit'
+        state = await closePositionNow(state, lastClose, strategyId, reason, decision.detail)
+      } else {
+        lastDecisionByStrategy[strategyId] = 'manage-open-position'
+      }
     }
   } else {
-    const decision = evaluateStrategy(strategyId, ohlcv, state, context)
-    lastDecisionByStrategy[strategyId] = decision.action
-    if (autoTradingEnabled && decision.action === 'enter-long') {
-      state = await openLongPosition(state, lastClose, strategyId, decision.detail, getStrategyBudget())
-    } else if (autoTradingEnabled && decision.action === 'enter-short') {
-      state = await openShortPosition(state, lastClose, strategyId, decision.detail, getStrategyBudget())
-    } else if (decision.action === 'exit-long' || decision.action === 'exit-short') {
-      // already flat, nothing to do
+    const tf = context?.timeframe || timeframe
+    const cooldownMs = COOLDOWN_BARS * timeframeMs(tf)
+    const inCooldown = state.lastSlTpExitTs && (Date.now() - state.lastSlTpExitTs) < cooldownMs
+
+    const cls = getStrategyCorrelationClass(strategyId)
+    const runner = loadRunner()
+    const openInClass = runner.running.filter(otherId =>
+      getStrategyCorrelationClass(otherId) === cls && loadState(otherId).openPosition
+    ).length
+    const classAtLimit = openInClass >= MAX_CONCURRENT_PER_CLASS
+
+    if (inCooldown) {
+      logger.debug(`[${strategyId}] cooldown active, skipping entry (${COOLDOWN_BARS} bars after SL/TP)`)
+      lastDecisionByStrategy[strategyId] = 'cooldown'
+    } else if (classAtLimit) {
+      logger.debug(`[${strategyId}] class '${cls}' at limit (${MAX_CONCURRENT_PER_CLASS}), skipping entry`)
+      lastDecisionByStrategy[strategyId] = 'class-limit'
+    } else {
+      const decision = evaluateStrategy(strategyId, ohlcv, state, context)
+      lastDecisionByStrategy[strategyId] = decision.action
+      if (autoTradingEnabled && decision.action === 'enter-long') {
+        state = await openLongPosition(state, lastClose, strategyId, decision.detail, getStrategyBudget())
+      } else if (autoTradingEnabled && decision.action === 'enter-short') {
+        state = await openShortPosition(state, lastClose, strategyId, decision.detail, getStrategyBudget())
+      }
     }
   }
 

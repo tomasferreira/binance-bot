@@ -1,4 +1,4 @@
-import { calculateATR, calculateEMA } from '../indicators.js'
+import { calculateATR, calculateEMA, averageVolume } from '../indicators.js'
 
 export const id = 'atr_breakout'
 export const name = 'ATR Breakout (Long)'
@@ -11,6 +11,8 @@ const ATR_RISE_LOOKBACK = 5
 const TREND_EMA = 20
 const SL_ATR_MULT = 1.5
 const TP_ATR_MULT = 2.5
+const VOL_MULT = 1.2
+const VOL_PERIOD = 20
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -36,16 +38,19 @@ export function evaluate (ohlcv, state, context = {}) {
 
   const atrRising = atrNow > atrPast
   const bothClosesAbove = prevClose > highPrev && price > highPrev
+  const vol = ohlcv[i][5] ?? 0
+  const avgVol = averageVolume(ohlcv.slice(0, i), VOL_PERIOD)
+  const volOk = avgVol != null && avgVol > 0 && vol > VOL_MULT * avgVol
 
   if (log) {
     log.info(
       `[${id}] price=${price.toFixed(2)} prevClose=${prevClose.toFixed(
         2
-      )} high${LOOKBACK}=${highPrev.toFixed(2)} bothAbove=${bothClosesAbove} atrRising=${atrRising}`
+      )} high${LOOKBACK}=${highPrev.toFixed(2)} bothAbove=${bothClosesAbove} atrRising=${atrRising} volOk=${volOk}`
     )
   }
 
-  if (!state?.openPosition && bothClosesAbove && atrRising) {
+  if (!state?.openPosition && bothClosesAbove && atrRising && volOk) {
     if (log) log.info(`[${id}] LONG signal (two-bar close above + ATR rising)`)
     return { action: 'enter-long', detail: { price, highPrev, prevClose, atr: atrNow, stopLoss: (atrNow != null ? price - SL_ATR_MULT * atrNow : undefined), takeProfit: (atrNow != null ? price + TP_ATR_MULT * atrNow : undefined) } }
   }

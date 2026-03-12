@@ -40,7 +40,13 @@ async function openPosition (state, marketPrice, side, strategyId, entryDetail, 
   const { riskPerTrade: effectiveRiskPerTrade, stopLossPct: effectiveStopLossPct, takeProfitPct: effectiveTakeProfitPct } = getEffectiveTradingConfig(state)
 
   let stopLossPrice, takeProfitPrice
-  if (side === 'long') {
+
+  const strategySl = entryDetail?.stopLoss
+  const strategyTp = entryDetail?.takeProfit
+  if (typeof strategySl === 'number' && strategySl > 0 && typeof strategyTp === 'number' && strategyTp > 0) {
+    stopLossPrice = strategySl
+    takeProfitPrice = strategyTp
+  } else if (side === 'long') {
     stopLossPrice = marketPrice * (1 - effectiveStopLossPct + feeRate) / (1 + feeRate)
     takeProfitPrice = marketPrice * (1 + effectiveTakeProfitPct + 2 * feeRate)
   } else {
@@ -119,8 +125,11 @@ async function openPosition (state, marketPrice, side, strategyId, entryDetail, 
     amount,
     stopLoss: stopLossPrice,
     takeProfit: takeProfitPrice,
+    initialStopLoss: stopLossPrice,
+    bestPrice: entryFillPrice,
     openedAt: new Date().toISOString(),
-    lastPrice: entryFillPrice
+    lastPrice: entryFillPrice,
+    entryDetail: entryDetail || {}
   }
 
   const positionsOpened = (state.positionsOpened ?? 0) + 1
@@ -295,10 +304,36 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
  *   close order and updates PnL, slippage, and history.
  */
 export async function applyStopTakeProfitExits (state, marketPrice, strategyId = null) {
-  const position = state.openPosition
+  let position = state.openPosition
   if (!position) return state
 
-  const { side, stopLoss, takeProfit } = position
+  const { side, entryPrice, initialStopLoss } = position
+
+  if (initialStopLoss != null && entryPrice != null) {
+    const initialRisk = Math.abs(entryPrice - initialStopLoss)
+    if (initialRisk > 0) {
+      let bestPrice = position.bestPrice ?? entryPrice
+      let newSl = position.stopLoss
+
+      if (side === 'long') {
+        bestPrice = Math.max(bestPrice, marketPrice)
+        if (marketPrice - entryPrice >= initialRisk) {
+          const trailedSl = bestPrice - 2 * initialRisk
+          newSl = Math.max(entryPrice, trailedSl, newSl)
+        }
+      } else {
+        bestPrice = Math.min(bestPrice, marketPrice)
+        if (entryPrice - marketPrice >= initialRisk) {
+          const trailedSl = bestPrice + 2 * initialRisk
+          newSl = Math.min(entryPrice, trailedSl, newSl)
+        }
+      }
+
+      position = { ...position, stopLoss: newSl, bestPrice }
+    }
+  }
+
+  const { stopLoss, takeProfit } = position
 
   let shouldStop = false
   let shouldTakeProfit = false
@@ -322,6 +357,7 @@ export async function applyStopTakeProfitExits (state, marketPrice, strategyId =
     triggerPrice
   }
 
-  return closePositionNow(state, marketPrice, strategyId, closeReason, slTpDetail)
+  const newState = await closePositionNow(state, marketPrice, strategyId, closeReason, slTpDetail)
+  return { ...newState, lastSlTpExitTs: Date.now() }
 }
 
