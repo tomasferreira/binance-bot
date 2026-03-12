@@ -1,4 +1,4 @@
-import { calculateEMA, getMACDCrossSignal } from '../indicators.js'
+import { calculateEMA, getMACDCrossSignal, calculateATR } from '../indicators.js'
 
 export const id = 'short_macd'
 export const name = 'Short MACD Bearish Cross'
@@ -7,6 +7,8 @@ export const description =
 
 const FAST_EMA = 50
 const SLOW_EMA = 200
+const SL_ATR_MULT = 2.5
+const TP_ATR_MULT = 3.5
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -25,6 +27,8 @@ export function evaluate (ohlcv, state, context = {}) {
   const emaSlow = emaSlowArr[i]
 
   const { macd, signal, histogram, crossSignal } = getMACDCrossSignal(ohlcv)
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
   if ([price, emaFast, emaSlow, macd, signal].some(v => v == null)) {
     return { action: 'hold', detail: { price, emaFast, emaSlow, macd, signal, histogram, crossSignal } }
   }
@@ -56,7 +60,7 @@ export function evaluate (ohlcv, state, context = {}) {
 
   if (!state?.openPosition && trendBearish && bearishCross) {
     if (log) log.info(`[${id}] ENTER-SHORT on MACD cross down`)
-    return { action: 'enter-short', detail }
+    return { action: 'enter-short', detail: { ...detail, stopLoss: (atr != null ? price + SL_ATR_MULT * atr : undefined), takeProfit: (atr != null ? price - TP_ATR_MULT * atr : undefined) } }
   }
 
   return { action: 'hold', detail }

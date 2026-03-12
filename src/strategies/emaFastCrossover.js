@@ -9,6 +9,8 @@ const FAST = 9
 const SLOW = 21
 const ATR_PERIOD = 14
 const MIN_ATR_REL = 0.004 // 0.4% min volatility to avoid whipsaw in flat markets
+const SL_ATR_MULT = 2.5
+const TP_ATR_MULT = 3.5
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -38,7 +40,7 @@ export function evaluate (ohlcv, state, context = {}) {
 
   if (!state?.openPosition && signal === 'long' && volatilityOk) {
     if (log) log.info(`[${id}] LONG signal (EMA cross + volatility filter)`)
-    return { action: 'enter-long', detail: { fast, slow, signal, atrRel } }
+    return { action: 'enter-long', detail: { fast, slow, signal, atrRel, stopLoss: (atr != null ? price - SL_ATR_MULT * atr : undefined), takeProfit: (atr != null ? price + TP_ATR_MULT * atr : undefined) } }
   }
 
   return { action: 'hold', detail: { fast, slow, signal, atrRel } }

@@ -1,4 +1,4 @@
-import { calculateEMA } from '../indicators.js'
+import { calculateEMA, calculateATR } from '../indicators.js'
 
 export const id = 'price_vs_ema'
 export const name = 'Price vs EMA (20)'
@@ -14,6 +14,8 @@ const MIN_REL_DISTANCE = 0.001
 const PULLBACK_LOOKBACK = 10
 // Price within this fraction of EMA(20) counts as "touched" (e.g. 0.002 = 0.2%)
 const PULLBACK_TOUCH_MARGIN = 0.002
+const SL_ATR_MULT = 2.5
+const TP_ATR_MULT = 3.5
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -30,6 +32,8 @@ export function evaluate (ohlcv, state, context = {}) {
   const emaVal = ema20Arr[i]
   const ema50 = ema50Arr[i]
   const ema200 = ema200Arr[i]
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
   if (emaVal == null || ema50 == null || ema200 == null) {
     return { action: 'hold', detail: { price, ema: emaVal ?? null, ema50: ema50 ?? null, ema200: ema200 ?? null } }
   }
@@ -66,7 +70,7 @@ export function evaluate (ohlcv, state, context = {}) {
 
   if (!state?.openPosition && pullbackThenAbove && trendUp && trendBullish) {
     if (log) log.info(`[${id}] LONG signal (pullback to EMA20 then close above + trend)`)
-    return { action: 'enter-long', detail: { price, ema: emaVal, ema50, ema200, hadPullback } }
+    return { action: 'enter-long', detail: { price, ema: emaVal, ema50, ema200, hadPullback, stopLoss: (atr != null ? price - SL_ATR_MULT * atr : undefined), takeProfit: (atr != null ? price + TP_ATR_MULT * atr : undefined) } }
   }
   if (state?.openPosition) {
     if (!above) {

@@ -8,6 +8,8 @@ export const description =
 const ATR_PERIOD = 14
 // Minimum ATR as a fraction of price (e.g. 0.004 = 0.4%)
 const MIN_ATR_REL = 0.004
+const SL_ATR_MULT = 2.5
+const TP_ATR_MULT = 3.5
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -39,7 +41,7 @@ export function evaluate (ohlcv, state, context = {}) {
 
   if (!state?.openPosition && signal === 'long' && atrRel >= MIN_ATR_REL) {
     if (log) log.info(`[${id}] LONG signal (EMA cross + ATR filter)`)
-    return { action: 'enter-long', detail: { price, atr, atrRel, ema50, ema200 } }
+    return { action: 'enter-long', detail: { price, atr, atrRel, ema50, ema200, stopLoss: (atr != null ? price - SL_ATR_MULT * atr : undefined), takeProfit: (atr != null ? price + TP_ATR_MULT * atr : undefined) } }
   }
   if (state?.openPosition && ema50 != null && price < ema50) {
     if (log) log.info(`[${id}] EXIT signal (price below EMA 50)`)

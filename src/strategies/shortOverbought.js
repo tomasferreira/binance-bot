@@ -1,13 +1,15 @@
-import { calculateEMA, calculateRSI } from '../indicators.js'
+import { calculateEMA, calculateRSI, calculateATR } from '../indicators.js'
 
 export const id = 'short_overbought'
 export const name = 'Short Overbought in Downtrend (RSI 14)'
 export const description =
-  'Shorts RSI(14) overbought bounces when EMA(50) < EMA(200). Exits when RSI normalizes or trend breaks.'
+  'Shorts when RSI(14) drops back below 70 (exiting overbought) in a downtrend (EMA 50 < 200). Exits when RSI normalizes or trend breaks.'
 
 const RSI_PERIOD = 14
 const FAST = 50
 const SLOW = 200
+const SL_ATR_MULT = 2.5
+const TP_ATR_MULT = 3.5
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -28,16 +30,18 @@ export function evaluate (ohlcv, state, context = {}) {
   const rsiPrev = rsiArr[prev]
   const emaFast = emaFastArr[i]
   const emaSlow = emaSlowArr[i]
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
 
   if ([price, rsi, rsiPrev, emaFast, emaSlow].some(v => v == null)) {
     return { action: 'hold', detail: { price, rsi, emaFast, emaSlow } }
   }
 
   const trendDown = emaFast < emaSlow
-  const rsiCrossIntoOverbought = rsiPrev <= 70 && rsi > 70
+  const rsiExitingOverbought = rsiPrev >= 70 && rsi < 70
   const rsiNormalized = rsi < 50
 
-  const detail = { price, rsi, emaFast, emaSlow, trendDown, rsiCrossIntoOverbought }
+  const detail = { price, rsi, emaFast, emaSlow, trendDown, rsiExitingOverbought }
 
   if (log) {
     log.info(
@@ -45,7 +49,7 @@ export function evaluate (ohlcv, state, context = {}) {
         2
       )} emaFast=${emaFast.toFixed(2)} emaSlow=${emaSlow.toFixed(
         2
-      )} trendDown=${trendDown} overboughtCross=${rsiCrossIntoOverbought}`
+      )} trendDown=${trendDown} rsiExitOB=${rsiExitingOverbought}`
     )
   }
 
@@ -58,9 +62,9 @@ export function evaluate (ohlcv, state, context = {}) {
     return { action: 'hold', detail }
   }
 
-  if (!state?.openPosition && trendDown && rsiCrossIntoOverbought) {
-    if (log) log.info(`[${id}] ENTER-SHORT on overbought bounce`)
-    return { action: 'enter-short', detail }
+  if (!state?.openPosition && trendDown && rsiExitingOverbought) {
+    if (log) log.info(`[${id}] ENTER-SHORT (RSI dropping out of overbought)`)
+    return { action: 'enter-short', detail: { ...detail, stopLoss: (atr != null ? price + SL_ATR_MULT * atr : undefined), takeProfit: (atr != null ? price - TP_ATR_MULT * atr : undefined) } }
   }
 
   return { action: 'hold', detail }

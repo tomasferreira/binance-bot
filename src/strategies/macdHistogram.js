@@ -1,4 +1,4 @@
-import { calculateMACD, calculateEMA } from '../indicators.js'
+import { calculateMACD, calculateEMA, calculateATR } from '../indicators.js'
 
 export const id = 'macd_histogram'
 export const name = 'MACD Histogram Zero-Line'
@@ -9,6 +9,8 @@ const FAST = 12
 const SLOW = 26
 const SIGNAL = 9
 const EMA_TREND = 200
+const SL_ATR_MULT = 2.5
+const TP_ATR_MULT = 3.5
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -25,6 +27,8 @@ export function evaluate (ohlcv, state, context = {}) {
   const histNow = histogram[i]
   const histPrev = histogram[prev]
   const ema200 = emaTrendArr[i]
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
 
   if (histNow == null || histPrev == null || ema200 == null) {
     return { action: 'hold', detail: { price, histogram: histNow, ema200 } }
@@ -72,12 +76,12 @@ export function evaluate (ohlcv, state, context = {}) {
   // No open position: look for new entries (only in direction of regime)
   if (!state?.openPosition && crossUp && above200 && allowLong) {
     if (log) log.info(`[${id}] LONG signal`)
-    return { action: 'enter-long', detail: { price, histogram: histNow, ema200 } }
+    return { action: 'enter-long', detail: { price, histogram: histNow, ema200, stopLoss: (atr != null ? price - SL_ATR_MULT * atr : undefined), takeProfit: (atr != null ? price + TP_ATR_MULT * atr : undefined) } }
   }
 
   if (!state?.openPosition && crossDown && below200 && allowShort) {
     if (log) log.info(`[${id}] SHORT signal`)
-    return { action: 'enter-short', detail: { price, histogram: histNow, ema200 } }
+    return { action: 'enter-short', detail: { price, histogram: histNow, ema200, stopLoss: (atr != null ? price + SL_ATR_MULT * atr : undefined), takeProfit: (atr != null ? price - TP_ATR_MULT * atr : undefined) } }
   }
 
   return { action: 'hold', detail: { price, histogram: histNow, ema200 } }

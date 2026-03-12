@@ -1,4 +1,4 @@
-import { calculateEMA } from '../indicators.js'
+import { calculateEMA, calculateATR } from '../indicators.js'
 
 export const id = 'multi_tf_trend'
 export const name = 'Multi-TF Trend (approx)'
@@ -9,6 +9,8 @@ const SHORT_FAST = 20
 const SHORT_SLOW = 50
 const LONG_FAST = 100
 const LONG_SLOW = 200
+const SL_ATR_MULT = 2.5
+const TP_ATR_MULT = 3.5
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -31,6 +33,8 @@ export function evaluate (ohlcv, state, context = {}) {
   const ema50 = ema50Arr[i]
   const ema100 = ema100Arr[i]
   const ema200 = ema200Arr[i]
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
 
   if ([ema20, ema20Prev, ema50, ema100, ema200].some(v => v == null)) {
     return { action: 'hold', detail: { price, ema20, ema50, ema100, ema200 } }
@@ -50,7 +54,7 @@ export function evaluate (ohlcv, state, context = {}) {
 
   if (!state?.openPosition && shortUp && longUp && crossUp) {
     if (log) log.info(`[${id}] LONG signal`)
-    return { action: 'enter-long', detail: { price, ema20, ema50, ema100, ema200 } }
+    return { action: 'enter-long', detail: { price, ema20, ema50, ema100, ema200, stopLoss: (atr != null ? price - SL_ATR_MULT * atr : undefined), takeProfit: (atr != null ? price + TP_ATR_MULT * atr : undefined) } }
   }
 
   if (state?.openPosition) {

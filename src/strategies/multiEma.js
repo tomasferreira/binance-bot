@@ -1,4 +1,4 @@
-import { calculateEMA } from '../indicators.js'
+import { calculateEMA, calculateATR } from '../indicators.js'
 
 export const id = 'multi_ema'
 export const name = 'Multi-EMA (9/21/50)'
@@ -7,6 +7,8 @@ export const description = 'Long when price > EMA9 > EMA21 > EMA50 (stacked). Ex
 const P1 = 9
 const P2 = 21
 const P3 = 50
+const SL_ATR_MULT = 2.5
+const TP_ATR_MULT = 3.5
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -28,6 +30,8 @@ export function evaluate (ohlcv, state, context = {}) {
     return { action: 'hold', detail: { ema9: e9, ema21: e21, ema50: e50 } }
   }
   const price = closes[i]
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
   const stacked = price > e9 && e9 > e21 && e21 > e50
   const exitCross = e9Prev != null && e21Prev != null && e9Prev > e21Prev && e9 < e21
   if (log) {
@@ -43,7 +47,7 @@ export function evaluate (ohlcv, state, context = {}) {
   }
   if (!state?.openPosition && stacked) {
     if (log) log.info(`[${id}] LONG signal`)
-    return { action: 'enter-long', detail: { price, ema9: e9, ema21: e21, ema50: e50 } }
+    return { action: 'enter-long', detail: { price, ema9: e9, ema21: e21, ema50: e50, stopLoss: (atr != null ? price - SL_ATR_MULT * atr : undefined), takeProfit: (atr != null ? price + TP_ATR_MULT * atr : undefined) } }
   }
   return { action: 'hold', detail: { ema9: e9, ema21: e21, ema50: e50 } }
 }

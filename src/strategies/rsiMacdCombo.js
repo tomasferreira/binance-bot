@@ -1,4 +1,4 @@
-import { getMACDCrossSignal, calculateRSI } from '../indicators.js'
+import { getMACDCrossSignal, calculateRSI, calculateATR } from '../indicators.js'
 
 export const id = 'rsi_macd_combo'
 export const name = 'RSI + MACD Combo (Long)'
@@ -8,6 +8,8 @@ export const description =
 const RSI_PERIOD = 14
 const RSI_LOW = 40
 const RSI_HIGH = 60
+const SL_ATR_MULT = 2.5
+const TP_ATR_MULT = 3.5
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -21,6 +23,8 @@ export function evaluate (ohlcv, state, context = {}) {
   const i = closes.length - 1
   const rsi = rsiArr[i]
   const price = closes[i]
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
 
   if (rsi == null) {
     return { action: 'hold', detail: { price, rsi, crossSignal } }
@@ -37,7 +41,7 @@ export function evaluate (ohlcv, state, context = {}) {
 
   if (!state?.openPosition && macdLong && rsiInZone) {
     if (log) log.info(`[${id}] LONG signal`)
-    return { action: 'enter-long', detail: { price, rsi, crossSignal } }
+    return { action: 'enter-long', detail: { price, rsi, crossSignal, stopLoss: (atr != null ? price - SL_ATR_MULT * atr : undefined), takeProfit: (atr != null ? price + TP_ATR_MULT * atr : undefined) } }
   }
 
   return { action: 'hold', detail: { price, rsi, crossSignal } }
