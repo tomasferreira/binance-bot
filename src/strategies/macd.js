@@ -12,13 +12,16 @@ const TP_ATR_MULT = 3.5
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
+  if (!Array.isArray(ohlcv) || ohlcv.length < SLOW + SIGNAL + 2) {
+    return { action: 'hold', detail: {} }
+  }
   const { macd, signal: sig, histogram, crossSignal } = getMACDCrossSignal(ohlcv, FAST, SLOW, SIGNAL)
-  const price = ohlcv[ohlcv.length - 1][4]
-  const atrArr = calculateATR(ohlcv, 14)
-  const atr = atrArr[atrArr.length - 1]
   if (macd == null || sig == null) {
     return { action: 'hold', detail: { macd, signal: sig, crossSignal } }
   }
+  const price = ohlcv[ohlcv.length - 1][4]
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
   if (log) {
     log.info(
       `[${id}] MACD=${macd.toFixed(4)} signal=${sig.toFixed(4)} hist=${histogram?.toFixed(4) ?? 'n/a'} cross=${crossSignal || 'none'}`

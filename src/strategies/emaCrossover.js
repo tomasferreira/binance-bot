@@ -9,13 +9,16 @@ const TP_ATR_MULT = 3.5
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
+  if (!Array.isArray(ohlcv) || ohlcv.length < 202) {
+    return { action: 'hold', detail: {} }
+  }
   const { fast, slow, signal } = getEMACrossSignal(ohlcv)
-  const price = ohlcv[ohlcv.length - 1][4]
-  const atrArr = calculateATR(ohlcv, 14)
-  const atr = atrArr[atrArr.length - 1]
   if (fast == null || slow == null) {
     return { action: 'hold', detail: { fast, slow, signal } }
   }
+  const price = ohlcv[ohlcv.length - 1][4]
+  const atrArr = calculateATR(ohlcv, 14)
+  const atr = atrArr[atrArr.length - 1]
   if (log) {
     log.info(
       `[${id}] EMA fast(50)=${fast.toFixed(2)} slow(200)=${slow.toFixed(2)} signal=${signal || 'none'}`
