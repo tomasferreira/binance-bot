@@ -4,15 +4,13 @@ export function calculateEMA (values, period) {
   if (!Array.isArray(values) || values.length < period) return []
 
   const k = 2 / (period + 1)
-  const ema = []
+  const ema = new Array(values.length).fill(null)
 
-  // Start with SMA for the first value
   const firstSlice = values.slice(0, period)
   const sma =
     firstSlice.reduce((sum, v) => sum + v, 0) / period
   ema[period - 1] = sma
 
-  // Continue with EMA
   for (let i = period; i < values.length; i++) {
     ema[i] = values[i] * k + ema[i - 1] * (1 - k)
   }
@@ -21,46 +19,7 @@ export function calculateEMA (values, period) {
 }
 
 export function getEMACrossSignal (ohlcv) {
-  // ohlcv: [ [timestamp, open, high, low, close, volume], ... ]
-  if (!Array.isArray(ohlcv) || ohlcv.length < 210) {
-    return { fast: null, slow: null, signal: null }
-  }
-
-  const closes = ohlcv.map(c => c[4])
-
-  const fastPeriod = 50
-  const slowPeriod = 200
-
-  const fastEma = calculateEMA(closes, fastPeriod)
-  const slowEma = calculateEMA(closes, slowPeriod)
-
-  const lastIndex = closes.length - 1
-  const prevIndex = lastIndex - 1
-
-  const fastNow = fastEma[lastIndex]
-  const slowNow = slowEma[lastIndex]
-  const fastPrev = fastEma[prevIndex]
-  const slowPrev = slowEma[prevIndex]
-
-  if (
-    fastNow == null ||
-    slowNow == null ||
-    fastPrev == null ||
-    slowPrev == null
-  ) {
-    return { fast: null, slow: null, signal: null }
-  }
-
-  // Crossover logic
-  if (fastPrev < slowPrev && fastNow > slowNow) {
-    return { fast: fastNow, slow: slowNow, signal: 'long' }
-  }
-
-  if (fastPrev > slowPrev && fastNow < slowNow) {
-    return { fast: fastNow, slow: slowNow, signal: 'short' }
-  }
-
-  return { fast: fastNow, slow: slowNow, signal: null }
+  return getEMACrossSignalPeriods(ohlcv, 50, 200)
 }
 
 /** EMA crossover with configurable periods. */
@@ -208,7 +167,7 @@ export function calculateRSI (values, period = 14) {
   }
   let avgGain = gainSum / period
   let avgLoss = lossSum / period
-  rsi[period] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss)
+  rsi[period] = avgGain === 0 && avgLoss === 0 ? 50 : avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss)
 
   for (let i = period + 1; i < values.length; i++) {
     const diff = values[i] - values[i - 1]
@@ -216,7 +175,9 @@ export function calculateRSI (values, period = 14) {
     const loss = diff < 0 ? -diff : 0
     avgGain = (avgGain * (period - 1) + gain) / period
     avgLoss = (avgLoss * (period - 1) + loss) / period
-    if (avgLoss === 0) {
+    if (avgGain === 0 && avgLoss === 0) {
+      rsi[i] = 50
+    } else if (avgLoss === 0) {
       rsi[i] = 100
     } else {
       const rs = avgGain / avgLoss
@@ -226,7 +187,7 @@ export function calculateRSI (values, period = 14) {
   return rsi
 }
 
-// Bollinger Bands on closing prices
+// Bollinger Bands on closing prices (Welford's algorithm for numerically stable variance)
 export function calculateBollinger (values, period = 20, k = 2) {
   if (!Array.isArray(values) || values.length < period) {
     return { middle: [], upper: [], lower: [] }
@@ -236,25 +197,19 @@ export function calculateBollinger (values, period = 20, k = 2) {
   const upper = new Array(n).fill(null)
   const lower = new Array(n).fill(null)
 
-  let sum = 0
-  let sumSq = 0
-  for (let i = 0; i < n; i++) {
-    const v = values[i]
-    sum += v
-    sumSq += v * v
-    if (i >= period) {
-      const old = values[i - period]
-      sum -= old
-      sumSq -= old * old
+  for (let i = period - 1; i < n; i++) {
+    let mean = 0
+    let m2 = 0
+    for (let j = 0; j < period; j++) {
+      const v = values[i - period + 1 + j]
+      const delta = v - mean
+      mean += delta / (j + 1)
+      m2 += delta * (v - mean)
     }
-    if (i >= period - 1) {
-      const mean = sum / period
-      const variance = sumSq / period - mean * mean
-      const std = Math.sqrt(Math.max(variance, 0))
-      middle[i] = mean
-      upper[i] = mean + k * std
-      lower[i] = mean - k * std
-    }
+    const std = Math.sqrt(Math.max(m2 / period, 0))
+    middle[i] = mean
+    upper[i] = mean + k * std
+    lower[i] = mean - k * std
   }
   return { middle, upper, lower }
 }
@@ -267,7 +222,7 @@ export function calculateATR (ohlcv, period = 14) {
   const n = ohlcv.length
   const tr = new Array(n).fill(null)
   for (let i = 1; i < n; i++) {
-    const [, high, low, , , ] = ohlcv[i]
+    const [, , high, low] = ohlcv[i]
     const prevClose = ohlcv[i - 1][4]
     const range1 = high - low
     const range2 = Math.abs(high - prevClose)
