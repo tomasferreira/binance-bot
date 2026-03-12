@@ -142,9 +142,12 @@ function computeExtraMetrics (entries, s) {
   const streaks = streaksFromHistory(entries)
   const timeInProfitPct = timeInProfitPctFromHistory(entries)
 
-  const runByEntries = entries.filter(e => e.runBy === true)
-  const runByCount = runByEntries.length
-  const totalSlippageRunBy = runByEntries.reduce((sum, e) => sum + (Number(e.slippageAmount) || 0), 0)
+  const adverseEntries = entries.filter(e => e.runBy === true)
+  const favorableEntries = entries.filter(e => e.favorableSlip === true)
+  const runByCount = adverseEntries.length
+  const favorableCount = favorableEntries.length
+  const totalSlippageRunBy = adverseEntries.reduce((sum, e) => sum + (Number(e.slippageAmount) || 0), 0)
+  const totalSlippageFavorable = favorableEntries.reduce((sum, e) => sum + (Number(e.slippageAmount) || 0), 0)
   const slTpExits = entries.filter(e => e.exitTrigger === 'stop_loss' || e.exitTrigger === 'take_profit').length
 
   return {
@@ -163,6 +166,8 @@ function computeExtraMetrics (entries, s) {
     timeInProfitPct,
     runByCount,
     totalSlippageRunBy: runByCount ? totalSlippageRunBy : null,
+    favorableCount,
+    totalSlippageFavorable: favorableCount ? totalSlippageFavorable : null,
     slTpExits
   }
 }
@@ -229,7 +234,9 @@ export async function updateAnalysisPanel (strategies) {
       _maxConsecutiveLosses: extra.maxConsecutiveLosses,
       _timeInProfitPct: extra.timeInProfitPct,
       _runByCount: extra.runByCount,
-      _totalSlippageRunBy: extra.totalSlippageRunBy
+      _totalSlippageRunBy: extra.totalSlippageRunBy,
+      _favorableCount: extra.favorableCount,
+      _totalSlippageFavorable: extra.totalSlippageFavorable
     }
   })
 
@@ -260,6 +267,21 @@ export async function updateAnalysisPanel (strategies) {
     if (n > 0) return '#22c55e'
     if (n < 0) return '#ef4444'
     return '#eab308' // neutral (zero) = yellow
+  }
+  const slipTooltip = (s) => {
+    const parts = []
+    if (s._runByCount > 0) parts.push('Adverse (SL run-by): ' + s._runByCount + (s._totalSlippageRunBy != null ? ', total: ' + s._totalSlippageRunBy.toFixed(2) : ''))
+    if (s._favorableCount > 0) parts.push('Favorable (TP run-by): ' + s._favorableCount + (s._totalSlippageFavorable != null ? ', total: ' + s._totalSlippageFavorable.toFixed(2) : ''))
+    return parts.length ? parts.join(' | ') : 'SL/TP fill vs trigger price'
+  }
+  const slipCell = (s) => {
+    const hasAdverse = s._runByCount != null && s._runByCount > 0
+    const hasFavorable = s._favorableCount != null && s._favorableCount > 0
+    if (!hasAdverse && !hasFavorable) return '–'
+    const parts = []
+    if (hasAdverse) parts.push(s._runByCount + '↓')
+    if (hasFavorable) parts.push(s._favorableCount + '↑')
+    return parts.join(' / ')
   }
   const totalTradesInRange = sorted.reduce((sum, s) => sum + (s._metrics?.trades ?? 0), 0)
   const totalTradesEl = document.getElementById('analysis-total-trades')
@@ -313,7 +335,7 @@ export async function updateAnalysisPanel (strategies) {
         '<td class="numeric">' + sortinoStr + '</td>' +
         '<td class="numeric">' + tpdStr + '</td>' +
         '<td class="numeric">' + (s._lastTradeStr || '–') + '</td>' +
-        '<td class="numeric" title="' + (s._runByCount != null && s._runByCount > 0 && s._totalSlippageRunBy != null ? 'Total slippage (price): ' + s._totalSlippageRunBy.toFixed(2) : 'SL/TP exits that closed worse than intended') + '">' + (s._runByCount != null && s._runByCount > 0 ? s._runByCount + (s._totalSlippageRunBy != null ? ' (' + s._totalSlippageRunBy.toFixed(0) + ')' : '') : '–') + '</td></tr>'
+        '<td class="numeric" title="' + slipTooltip(s) + '">' + slipCell(s) + '</td></tr>'
     }).join('')
   }
 

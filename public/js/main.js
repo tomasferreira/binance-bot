@@ -225,6 +225,11 @@ async function refreshStatus () {
       const avgSlip = typeof data.pnl?.avgSlippagePct === 'number' ? data.pnl.avgSlippagePct : null
       avgSlipEl.textContent = avgSlip != null ? avgSlip.toFixed(3) + '%' : '–'
     }
+    const avgFavSlipEl = document.getElementById('pnl-avg-favorable-slippage')
+    if (avgFavSlipEl) {
+      const avgFav = typeof data.pnl?.avgFavorableSlipPct === 'number' ? data.pnl.avgFavorableSlipPct : null
+      avgFavSlipEl.textContent = avgFav != null ? avgFav.toFixed(3) + '%' : '–'
+    }
     const avgExecSlipEl = document.getElementById('pnl-avg-exec-slippage')
     if (avgExecSlipEl) {
       const avgExec = typeof data.pnl?.avgExecSlippagePct === 'number' ? data.pnl.avgExecSlippagePct : null

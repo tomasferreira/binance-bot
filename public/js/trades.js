@@ -114,25 +114,28 @@ function formatDetail (detail) {
   return parts.length ? parts.join(', ') : '–'
 }
 
-/** Format SL/TP exit cell: intended → observed, run-by when applicable. */
+/** Format SL/TP exit cell: intended → observed, run-by / favorable when applicable. */
 function formatExitSlTp (side, detail, reason) {
   if (detail && typeof detail === 'object' && detail.trigger) {
     const trigger = detail.trigger
     const triggerPrice = detail.triggerPrice
     const marketPrice = detail.marketPrice
     const slippageAmount = detail.slippageAmount
-    const runBy = detail.runBy === true || (triggerPrice != null && marketPrice != null && (
-      (trigger === 'stop_loss' && ((side === 'sell' && slippageAmount < 0) || (side === 'buy' && slippageAmount > 0))) ||
-      (trigger === 'take_profit' && side === 'buy' && slippageAmount < 0)
+    const isSl = trigger === 'stop_loss'
+    const adverse = detail.runBy === true || (isSl && triggerPrice != null && marketPrice != null && (
+      (side === 'sell' && slippageAmount < 0) || (side === 'buy' && slippageAmount > 0)
     ))
-    const label = trigger === 'stop_loss' ? 'SL' : 'TP'
+    const favorable = detail.favorableSlip === true || (!isSl && triggerPrice != null && marketPrice != null && (
+      (side === 'sell' && slippageAmount > 0) || (side === 'buy' && slippageAmount < 0)
+    ))
+    const label = isSl ? 'SL' : 'TP'
+    let tag = ''
+    if (adverse) tag = ' <span class="run-by-tag" title="Fill was worse than trigger price">run-by</span>'
+    else if (favorable) tag = ' <span class="favorable-tag" title="Fill was better than trigger price">favorable</span>'
     if (triggerPrice != null && marketPrice != null) {
-      const intended = formatPrice(triggerPrice)
-      const observed = formatPrice(marketPrice)
-      const runByTag = runBy ? ' <span class="run-by-tag" title="Closed worse than intended">run-by</span>' : ''
-      return label + ' ' + intended + '→' + observed + runByTag
+      return label + ' ' + formatPrice(triggerPrice) + '→' + formatPrice(marketPrice) + tag
     }
-    return label + (runBy ? ' <span class="run-by-tag" title="Closed worse than intended">run-by</span>' : '')
+    return label + tag
   }
   if (reason === 'Stop loss' || reason === 'Take profit') {
     return reason === 'Stop loss' ? 'SL (no detail)' : 'TP (no detail)'

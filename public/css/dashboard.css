@@ -166,6 +166,16 @@ button.status-pill:hover {
   background: #b45309;
   border-radius: 4px;
 }
+.trades-table .favorable-tag {
+  display: inline-block;
+  margin-left: 0.25rem;
+  padding: 0 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #d1fae5;
+  background: #047857;
+  border-radius: 4px;
+}
 .trades-table .order-id-cell { font-size: 0.75rem; font-variant-numeric: tabular-nums; }
 .trades-table .detail-cell { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-list {

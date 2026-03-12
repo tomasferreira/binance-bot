@@ -180,16 +180,18 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
     const triggerPrice = exitDetail.triggerPrice
     if (triggerPrice != null) {
       const slippageAmount = exitFillPrice - triggerPrice
-      const runBy = (exitDetail.trigger === 'stop_loss' && (side === 'long' ? slippageAmount < 0 : slippageAmount > 0)) ||
-        (exitDetail.trigger === 'take_profit' && side === 'short' && slippageAmount < 0)
+      const isSl = exitDetail.trigger === 'stop_loss'
+      const adverse = isSl && (side === 'long' ? slippageAmount < 0 : slippageAmount > 0)
+      const favorable = !isSl && (side === 'long' ? slippageAmount > 0 : slippageAmount < 0)
       logger.info(
-        `SL/TP exit: intended=${triggerPrice}, observed=${exitFillPrice}, slippage=${slippageAmount.toFixed(2)} ${runBy ? '(run-by)' : ''}`
+        `SL/TP exit: intended=${triggerPrice}, observed=${exitFillPrice}, slippage=${slippageAmount.toFixed(2)}${adverse ? ' (run-by)' : favorable ? ' (favorable)' : ''}`
       )
       exitDetail = {
         ...exitDetail,
         fillPrice: exitFillPrice,
         slippageAmount,
-        runBy
+        runBy: adverse,
+        favorableSlip: favorable
       }
     }
   }
@@ -250,16 +252,12 @@ export async function closePositionNow (state, marketPrice, strategyId = null, r
 
   const closedTradesHistory = Array.isArray(state.closedTradesHistory) ? state.closedTradesHistory : []
   const historyEntry = { timestamp: new Date().toISOString(), pnl }
-  // Store SL/TP slippage + run-by when present (trigger-based).
   if (exitDetail?.trigger && exitDetail.triggerPrice != null && exitDetail.slippageAmount != null) {
-    const runBy = typeof exitDetail.runBy === 'boolean'
-      ? exitDetail.runBy
-      : (exitDetail.trigger === 'stop_loss' && (side === 'long' ? exitDetail.slippageAmount < 0 : exitDetail.slippageAmount > 0)) ||
-        (exitDetail.trigger === 'take_profit' && side === 'short' && exitDetail.slippageAmount < 0)
     historyEntry.exitTrigger = exitDetail.trigger
     historyEntry.triggerPrice = exitDetail.triggerPrice
     historyEntry.slippageAmount = exitDetail.slippageAmount
-    historyEntry.runBy = runBy
+    historyEntry.runBy = exitDetail.runBy === true
+    historyEntry.favorableSlip = exitDetail.favorableSlip === true
   }
   // Store generic execution slippage for all exits when available.
   if (exitDetail && typeof exitDetail.execSlippageAmount === 'number' && typeof exitDetail.execSlippagePct === 'number') {
