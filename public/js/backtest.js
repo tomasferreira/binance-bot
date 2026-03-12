@@ -277,7 +277,7 @@ function renderBacktestTable () {
       '<td class="numeric" style="color:#ef4444">' + fmt(avgLoss) + '</td>' +
       '<td class="numeric">' + fmt(sharpe) + '</td>' +
       '<td class="numeric"' + (ddColor ? ' style="color:' + ddColor + '"' : '') + '>' + fmt(maxDd) + '</td>' +
-      '<td class="numeric">' + fmt(calmarRatio) + '</td>' +
+      '<td class="numeric">' + (calmarRatio == null ? '–' : (calmarRatio === Infinity || calmarRatio >= 1e9 ? '∞' : (calmarRatio <= -1e9 ? '-∞' : fmt(calmarRatio)))) + '</td>' +
       '<td class="numeric">' + fmt(recoveryFactor) + '</td>' +
       '<td class="numeric">' + fmtPct(currentDrawdownPct) + '</td>' +
       '<td class="numeric">' + trades + '</td>' +
@@ -289,11 +289,11 @@ function renderBacktestTable () {
       '<td class="numeric">–</td>' +
       '<td class="numeric">–</td>' +
       '<td class="numeric">' + fmtPct(timeInProfitPct) + '</td>' +
-      '<td class="numeric">' + (profitFactor == null ? '–' : (profitFactor === Infinity ? '∞' : fmt(profitFactor))) + '</td>' +
+      '<td class="numeric">' + (profitFactor == null ? '–' : (profitFactor === Infinity || profitFactor >= 1e9 ? '∞' : (profitFactor <= -1e9 ? '-∞' : fmt(profitFactor)))) + '</td>' +
       '<td class="numeric" style="color:' + backtestPnlColor(expectancy) + '">' + fmt(expectancy) + '</td>' +
       '<td class="numeric">' + fmt(maxWin) + '</td>' +
       '<td class="numeric">' + fmt(maxLoss) + '</td>' +
-      '<td class="numeric">' + (sortino == null ? '–' : (sortino === Infinity ? '∞' : (sortino === -Infinity ? '-∞' : fmt(sortino)))) + '</td>' +
+      '<td class="numeric">' + (sortino == null ? '–' : (sortino === Infinity || sortino >= 1e9 ? '∞' : (sortino === -Infinity || sortino <= -1e9 ? '-∞' : fmt(sortino)))) + '</td>' +
       '<td class="numeric">' + (tradesPerDay != null ? tradesPerDay.toFixed(1) : '–') + '</td>' +
       '<td class="numeric">–</td>' +
       '</tr>'

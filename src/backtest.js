@@ -564,25 +564,44 @@ async function runBacktest () {
     }
     const metrics = backtestMetricsFromHistory(s)
 
+    // Serializable values for recommendation and payload (Infinity -> 1e10 so JSON stays in sync)
+    const rawPf = metrics.profitFactor
+    const profitFactor =
+      rawPf === Infinity ? 1e10 : rawPf === -Infinity ? -1e10 : rawPf
+    const rawSortino = metrics.sortino
+    const sortino =
+      rawSortino === Infinity ? 1e10 : rawSortino === -Infinity ? -1e10 : rawSortino
+    const rawCalmar = metrics.calmarRatio
+    const calmarRatio =
+      rawCalmar === Infinity ? 1e10 : rawCalmar === -Infinity ? -1e10 : rawCalmar
+
     // Simple recommendation heuristic to guide which strategies to enable.
     let recommended = 'insufficient-data'
     let reason = 'not enough trades'
     if (base.trades >= MIN_TRADES_FOR_RECOMMENDATION) {
-      const pnlOk = base.realizedPnl > 0
-      const pfOk = metrics.profitFactor != null && metrics.profitFactor >= MIN_PROFIT_FACTOR
-      const calmarOk = metrics.calmarRatio != null && metrics.calmarRatio >= MIN_CALMAR
+      const pnlNum = base.realizedPnl != null ? Number(base.realizedPnl) : NaN
+      const pnlOk = Number.isFinite(pnlNum) && pnlNum > 0
+      const pfNum = profitFactor != null ? Number(profitFactor) : NaN
+      const pfOk = Number.isFinite(pfNum) && pfNum >= MIN_PROFIT_FACTOR
+      const calmarNum = calmarRatio != null ? Number(calmarRatio) : NaN
+      const calmarOk =
+        (Number.isFinite(calmarNum) && calmarNum >= MIN_CALMAR) ||
+        (metrics.calmarRatio == null && pnlOk && pfOk)
       if (pnlOk && pfOk && calmarOk) {
         recommended = 'enable'
-        reason = 'positive PnL, profitFactor and Calmar'
+        reason = metrics.calmarRatio != null ? 'positive PnL, profitFactor and Calmar' : 'positive PnL and profitFactor (no drawdown)'
       } else {
         recommended = 'disable'
-        reason = `pnlOk=${pnlOk}, pfOk=${pfOk}, calmarOk=${calmarOk}`
+        reason = `pnlOk=${pnlOk}(pnl=${base.realizedPnl}), pfOk=${pfOk}(pf=${profitFactor}), calmarOk=${calmarOk}(calmar=${calmarRatio})`
       }
     }
 
     const summary = {
       ...base,
       ...metrics,
+      profitFactor,
+      sortino,
+      calmarRatio,
       recommendation: recommended,
       recommendationReason: reason,
       timeframe: getStrategyTimeframe(id, primaryTf)
@@ -591,7 +610,7 @@ async function runBacktest () {
 
     logger.info(
       `${id}: PnL=${base.realizedPnl.toFixed(2)} USDT, trades=${base.trades}, wins=${base.wins}, losses=${base.losses}, maxDD=${base.maxDrawdown.toFixed(2)}, ` +
-      `profitFactor=${metrics.profitFactor ?? 'n/a'}, calmar=${metrics.calmarRatio ?? 'n/a'}, reco=${recommended}`
+      `profitFactor=${profitFactor ?? 'n/a'}, calmar=${calmarRatio ?? 'n/a'}, reco=${recommended}`
     )
   }
   logger.info(`Backtest TOTAL PnL: ${totalPnl.toFixed(2)} USDT`)
