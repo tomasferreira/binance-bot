@@ -91,7 +91,7 @@ function renderBacktestTable () {
   if (!tbody) return
   const strategies = Array.isArray(backtestLastStrategies) ? backtestLastStrategies : []
   if (!strategies.length) {
-    tbody.innerHTML = '<tr><td colspan="32">No results yet.</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="23">No results yet.</td></tr>'
     return
   }
 
@@ -213,9 +213,6 @@ function renderBacktestTable () {
     } else if (key === 'tradesPerDay') {
       va = a.tradesPerDay
       vb = b.tradesPerDay
-    } else if (key === 'lastTrade') {
-      va = a.lastTradeTs ?? -Infinity
-      vb = b.lastTradeTs ?? -Infinity
     } else {
       va = 0
       vb = 0
@@ -270,7 +267,6 @@ function renderBacktestTable () {
       '<td class="numeric" style="color:' + recoColor + '" title="' + (s._recoReason || '') + '">' + (reco || '–') + '</td>' +
       '<td class="numeric" style="color:' + backtestPnlColor(realized) + '">' + fmt(realized) + '</td>' +
       '<td class="numeric" style="color:' + backtestPnlColor(realized) + '">' + fmt(realized) + '</td>' +
-      '<td class="numeric">0.00</td>' +
       '<td class="numeric">' + wl + '</td>' +
       '<td class="numeric"' + (winRateColor ? ' style="color:' + winRateColor + '"' : '') + '>' + (winRate != null ? winRate.toFixed(1) : '–') + '</td>' +
       '<td class="numeric" style="color:#22c55e">' + fmt(avgWin) + '</td>' +
@@ -281,13 +277,6 @@ function renderBacktestTable () {
       '<td class="numeric">' + fmt(recoveryFactor) + '</td>' +
       '<td class="numeric">' + fmtPct(currentDrawdownPct) + '</td>' +
       '<td class="numeric">' + trades + '</td>' +
-      '<td class="numeric">–</td>' +
-      '<td class="numeric">–</td>' +
-      '<td class="numeric">–</td>' +
-      '<td class="numeric">–</td>' +
-      '<td class="numeric">–</td>' +
-      '<td class="numeric">–</td>' +
-      '<td class="numeric">–</td>' +
       '<td class="numeric">' + fmtPct(timeInProfitPct) + '</td>' +
       '<td class="numeric">' + (profitFactor == null ? '–' : (profitFactor === Infinity || profitFactor >= 1e9 ? '∞' : (profitFactor <= -1e9 ? '-∞' : fmt(profitFactor)))) + '</td>' +
       '<td class="numeric" style="color:' + backtestPnlColor(expectancy) + '">' + fmt(expectancy) + '</td>' +
@@ -295,7 +284,6 @@ function renderBacktestTable () {
       '<td class="numeric">' + fmt(maxLoss) + '</td>' +
       '<td class="numeric">' + (sortino == null ? '–' : (sortino === Infinity || sortino >= 1e9 ? '∞' : (sortino === -Infinity || sortino <= -1e9 ? '-∞' : fmt(sortino)))) + '</td>' +
       '<td class="numeric">' + (tradesPerDay != null ? tradesPerDay.toFixed(1) : '–') + '</td>' +
-      '<td class="numeric">–</td>' +
       '</tr>'
   }).join('')
 }

@@ -592,7 +592,11 @@ async function runBacktest () {
         reason = metrics.calmarRatio != null ? 'positive PnL, profitFactor and Calmar' : 'positive PnL and profitFactor (no drawdown)'
       } else {
         recommended = 'disable'
-        reason = `pnlOk=${pnlOk}(pnl=${base.realizedPnl}), pfOk=${pfOk}(pf=${profitFactor}), calmarOk=${calmarOk}(calmar=${calmarRatio})`
+        // Use the same values we used for the checks, with explicit labels (timeInProfitPct shown separately so it's not confused with profitFactor)
+        const reasonPnl = base.realizedPnl
+        const reasonPf = profitFactor
+        const reasonCalmar = calmarRatio
+        reason = `pnlOk=${pnlOk}(realizedPnl=${reasonPnl}), pfOk=${pfOk}(profitFactor=${reasonPf}), calmarOk=${calmarOk}(calmarRatio=${reasonCalmar})`
       }
     }
 

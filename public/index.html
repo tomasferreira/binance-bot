@@ -391,7 +391,6 @@
                   <th class="sortable numeric" data-sort="reco" title="Backtest recommendation: enable / disable / insufficient-data">Reco</th>
                   <th class="sortable numeric" data-sort="totalPnl" title="Realized + unrealized PnL over the backtest">Total PnL</th>
                   <th class="sortable numeric" data-sort="realizedPnl" title="Closed-trade PnL over the backtest">Realized</th>
-                  <th class="sortable numeric" data-sort="unrealized" title="Open position PnL (backtests close everything at the end, so this is 0)">Unrealized</th>
                   <th class="sortable numeric" data-sort="wl" title="Winning trades / losing trades">W/L</th>
                   <th class="sortable numeric" data-sort="winRate" title="% of closed trades that were profitable">Win rate %</th>
                   <th class="sortable numeric" data-sort="avgWin" title="Average PnL per winning trade">Avg win</th>
@@ -402,14 +401,6 @@
                   <th class="sortable numeric" data-sort="recovery" title="Net profit ÷ max drawdown">Recovery</th>
                   <th class="sortable numeric" data-sort="currentDrawdownPct" title="Current drawdown % from peak at end of backtest">Curr DD %</th>
                   <th class="sortable numeric" data-sort="trades" title="Number of closed trades">Trades</th>
-                  <th class="sortable numeric" data-sort="tradesHistory" title="Trade count from exchange history (N/A for backtest)">Trades (hist)</th>
-                  <th class="sortable numeric" data-sort="fees" title="Total estimated fees (N/A for backtest)">Fees (USDT)</th>
-                  <th class="sortable numeric" data-sort="exposure" title="% of strategy budget currently in position">Exposure %</th>
-                  <th class="sortable numeric" data-sort="avgDuration" title="Average time positions were held">Avg duration</th>
-                  <th class="sortable numeric" data-sort="streak" title="Current win/loss streak">Streak</th>
-                  <th class="sortable numeric" data-sort="maxStreak" title="Max consecutive wins / losses">Max streak</th>
-                  <th class="sortable numeric" data-sort="avgHold" title="Avg hold time in minutes">Avg hold (min)</th>
-                  <th class="sortable numeric" data-sort="costPerTrade" title="Avg fee per trade (USDT)">Cost/trade</th>
                   <th class="sortable numeric" data-sort="timeInProfitPct" title="% of trades at new equity high">Time in profit %</th>
                   <th class="sortable numeric" data-sort="profitFactor" title="Gross profit ÷ gross loss; >1 = profitable">Profit factor</th>
                   <th class="sortable numeric" data-sort="expectancy" title="Average USDT per trade">Expectancy</th>
@@ -417,11 +408,10 @@
                   <th class="sortable numeric" data-sort="maxLoss" title="Largest single losing trade">Max loss</th>
                   <th class="sortable numeric" data-sort="sortino" title="Return ÷ downside deviation (only penalizes losses)">Sortino</th>
                   <th class="sortable numeric" data-sort="tradesPerDay" title="Closed trades per day in the backtest period">Trades/day</th>
-                  <th class="sortable numeric" data-sort="lastTrade" title="When the last trade in backtest was closed">Last trade</th>
                 </tr>
               </thead>
               <tbody id="backtest-results-tbody">
-                <tr><td colspan="32">No backtest run yet.</td></tr>
+                <tr><td colspan="23">No backtest run yet.</td></tr>
               </tbody>
             </table>
           </div>
