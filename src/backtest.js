@@ -1,17 +1,18 @@
 import { config } from './config.js'
 import { getTradingExchange, getDataExchange } from './exchange.js'
 import { getMarketDataSource, setMarketDataSource } from './marketDataSource.js'
-import { STRATEGY_IDS, evaluateStrategy, getStrategyDirection, getStrategyTimeframe, getStrategyCorrelationClass, MAX_CONCURRENT_PER_CLASS, getMaxBarsHeld } from './strategies/registry.js'
+import { STRATEGY_IDS, evaluateStrategy, getStrategyDirection, getStrategyTimeframe, getStrategyCorrelationClass, MAX_CONCURRENT_PER_CLASS, getMaxBarsHeld, getCooldownBars } from './strategies/registry.js'
 import { getEffectiveTradingConfig } from './runtimeConfig.js'
 import { calculatePositionSize } from './risk.js'
 import { backtestLogger as logger } from './logger.js'
 import { computeRegime } from './regime.js'
+import { calculateEMA } from './indicators.js'
 
 // Heuristics for backtest recommendations
 const MIN_TRADES_FOR_RECOMMENDATION = 10
 const MIN_PROFIT_FACTOR = 1.1
 const MIN_CALMAR = 0.3
-const COOLDOWN_BARS = 8
+const DAILY_LOSS_LIMIT_PCT = 0.03 // 3% of budget — circuit breaker
 
 function timeframeToMs (tf) {
   const m = (tf || '').match(/^(\d+)(m|h|d)$/)
@@ -382,6 +383,7 @@ async function runBacktest () {
   const primaryTf = timeframe
   const uniqueTfs = new Set([
     primaryTf,
+    '1h', // always needed for macro-trend overlay
     ...STRATEGY_IDS.map((id) => getStrategyTimeframe(id, primaryTf))
   ])
   const ohlcvByTf = {}
@@ -430,6 +432,24 @@ async function runBacktest () {
     }
   }
 
+  // --- Macro-trend overlay: EMA50/200 on 1h closes ---
+  const macroTf = '1h'
+  const macroOhlcv = ohlcvByTf[macroTf] || regimeOhlcv
+  const macroCloses = macroOhlcv.map(c => c[4])
+  const macroEma50 = calculateEMA(macroCloses, 50)
+  const macroEma200 = calculateEMA(macroCloses, 200)
+  const macroTimestamps = macroOhlcv.map(c => c[0])
+  const macroPeriodMs = timeframeToMs(macroTf)
+  let macroIdx = 0
+  logger.info(`Backtest: macro trend series ${macroOhlcv.length} bars (${macroTf})`)
+
+  // --- Circuit breaker: daily loss limit ---
+  const dailyBudget = config.trading.globalBudgetQuote || 10000
+  const dailyLossLimit = dailyBudget * DAILY_LOSS_LIMIT_PCT
+  let currentDayStr = null
+  let dailyPnl = 0
+  let circuitBreakerActive = false
+
   // Replay candles one by one (step by primary timeframe)
   const totalBars = ohlcv.length
   let lastPctReported = -1
@@ -467,6 +487,23 @@ async function runBacktest () {
     const [ts, , high, low, close] = ohlcv[i]
     const lastClose = close
     const barCloseTime = ts + periodMs
+
+    // Circuit breaker: reset on new day
+    const dayStr = new Date(ts).toISOString().slice(0, 10)
+    if (dayStr !== currentDayStr) {
+      if (circuitBreakerActive) logger.info(`Backtest: circuit breaker reset for ${dayStr}`)
+      currentDayStr = dayStr
+      dailyPnl = 0
+      circuitBreakerActive = false
+    }
+
+    // Macro-trend overlay: advance index to last closed 1h bar
+    while (macroIdx < macroTimestamps.length - 1 && macroTimestamps[macroIdx + 1] + macroPeriodMs <= barCloseTime) {
+      macroIdx++
+    }
+    const me50 = macroEma50[macroIdx]
+    const me200 = macroEma200[macroIdx]
+    const macroTrend = (me50 != null && me200 != null) ? (me50 > me200 ? 'bullish' : 'bearish') : null
 
     if (i === 0) {
       for (const id of STRATEGY_IDS) {
@@ -561,8 +598,8 @@ async function runBacktest () {
               }
             } else {
               bestPrice = Math.min(bestPrice, low)
-              if (pos.entryPrice - close >= initialRisk) {
-                const trailedSl = bestPrice + 2 * initialRisk
+              if (pos.entryPrice - close >= 0.75 * initialRisk) {
+                const trailedSl = bestPrice + 1.5 * initialRisk
                 newSl = Math.min(pos.entryPrice, trailedSl, newSl)
               }
             }
@@ -579,7 +616,13 @@ async function runBacktest () {
         if (barsHeld >= maxBars && pnlPct < 0.005) {
           let exitPrice = lastClose
           if (slippagePct > 0) exitPrice = side === 'long' ? lastClose * (1 - slippagePct) : lastClose * (1 + slippagePct)
+          const prevPnl = state.realizedPnl ?? 0
           state = closeSimPosition(state, exitPrice, ts)
+          dailyPnl += (state.realizedPnl ?? 0) - prevPnl
+          if (dailyPnl <= -dailyLossLimit && !circuitBreakerActive) {
+            circuitBreakerActive = true
+            logger.info(`Backtest: CIRCUIT BREAKER triggered on ${dayStr}, daily PnL=${dailyPnl.toFixed(2)}`)
+          }
           states[id] = state
           continue
         }
@@ -601,15 +644,23 @@ async function runBacktest () {
             if (slippagePct > 0) {
               exitPrice = side === 'long' ? exitPrice * (1 - slippagePct) : exitPrice * (1 + slippagePct)
             }
+            const prevPnl1 = state.realizedPnl ?? 0
             state = closeSimPosition(state, exitPrice, ts)
             state = { ...state, lastSlTpExitTs: ts }
+            dailyPnl += (state.realizedPnl ?? 0) - prevPnl1
+            if (dailyPnl <= -dailyLossLimit && !circuitBreakerActive) {
+              circuitBreakerActive = true
+              logger.info(`Backtest: CIRCUIT BREAKER triggered on ${dayStr}, daily PnL=${dailyPnl.toFixed(2)}`)
+            }
           } else {
             const wantsExitLong = side === 'long' && action === 'exit-long'
             const wantsExitShort = side === 'short' && action === 'exit-short'
             if (wantsExitLong || wantsExitShort) {
               let exitPrice = lastClose
               if (slippagePct > 0) exitPrice = side === 'long' ? lastClose * (1 - slippagePct) : lastClose * (1 + slippagePct)
+              const prevPnl2 = state.realizedPnl ?? 0
               state = closeSimPosition(state, exitPrice, ts)
+              dailyPnl += (state.realizedPnl ?? 0) - prevPnl2
             }
           }
         } else {
@@ -618,18 +669,29 @@ async function runBacktest () {
           if (wantsExitLong || wantsExitShort) {
             let exitPrice = lastClose
             if (slippagePct > 0) exitPrice = side === 'long' ? lastClose * (1 - slippagePct) : lastClose * (1 + slippagePct)
+            const prevPnl3 = state.realizedPnl ?? 0
             state = closeSimPosition(state, exitPrice, ts)
+            dailyPnl += (state.realizedPnl ?? 0) - prevPnl3
           }
         }
       } else {
-        const inCooldown = state.lastSlTpExitTs && (ts - state.lastSlTpExitTs) < COOLDOWN_BARS * periodMs
+        const cooldownBars = getCooldownBars(id, primaryTf)
+        const stTfPeriodMsCD = timeframeToMs(getStrategyTimeframe(id, primaryTf))
+        const inCooldown = state.lastSlTpExitTs && (ts - state.lastSlTpExitTs) < cooldownBars * stTfPeriodMsCD
         const cls = getStrategyCorrelationClass(id)
         const openInClass = STRATEGY_IDS.filter(otherId =>
           getStrategyCorrelationClass(otherId) === cls && states[otherId].openPosition
         ).length
         const classAtLimit = openInClass >= MAX_CONCURRENT_PER_CLASS
 
-        if (!inCooldown && !classAtLimit) {
+        // Macro trend gating: block long-only in bearish macro, short-only in bullish macro
+        const dir = getStrategyDirection(id)
+        const macroBlocked = macroTrend != null && (
+          (dir === 'long' && macroTrend === 'bearish') ||
+          (dir === 'short' && macroTrend === 'bullish')
+        )
+
+        if (!inCooldown && !classAtLimit && !macroBlocked && !circuitBreakerActive) {
           if (action === 'enter-long') {
             const entryPrice = slippagePct > 0 ? lastClose * (1 + slippagePct) : lastClose
             state = openSimPosition(state, 'long', entryPrice, ts, null, decision.detail)

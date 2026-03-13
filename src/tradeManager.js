@@ -323,8 +323,8 @@ export async function applyStopTakeProfitExits (state, marketPrice, strategyId =
         }
       } else {
         bestPrice = Math.min(bestPrice, marketPrice)
-        if (entryPrice - marketPrice >= initialRisk) {
-          const trailedSl = bestPrice + 2 * initialRisk
+        if (entryPrice - marketPrice >= 0.75 * initialRisk) {
+          const trailedSl = bestPrice + 1.5 * initialRisk
           newSl = Math.min(entryPrice, trailedSl, newSl)
         }
       }

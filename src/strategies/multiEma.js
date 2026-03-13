@@ -1,14 +1,15 @@
-import { calculateEMA, calculateATR } from '../indicators.js'
+import { calculateEMA, calculateATR, calculateADX } from '../indicators.js'
 
 export const id = 'multi_ema'
 export const name = 'Multi-EMA (9/21/50)'
-export const description = 'Long when price > EMA9 > EMA21 > EMA50 (stacked). Exits when EMA9 crosses below EMA21.'
+export const description = 'Long when price > EMA9 > EMA21 > EMA50 (stacked) and ADX confirms directional strength. Exits when EMA9 crosses below EMA21.'
 
 const P1 = 9
 const P2 = 21
 const P3 = 50
 const SL_ATR_MULT = 2.5
 const TP_ATR_MULT = 3.5
+const MIN_ADX = 20
 
 export function evaluate (ohlcv, state, context = {}) {
   const log = context?.logger
@@ -32,22 +33,25 @@ export function evaluate (ohlcv, state, context = {}) {
   const price = closes[i]
   const atrArr = calculateATR(ohlcv, 14)
   const atr = atrArr[atrArr.length - 1]
+  const { adx: adxArr } = calculateADX(ohlcv, 14)
+  const adxNow = adxArr[adxArr.length - 1]
+  const adxOk = adxNow != null && adxNow >= MIN_ADX
   const stacked = price > e9 && e9 > e21 && e21 > e50
   const exitCross = e9Prev != null && e21Prev != null && e9Prev > e21Prev && e9 < e21
   if (log) {
     log.info(
       `[${id}] price=${price.toFixed(2)} EMA9=${e9.toFixed(2)} EMA21=${e21.toFixed(
         2
-      )} EMA50=${e50.toFixed(2)} stacked=${stacked} exitCross=${exitCross}`
+      )} EMA50=${e50.toFixed(2)} stacked=${stacked} exitCross=${exitCross} ADX=${adxNow?.toFixed(1) ?? 'n/a'}`
     )
   }
   if (state?.openPosition && exitCross) {
     if (log) log.info(`[${id}] EXIT signal (EMA9 < EMA21)`)
     return { action: 'exit-long', detail: { price, ema9: e9, ema21: e21, ema50: e50 } }
   }
-  if (!state?.openPosition && stacked) {
-    if (log) log.info(`[${id}] LONG signal`)
-    return { action: 'enter-long', detail: { price, ema9: e9, ema21: e21, ema50: e50, stopLoss: (atr != null ? price - SL_ATR_MULT * atr : undefined), takeProfit: (atr != null ? price + TP_ATR_MULT * atr : undefined) } }
+  if (!state?.openPosition && stacked && adxOk) {
+    if (log) log.info(`[${id}] LONG signal (ADX=${adxNow?.toFixed(1)})`)
+    return { action: 'enter-long', detail: { price, ema9: e9, ema21: e21, ema50: e50, adx: adxNow, stopLoss: (atr != null ? price - SL_ATR_MULT * atr : undefined), takeProfit: (atr != null ? price + TP_ATR_MULT * atr : undefined) } }
   }
   return { action: 'hold', detail: { ema9: e9, ema21: e21, ema50: e50 } }
 }

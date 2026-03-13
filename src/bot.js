@@ -4,13 +4,14 @@ import { getTradingExchange, getDataExchange } from './exchange.js'
 import { getMarketDataSource } from './marketDataSource.js'
 import { loadState, saveState, migrateLegacyState } from './stateMulti.js'
 import { loadRunner } from './runner.js'
-import { STRATEGY_IDS, evaluateStrategy, getStrategyTimeframe, getStrategyCorrelationClass, MAX_CONCURRENT_PER_CLASS, getMaxBarsHeld } from './strategies/registry.js'
+import { STRATEGY_IDS, evaluateStrategy, getStrategyTimeframe, getStrategyDirection, getStrategyCorrelationClass, MAX_CONCURRENT_PER_CLASS, getMaxBarsHeld, getCooldownBars } from './strategies/registry.js'
 import { applyStopTakeProfitExits, openLongPosition, openShortPosition, closePositionNow } from './tradeManager.js'
 import { logOpenOrders } from './orders.js'
 import { computeRegime } from './regime.js'
+import { calculateEMA } from './indicators.js'
 
 const { symbol, timeframe, pollIntervalMs } = config.trading
-const COOLDOWN_BARS = 8
+const DAILY_LOSS_LIMIT_PCT = 0.03
 
 /** If global budget is set, each strategy gets an equal share for position sizing. Otherwise null = use full balance. */
 function getStrategyBudget () {
@@ -24,6 +25,11 @@ let lastTickAt = null
 let lastClosedCandleTsByTf = {}
 let currentBacktest = null
 const lastDecisionByStrategy = {}
+let macroTrend = null
+let circuitBreakerDayStr = null
+let dailyPnl = 0
+let circuitBreakerActive = false
+const dailyLossLimit = (config.trading.globalBudgetQuote || 10000) * DAILY_LOSS_LIMIT_PCT
 
 const BINANCE_KLINES_MAX = 1000
 
@@ -105,6 +111,7 @@ async function getRegime () {
 /** @param ohlcv - Closed candles only (last forming candle excluded); lastClose is current price for SL/TP and orders. */
 async function tickStrategy (strategyId, ohlcv, lastClose, context = {}) {
   let state = loadState(strategyId)
+  const startPnl = state.realizedPnl ?? 0
   const autoTradingEnabled = state.autoTradingEnabled !== false
   const isNewClosedCandle = context?.isNewClosedCandle === true
   const useCloseOnlyExits = config.trading.closeOnlyExits === true
@@ -132,6 +139,16 @@ async function tickStrategy (strategyId, ohlcv, lastClose, context = {}) {
   // Between closes, ohlcv contains the same closed-bar history, so recomputing
   // the same decision each poll is wasted work and noisy in logs.
   if (!isNewClosedCandle) {
+    // SL/TP may have closed a position above; track PnL for circuit breaker
+    const earlyPnl = state.realizedPnl ?? 0
+    const earlyDelta = earlyPnl - startPnl
+    if (earlyDelta !== 0) {
+      dailyPnl += earlyDelta
+      if (dailyPnl <= -dailyLossLimit && !circuitBreakerActive) {
+        circuitBreakerActive = true
+        logger.info(`CIRCUIT BREAKER triggered: daily PnL=${dailyPnl.toFixed(2)} exceeds -${dailyLossLimit.toFixed(2)}`)
+      }
+    }
     saveState(strategyId, state)
     logger.debug('tickStrategy end (no new candle)', {
       strategyId,
@@ -166,8 +183,9 @@ async function tickStrategy (strategyId, ohlcv, lastClose, context = {}) {
       }
     }
   } else {
+    const cooldownBars = getCooldownBars(strategyId, timeframe)
     const tf = context?.timeframe || timeframe
-    const cooldownMs = COOLDOWN_BARS * timeframeMs(tf)
+    const cooldownMs = cooldownBars * timeframeMs(tf)
     const inCooldown = state.lastSlTpExitTs && (Date.now() - state.lastSlTpExitTs) < cooldownMs
 
     const cls = getStrategyCorrelationClass(strategyId)
@@ -177,12 +195,24 @@ async function tickStrategy (strategyId, ohlcv, lastClose, context = {}) {
     ).length
     const classAtLimit = openInClass >= MAX_CONCURRENT_PER_CLASS
 
-    if (inCooldown) {
-      logger.debug(`[${strategyId}] cooldown active, skipping entry (${COOLDOWN_BARS} bars after SL/TP)`)
+    const dir = getStrategyDirection(strategyId)
+    const macroBlocked = macroTrend != null && (
+      (dir === 'long' && macroTrend === 'bearish') ||
+      (dir === 'short' && macroTrend === 'bullish')
+    )
+
+    if (circuitBreakerActive) {
+      logger.debug(`[${strategyId}] circuit breaker active, skipping entry`)
+      lastDecisionByStrategy[strategyId] = 'circuit-breaker'
+    } else if (inCooldown) {
+      logger.debug(`[${strategyId}] cooldown active, skipping entry (${cooldownBars} bars after SL/TP)`)
       lastDecisionByStrategy[strategyId] = 'cooldown'
     } else if (classAtLimit) {
       logger.debug(`[${strategyId}] class '${cls}' at limit (${MAX_CONCURRENT_PER_CLASS}), skipping entry`)
       lastDecisionByStrategy[strategyId] = 'class-limit'
+    } else if (macroBlocked) {
+      logger.debug(`[${strategyId}] macro trend '${macroTrend}' blocks ${dir} entry`)
+      lastDecisionByStrategy[strategyId] = 'macro-blocked'
     } else {
       const decision = evaluateStrategy(strategyId, ohlcv, state, context)
       lastDecisionByStrategy[strategyId] = decision.action
@@ -191,6 +221,17 @@ async function tickStrategy (strategyId, ohlcv, lastClose, context = {}) {
       } else if (autoTradingEnabled && decision.action === 'enter-short') {
         state = await openShortPosition(state, lastClose, strategyId, decision.detail, getStrategyBudget())
       }
+    }
+  }
+
+  // Track daily PnL for circuit breaker
+  const endPnl = state.realizedPnl ?? 0
+  const pnlDelta = endPnl - startPnl
+  if (pnlDelta !== 0) {
+    dailyPnl += pnlDelta
+    if (dailyPnl <= -dailyLossLimit && !circuitBreakerActive) {
+      circuitBreakerActive = true
+      logger.info(`CIRCUIT BREAKER triggered: daily PnL=${dailyPnl.toFixed(2)} exceeds -${dailyLossLimit.toFixed(2)}`)
     }
   }
 
@@ -211,6 +252,7 @@ async function botTick () {
     const primaryTf = timeframe
     const uniqueTfs = new Set([
       primaryTf,
+      '1h', // always needed for macro-trend overlay
       ...runner.running.map((id) => getStrategyTimeframe(id, primaryTf))
     ])
     const [ohlcvByTf, regime] = await Promise.all([
@@ -228,6 +270,26 @@ async function botTick () {
     const primaryOhlcv = ohlcvByTf[primaryTf] || []
     // Last candle close = current price at poll time; same for any TF (we use primary for consistency).
     const lastClose = primaryOhlcv.length ? primaryOhlcv[primaryOhlcv.length - 1][4] : null
+
+    // Macro-trend overlay from 1h EMA50/200
+    const macroSeries = ohlcvByTf['1h'] || ohlcvByTf[primaryTf] || []
+    if (macroSeries.length >= 202) {
+      const mCloses = macroSeries.map(c => c[4])
+      const me50 = calculateEMA(mCloses, 50)
+      const me200 = calculateEMA(mCloses, 200)
+      const last50 = me50[me50.length - 2] // last completed bar
+      const last200 = me200[me200.length - 2]
+      macroTrend = (last50 != null && last200 != null) ? (last50 > last200 ? 'bullish' : 'bearish') : null
+    }
+
+    // Circuit breaker: reset daily, track across ticks
+    const todayStr = new Date().toISOString().slice(0, 10)
+    if (todayStr !== circuitBreakerDayStr) {
+      if (circuitBreakerActive) logger.info('Circuit breaker reset for new day')
+      circuitBreakerDayStr = todayStr
+      dailyPnl = 0
+      circuitBreakerActive = false
+    }
     const isNewClosedCandleByTf = {}
     for (const tf of uniqueTfs) {
       const arr = ohlcvByTf[tf] || []

@@ -76,20 +76,20 @@ const REGIME_FILTERS = {
   [macd.id]: bullish,
   [multiEma.id]: bullish,
   [priceVsEma.id]: bullish,
-  [rsiPullback.id]: bullish,
+  [rsiPullback.id]: (r) => r.trendDirection !== 'bearish' && r.volatility !== 'high',
   [multiTfTrend.id]: bullish,
   [atrTrend.id]: bullish,
   [macdHistogram.id]: directional,
-  [volumeEmaCrossover.id]: bullish,
+  [volumeEmaCrossover.id]: (r) => r.trendDirection !== 'bearish' && r.volatility !== 'high',
   [emaFastCrossover.id]: bullish,
   [rsiMacdCombo.id]: bullish,
   [shortTrend.id]: bearish,
   [shortBreakdown.id]: bearish,
   [shortMacd.id]: bearish,
-  [shortOverbought.id]: (r) => r.trendDirection === 'bearish',
+  [shortOverbought.id]: (r) => r.trendDirection !== 'bullish',
   [shortRejection.id]: (r) => r.trendDirection !== 'bullish',
   [bollingerMeanRevert.id]: meanRevert,
-  [rangeBounce.id]: meanRevert,
+  [rangeBounce.id]: (r) => r.volatility !== 'high' && r.trend !== 'trending',
   [stochasticOversold.id]: (r) => r.trend !== 'trending' || r.trendDirection === 'bullish',
   [bollingerSqueeze.id]: bullish,
   [donchianBreakout.id]: bullish,
@@ -170,14 +170,14 @@ const CORRELATION_CLASSES = {
 export const MAX_CONCURRENT_PER_CLASS = 2
 
 const MAX_BARS_HELD = {
-  [impulseFollow.id]: 24,
-  [impulsePullback.id]: 24,
+  [impulseFollow.id]: 12,
+  [impulsePullback.id]: 12,
   [atrBreakout.id]: 48,
   [emaFastCrossover.id]: 48,
   [vwapRevert.id]: 48,
   [volumeClimaxReversal.id]: 48,
-  [donchianBreakout.id]: 48,
-  [stochasticOversold.id]: 48,
+  [donchianBreakout.id]: 24,
+  [stochasticOversold.id]: 24,
   [stopHuntReversal.id]: 48,
   [multiEma.id]: 48,
   [priceVsEma.id]: 48,
@@ -252,6 +252,13 @@ export function getStrategyCorrelationClass (id) {
 
 export function getMaxBarsHeld (id) {
   return MAX_BARS_HELD[id] ?? 72
+}
+
+const COOLDOWN_BARS_BY_TF = { '5m': 12, '15m': 8, '1h': 4 }
+
+export function getCooldownBars (id, defaultTf = '15m') {
+  const tf = getStrategyTimeframe(id, defaultTf)
+  return COOLDOWN_BARS_BY_TF[tf] ?? 8
 }
 
 /** True if this strategy is allowed to enter in the current regime (for dashboard highlighting). */

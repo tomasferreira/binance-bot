@@ -7,9 +7,9 @@ export const description =
 
 const LOOKBACK = 20
 const TREND_EMA = 20
-const RANGE_MULT = 1.5
-const BODY_MULT = 1.5
-const VOL_MULT = 1.5
+const RANGE_MULT = 2.0
+const BODY_MULT = 2.0
+const VOL_MULT = 2.0
 const CLOSE_POS_THRESHOLD = 0.7
 const MAX_PULLBACK_BARS = 3
 const MAX_RETRACE_FRACTION = 0.5 // how deep the pullback can go into the impulse
